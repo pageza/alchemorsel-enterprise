@@ -1,0 +1,270 @@
+# Service Level Objectives (SLO) Definitions for Alchemorsel v3
+# These SLOs define the reliability standards for our services
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: slo-definitions
+  namespace: alchemorsel
+data:
+  slo-config.yaml: |
+    # Global SLO configuration
+    global:
+      error_budget_period: "30d"  # 30-day rolling window
+      alert_burn_rate_threshold: 14.4  # For 1h/5% burn rate alerting
+      
+    # Service Level Objectives
+    slos:
+      # API Service Availability SLO
+      - name: "api-availability"
+        service: "alchemorsel-api"
+        description: "API service must be available 99.9% of the time"
+        objective: 0.999  # 99.9% availability
+        error_budget: 0.001  # 0.1% error budget (43.2 minutes per month)
+        sli:
+          type: "availability"
+          query: |
+            sum(rate(http_requests_total{job="alchemorsel-api", code!~"5.."}[5m])) /
+            sum(rate(http_requests_total{job="alchemorsel-api"}[5m]))
+        alerts:
+          - name: "AvailabilitySLOBurnRate"
+            burn_rate: 14.4  # 2% error rate for 1 hour
+            duration: "1h"
+            severity: "critical"
+          - name: "AvailabilitySLOBurnRateSlow"
+            burn_rate: 6.0   # 0.6% error rate for 6 hours
+            duration: "6h"
+            severity: "warning"
+
+      # API Response Time SLO
+      - name: "api-latency"
+        service: "alchemorsel-api"
+        description: "95% of API requests must complete within 100ms"
+        objective: 0.95  # 95% of requests under threshold
+        threshold: "0.1"  # 100ms
+        sli:
+          type: "latency"
+          query: |
+            histogram_quantile(0.95,
+              sum(rate(http_request_duration_seconds_bucket{job="alchemorsel-api"}[5m])) by (le)
+            )
+        alerts:
+          - name: "LatencySLOBurnRate"
+            burn_rate: 14.4
+            duration: "2h"
+            severity: "warning"
+
+      # Database Performance SLO
+      - name: "database-performance"
+        service: "postgres"
+        description: "95% of database queries must complete within 50ms"
+        objective: 0.95
+        threshold: "0.05"  # 50ms
+        sli:
+          type: "latency"
+          query: |
+            histogram_quantile(0.95,
+              sum(rate(db_query_duration_seconds_bucket{job="alchemorsel-api"}[5m])) by (le)
+            )
+        alerts:
+          - name: "DatabasePerformanceSLO"
+            burn_rate: 6.0
+            duration: "1h"
+            severity: "warning"
+
+      # Cache Hit Ratio SLO
+      - name: "cache-efficiency"
+        service: "redis"
+        description: "Cache hit ratio must be above 90%"
+        objective: 0.90
+        sli:
+          type: "ratio"
+          query: |
+            sum(rate(cache_operations_total{job="alchemorsel-api", status="hit"}[5m])) /
+            sum(rate(cache_operations_total{job="alchemorsel-api"}[5m]))
+        alerts:
+          - name: "CacheEfficiencySLO"
+            burn_rate: 2.0
+            duration: "30m"
+            severity: "warning"
+
+      # AI Service Performance SLO
+      - name: "ai-service-performance"
+        service: "ai-service"
+        description: "90% of AI requests must complete within 5 seconds"
+        objective: 0.90
+        threshold: "5.0"  # 5 seconds
+        sli:
+          type: "latency"
+          query: |
+            histogram_quantile(0.90,
+              sum(rate(ai_request_duration_seconds_bucket{job="alchemorsel-api"}[5m])) by (le)
+            )
+        alerts:
+          - name: "AIServicePerformanceSLO"
+            burn_rate: 3.0
+            duration: "1h"
+            severity: "warning"
+
+      # Business Metrics SLOs
+      - name: "recipe-creation-success"
+        service: "alchemorsel-api"
+        description: "99% of recipe creation attempts must succeed"
+        objective: 0.99
+        sli:
+          type: "success_rate"
+          query: |
+            sum(rate(recipe_operations_total{operation="create", status="success"}[5m])) /
+            sum(rate(recipe_operations_total{operation="create"}[5m]))
+        alerts:
+          - name: "RecipeCreationSLO"
+            burn_rate: 10.0
+            duration: "30m"
+            severity: "critical"
+
+      - name: "user-registration-success"
+        service: "alchemorsel-api"
+        description: "99.5% of user registrations must succeed"
+        objective: 0.995
+        sli:
+          type: "success_rate"
+          query: |
+            sum(rate(user_operations_total{operation="register", status="success"}[5m])) /
+            sum(rate(user_operations_total{operation="register"}[5m]))
+        alerts:
+          - name: "UserRegistrationSLO"
+            burn_rate: 20.0
+            duration: "15m"
+            severity: "critical"
+
+      # Data Consistency SLO
+      - name: "data-consistency"
+        service: "alchemorsel-api"
+        description: "Data synchronization between services must succeed 99.9% of the time"
+        objective: 0.999
+        sli:
+          type: "success_rate"
+          query: |
+            sum(rate(sync_operations_total{status="success"}[5m])) /
+            sum(rate(sync_operations_total[5m]))
+        alerts:
+          - name: "DataConsistencySLO"
+            burn_rate: 10.0
+            duration: "30m"
+            severity: "critical"
+
+    # SLA Definitions (contractual commitments)
+    slas:
+      - name: "service-availability"
+        description: "Overall service availability commitment to users"
+        target: 0.999  # 99.9% uptime
+        measurement_window: "30d"
+        consequences:
+          - threshold: 0.995  # If below 99.5%
+            action: "Service credits for affected customers"
+          - threshold: 0.99   # If below 99%
+            action: "Full refund for affected period"
+
+      - name: "data-recovery"
+        description: "Data recovery time in case of disasters"
+        target: "4h"  # Recovery Time Objective (RTO)
+        measurement: "recovery_time"
+        backup_frequency: "6h"
+        consequences:
+          - threshold: "8h"
+            action: "Customer notification required"
+
+      - name: "security-incident-response"
+        description: "Time to respond to security incidents"
+        target: "1h"  # Initial response within 1 hour
+        measurement: "response_time"
+        escalation:
+          - level: 1
+            time: "15m"
+            team: "security"
+          - level: 2
+            time: "1h"
+            team: "management"
+
+    # Error Budget Policies
+    error_budget_policies:
+      - name: "deployment-freeze"
+        description: "Stop deployments when error budget is exhausted"
+        condition: "error_budget_remaining < 0"
+        actions:
+          - "Freeze all non-critical deployments"
+          - "Focus on reliability improvements"
+          - "Require SRE approval for emergency deployments"
+
+      - name: "feature-freeze"
+        description: "Stop new feature development when error budget is low"
+        condition: "error_budget_remaining < 0.25"  # Less than 25% remaining
+        actions:
+          - "Prioritize reliability work"
+          - "Require reliability review for new features"
+
+    # Monitoring and Alerting Configuration
+    monitoring:
+      # Burn rate alerting
+      burn_rate_alerts:
+        - name: "SLOBurnRateCritical"
+          burn_rate: 14.4  # Will exhaust error budget in 2 hours
+          evaluation_window: "1h"
+          severity: "critical"
+          
+        - name: "SLOBurnRateHigh"
+          burn_rate: 6.0   # Will exhaust error budget in 5 hours
+          evaluation_window: "6h"
+          severity: "warning"
+          
+        - name: "SLOBurnRateMedium"
+          burn_rate: 3.0   # Will exhaust error budget in 10 hours
+          evaluation_window: "1d"
+          severity: "warning"
+
+      # Error budget exhaustion alerts
+      error_budget_alerts:
+        - name: "ErrorBudgetLow"
+          threshold: 0.1  # 10% remaining
+          severity: "warning"
+          
+        - name: "ErrorBudgetExhausted"
+          threshold: 0.0  # 0% remaining
+          severity: "critical"
+
+    # SLO Reporting
+    reporting:
+      frequency: "weekly"
+      recipients:
+        - "sre-team@alchemorsel.com"
+        - "engineering-leads@alchemorsel.com"
+        - "product@alchemorsel.com"
+      
+      dashboard_url: "https://grafana.alchemorsel.com/d/slo-overview"
+      
+      metrics_included:
+        - "Current SLO compliance"
+        - "Error budget consumption rate"
+        - "Time to SLO violation (if trending poorly)"
+        - "Recent incidents affecting SLOs"
+        
+    # SLO Review Process
+    review:
+      frequency: "quarterly"
+      participants:
+        - "SRE Team"
+        - "Engineering Leadership"
+        - "Product Management"
+        - "Customer Success"
+      
+      review_criteria:
+        - "SLO achievability (too easy/hard)"
+        - "Customer impact correlation"
+        - "Business value alignment"
+        - "Operational burden"
+      
+      adjustment_process:
+        - "Analyze historical performance"
+        - "Review customer feedback"
+        - "Assess operational costs"
+        - "Update SLOs with stakeholder approval"

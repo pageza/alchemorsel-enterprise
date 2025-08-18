@@ -1,0 +1,83 @@
+{{define "chat-message"}}
+<!-- User Message -->
+<div class="chat-message user-message" style="margin-bottom: 1rem;">
+    <div style="display: flex; align-items: flex-start; gap: 0.75rem; justify-content: flex-end;">
+        <div class="message-content" style="flex: 0 1 auto; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 1rem; border-radius: 1rem; border-bottom-right-radius: 0.25rem; max-width: 80%; word-wrap: break-word;">
+            <div style="line-height: 1.6;">{{.message}}</div>
+            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.5rem;">
+                {{.timestamp | formatTime | default "Just now"}}
+            </div>
+        </div>
+        <div class="avatar user-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
+            {{if .user.Avatar}}
+            <img src="{{.user.Avatar}}" alt="{{.user.Name}}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+            {{else}}
+            👤
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<!-- AI Response -->
+<div class="chat-message ai-message" style="margin-bottom: 1rem;">
+    <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+        <div class="avatar ai-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
+            👨‍🍳
+        </div>
+        <div class="message-content" style="flex: 1; background: #ffffff; padding: 1rem; border-radius: 1rem; border-bottom-left-radius: 0.25rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-width: 90%; word-wrap: break-word;">
+            <div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.5rem;">AI Chef</div>
+            <div class="response-content" style="line-height: 1.6;">{{.response}}</div>
+            <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">
+                {{.timestamp | formatTime | default "Just now"}}
+            </div>
+            
+            <!-- Action buttons for AI responses -->
+            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                {{if or (contains .response "recipe") (contains .response "Recipe")}}
+                <button 
+                    class="btn btn-sm btn-primary"
+                    hx-get="/recipes?ai_suggestion=true&q={{.message | urlQuery}}"
+                    hx-target="#main-content"
+                    hx-push-url="true"
+                >
+                    📋 View Recipes
+                </button>
+                {{end}}
+                
+                {{if or (contains .response "ingredient") (contains .response "cook") (contains .response "preparation")}}
+                <button 
+                    class="btn btn-sm btn-secondary"
+                    onclick="insertPrompt('Tell me more about {{.message}}')"
+                >
+                    📖 More Details
+                </button>
+                {{end}}
+                
+                <button 
+                    class="btn btn-sm btn-secondary"
+                    onclick="copyToClipboard(this.closest('.chat-message').querySelector('.response-content').textContent.trim())"
+                    title="Copy response"
+                >
+                    📋 Copy
+                </button>
+                
+                <button 
+                    class="btn btn-sm btn-secondary"
+                    onclick="rateResponse('{{.response_id | default "unknown"}}', 1)"
+                    title="Helpful response"
+                >
+                    👍
+                </button>
+                
+                <button 
+                    class="btn btn-sm btn-secondary"
+                    onclick="rateResponse('{{.response_id | default "unknown"}}', -1)"
+                    title="Not helpful"
+                >
+                    👎
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

@@ -1,0 +1,230 @@
+groups:
+  - name: alchemorsel.sla
+    rules:
+      # High-level SLA alerts
+      - alert: ServiceDown
+        expr: up{job="alchemorsel-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: alchemorsel-api
+          sla: availability
+        annotations:
+          summary: "Alchemorsel API service is down"
+          description: "The Alchemorsel API service has been down for more than 1 minute"
+          runbook_url: "https://runbooks.alchemorsel.com/service-down"
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_requests_total{job="alchemorsel-api",status_code=~"5.."}[5m]) /
+            rate(http_requests_total{job="alchemorsel-api"}[5m])
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: alchemorsel-api
+          sla: reliability
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+          runbook_url: "https://runbooks.alchemorsel.com/high-error-rate"
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{job="alchemorsel-api"}[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: alchemorsel-api
+          sla: performance
+        annotations:
+          summary: "High latency detected"
+          description: "95th percentile latency is {{ $value }}s for the last 5 minutes"
+          runbook_url: "https://runbooks.alchemorsel.com/high-latency"
+
+  - name: alchemorsel.slo
+    rules:
+      # SLO burn rate alerts
+      - alert: FastSLOBurnRate
+        expr: |
+          (
+            rate(http_requests_total{job="alchemorsel-api",status_code=~"5.."}[1h]) /
+            rate(http_requests_total{job="alchemorsel-api"}[1h])
+          ) > (14.4 * 0.005)
+        for: 2m
+        labels:
+          severity: critical
+          service: alchemorsel-api
+          slo: error_budget
+        annotations:
+          summary: "Fast SLO burn rate - critical"
+          description: "High error rate is burning through error budget at 14.4x rate"
+          runbook_url: "https://runbooks.alchemorsel.com/slo-burn-rate"
+
+      - alert: SlowSLOBurnRate
+        expr: |
+          (
+            rate(http_requests_total{job="alchemorsel-api",status_code=~"5.."}[6h]) /
+            rate(http_requests_total{job="alchemorsel-api"}[6h])
+          ) > (6 * 0.005)
+        for: 15m
+        labels:
+          severity: warning
+          service: alchemorsel-api
+          slo: error_budget
+        annotations:
+          summary: "Slow SLO burn rate - warning"
+          description: "Sustained error rate is burning through error budget at 6x rate"
+          runbook_url: "https://runbooks.alchemorsel.com/slo-burn-rate"
+
+  - name: alchemorsel.infrastructure
+    rules:
+      # Database alerts
+      - alert: DatabaseConnectionHigh
+        expr: db_connections_active{job="alchemorsel-api"} > 20
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "High database connection count"
+          description: "Database has {{ $value }} active connections"
+
+      - alert: DatabaseSlowQueries
+        expr: |
+          histogram_quantile(0.95,
+            rate(db_query_duration_seconds_bucket{job="alchemorsel-api"}[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "95th percentile query time is {{ $value }}s"
+
+      # Cache alerts
+      - alert: LowCacheHitRatio
+        expr: cache_hit_ratio{job="alchemorsel-api"} < 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "Low cache hit ratio"
+          description: "Cache hit ratio is {{ $value | humanizePercentage }}"
+
+      # AI service alerts
+      - alert: AIServiceHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(ai_request_duration_seconds_bucket{job="alchemorsel-api"}[5m])
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: ai
+        annotations:
+          summary: "AI service high latency"
+          description: "AI service 95th percentile response time is {{ $value }}s"
+
+      - alert: AIServiceErrors
+        expr: |
+          rate(ai_requests_total{job="alchemorsel-api",status="error"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: ai
+        annotations:
+          summary: "AI service errors detected"
+          description: "AI service error rate is {{ $value }} requests/second"
+
+  - name: alchemorsel.business
+    rules:
+      # Business metric alerts
+      - alert: LowRecipeCreationRate
+        expr: |
+          rate(recipes_created_total{job="alchemorsel-api"}[1h]) < 0.001
+        for: 2h
+        labels:
+          severity: warning
+          service: business
+        annotations:
+          summary: "Low recipe creation rate"
+          description: "Recipe creation rate is {{ $value }} per second over the last hour"
+
+      - alert: NoUserRegistrations
+        expr: |
+          increase(users_registered_total{job="alchemorsel-api"}[4h]) == 0
+        for: 4h
+        labels:
+          severity: warning
+          service: business
+        annotations:
+          summary: "No user registrations"
+          description: "No new user registrations in the last 4 hours"
+
+  - name: alchemorsel.security
+    rules:
+      # Security alerts
+      - alert: HighFailedLoginAttempts
+        expr: |
+          rate(http_requests_total{job="alchemorsel-api",path="/auth/login",status_code="401"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "High failed login attempts"
+          description: "Failed login attempt rate is {{ $value }} per second"
+
+      - alert: SuspiciousTrafficSpike
+        expr: |
+          rate(http_requests_total{job="alchemorsel-api"}[5m]) > 
+          (rate(http_requests_total{job="alchemorsel-api"}[1h]) * 5)
+        for: 2m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "Suspicious traffic spike detected"
+          description: "Request rate is 5x higher than usual"
+
+  - name: alchemorsel.capacity
+    rules:
+      # Capacity planning alerts
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }}"
+
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}%"
+
+      - alert: DiskSpaceRunningLow
+        expr: |
+          (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "Disk space running low"
+          description: "Disk usage is {{ $value | humanizePercentage }}"

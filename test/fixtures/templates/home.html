@@ -1,0 +1,116 @@
+{{define "content"}}
+<div class="hero" style="text-align: center; padding: 4rem 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; margin-bottom: 2rem;">
+    <h1 style="font-size: 3rem; margin-bottom: 1rem;">Welcome to Alchemorsel</h1>
+    <p style="font-size: 1.2rem; margin-bottom: 2rem;">Discover, create, and share amazing recipes with our AI-powered platform</p>
+    <div>
+        <a href="/recipes" class="btn btn-success" style="margin: 0 10px; display: inline-block; text-decoration: none;">Browse Recipes</a>
+        <a href="/register" class="btn" style="margin: 0 10px; display: inline-block; text-decoration: none; background: transparent; border: 2px solid white;">Get Started</a>
+    </div>
+</div>
+
+<div class="features" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin: 3rem 0;">
+    <div class="feature-card card" style="text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">🍳</div>
+        <h3>AI-Powered Creation</h3>
+        <p>Generate unique recipes with our advanced AI that understands flavors, nutrition, and cooking techniques.</p>
+    </div>
+    
+    <div class="feature-card card" style="text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">📱</div>
+        <h3>Progressive Web App</h3>
+        <p>Works seamlessly on all devices with offline support and instant updates using modern web technologies.</p>
+    </div>
+    
+    <div class="feature-card card" style="text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">👥</div>
+        <h3>Social Cooking</h3>
+        <p>Share recipes, rate dishes, and connect with fellow cooking enthusiasts in our vibrant community.</p>
+    </div>
+    
+    <div class="feature-card card" style="text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
+        <h3>Enterprise Security</h3>
+        <p>Your data is protected with enterprise-grade security, including end-to-end encryption and GDPR compliance.</p>
+    </div>
+</div>
+
+<div class="cta-section" style="background: #f8f9fa; padding: 3rem; border-radius: 8px; text-align: center; margin: 3rem 0;">
+    <h2>Ready to Start Cooking?</h2>
+    <p style="font-size: 1.1rem; margin: 1rem 0 2rem;">Join thousands of home cooks and professional chefs already using Alchemorsel.</p>
+    <div>
+        <a href="/register" class="btn btn-success" style="margin: 0 10px; display: inline-block; text-decoration: none; font-size: 1.1rem; padding: 12px 24px;">Create Free Account</a>
+        <a href="/recipes" class="btn" style="margin: 0 10px; display: inline-block; text-decoration: none; font-size: 1.1rem; padding: 12px 24px;">Explore Recipes</a>
+    </div>
+</div>
+
+<!-- Featured Recipes Section -->
+<section aria-labelledby="featured-heading" style="margin: 3rem 0;">
+    <h2 id="featured-heading" style="text-align: center; margin-bottom: 2rem;">Featured Recipes</h2>
+    
+    <div class="recipe-grid">
+        <div class="recipe-card">
+            <img src="/static/images/carbonara.jpg" alt="Spaghetti Carbonara" loading="lazy">
+            <div class="recipe-card-content">
+                <h3>Spaghetti Carbonara</h3>
+                <p>Classic Italian pasta dish with eggs, cheese, and pancetta</p>
+                <div class="recipe-actions">
+                    <div class="rating" aria-label="4.5 out of 5 stars">
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">☆</span>
+                        <span style="margin-left: 5px;">4.5</span>
+                    </div>
+                    <span>15 likes</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="recipe-card">
+            <img src="/static/images/tikka.jpg" alt="Chicken Tikka Masala" loading="lazy">
+            <div class="recipe-card-content">
+                <h3>Chicken Tikka Masala</h3>
+                <p>Creamy Indian curry with tender chicken and aromatic spices</p>
+                <div class="recipe-actions">
+                    <div class="rating" aria-label="4.8 out of 5 stars">
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span style="margin-left: 5px;">4.8</span>
+                    </div>
+                    <span>23 likes</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="recipe-card">
+            <img src="/static/images/pizza.jpg" alt="Margherita Pizza" loading="lazy">
+            <div class="recipe-card-content">
+                <h3>Margherita Pizza</h3>
+                <p>Traditional Italian pizza with tomato, mozzarella, and basil</p>
+                <div class="recipe-actions">
+                    <div class="rating" aria-label="4.7 out of 5 stars">
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">☆</span>
+                        <span style="margin-left: 5px;">4.7</span>
+                    </div>
+                    <span>42 likes</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Performance Note -->
+<noscript>
+    <div class="card" style="border-left: 4px solid #f39c12; background: #fefaf0;">
+        <p><strong>Enhanced Experience Available:</strong> This site works great without JavaScript, but enabling it will provide enhanced interactions and faster page updates.</p>
+    </div>
+</noscript>
+{{end}}

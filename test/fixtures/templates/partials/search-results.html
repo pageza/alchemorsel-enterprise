@@ -1,0 +1,29 @@
+<div id="search-results" 
+     role="region" 
+     aria-label="Search results for {{.query}}"
+     aria-live="polite"
+     data-announce="{{len .results}} results found for {{.query}}">
+    
+    {{if .results}}
+        <div class="recipe-grid" style="margin-top: 20px;">
+            {{range .results}}
+                {{template "partials/recipe-card.html" (dict "recipe" .)}}
+            {{end}}
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px; color: #666;">
+            Found {{len .results}} recipe{{if ne (len .results) 1}}s{{end}} matching "{{.query}}"
+        </div>
+    {{else if .query}}
+        <div style="text-align: center; padding: 40px; color: #666;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+            <h3>No recipes found</h3>
+            <p>Try searching for something else or <a href="/recipes/new">create a new recipe</a>.</p>
+        </div>
+    {{else}}
+        <div style="text-align: center; padding: 40px; color: #666;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🍽️</div>
+            <p>Enter a search term to find recipes</p>
+        </div>
+    {{end}}
+</div>

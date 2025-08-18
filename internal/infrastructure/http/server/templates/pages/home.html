@@ -1,0 +1,553 @@
+{{define "home"}}
+{{template "base" .}}
+{{end}}
+
+{{define "content"}}
+<div class="container">
+    <!-- Hero Section -->
+    <section class="hero" aria-labelledby="hero-title">
+        <h1 id="hero-title">AI-Powered Recipe Platform</h1>
+        <p>Discover, create, and share recipes with intelligent assistance. Cook smarter with Alchemorsel.</p>
+        <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+            <a href="/recipes" class="btn btn-primary">Explore Recipes</a>
+            <a href="/recipes/new" class="btn btn-secondary">Create Recipe</a>
+        </div>
+    </section>
+
+    <!-- Enhanced AI Chat Interface -->
+    <section class="card" aria-labelledby="ai-chat-title">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 id="ai-chat-title" style="margin: 0;">AI Chef Assistant</h2>
+            <div style="display: flex; gap: 0.5rem;">
+                <button 
+                    id="chat-clear"
+                    class="btn btn-sm btn-secondary"
+                    title="Clear chat history"
+                    onclick="clearChatHistory()"
+                >
+                    🗑️ Clear
+                </button>
+                <button 
+                    id="chat-expand"
+                    class="btn btn-sm btn-secondary"
+                    title="Expand chat"
+                    onclick="toggleChatSize()"
+                >
+                    ⛶ Expand
+                </button>
+            </div>
+        </div>
+        
+        <p style="color: #718096; margin-bottom: 1.5rem;">
+            Your personal AI chef is here to help! Ask about recipes, cooking techniques, ingredient substitutions, or get personalized meal suggestions.
+        </p>
+        
+        <!-- Chat Container -->
+        <div 
+            id="chat-container" 
+            class="chat-container" 
+            style="height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1rem; background: linear-gradient(to bottom, #f8f9fa, #ffffff); margin-bottom: 1rem; scroll-behavior: smooth;"
+        >
+            <!-- Welcome Message -->
+            <div class="chat-message ai-message" style="margin-bottom: 1rem;">
+                <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                    <div class="avatar ai-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
+                        👨‍🍳
+                    </div>
+                    <div class="message-content" style="flex: 1; background: #ffffff; padding: 1rem; border-radius: 1rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.5rem;">AI Chef</div>
+                        <div style="line-height: 1.6;">
+                            Hello! I'm your personal AI chef assistant. I'm here to help you with:
+                            <ul style="margin: 0.5rem 0 0 1rem; color: #4a5568;">
+                                <li>Recipe recommendations based on your preferences</li>
+                                <li>Cooking techniques and tips</li>
+                                <li>Ingredient substitutions</li>
+                                <li>Meal planning and dietary advice</li>
+                                <li>Food safety and storage tips</li>
+                            </ul>
+                            What would you like to cook today?
+                        </div>
+                        <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">
+                            Just now
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat Input -->
+        <div class="chat-input-container" style="position: relative;">
+            <form 
+                id="chat-form"
+                hx-post="/ai/chat" 
+                hx-target="#chat-container" 
+                hx-swap="beforeend"
+                hx-on:htmx:after-request="handleChatResponse(event)"
+                style="display: flex; gap: 0.5rem; align-items: flex-end;"
+            >
+                <!-- Typing Indicator -->
+                <div id="typing-indicator" style="display: none; position: absolute; bottom: 100%; left: 0; margin-bottom: 0.5rem; color: #718096; font-size: 0.875rem; font-style: italic;">
+                    AI Chef is thinking...
+                </div>
+                
+                <!-- Message Input -->
+                <div style="flex: 1; position: relative;">
+                    <textarea 
+                        name="message" 
+                        id="chat-message"
+                        class="form-input" 
+                        placeholder="Ask me about recipes, cooking tips, or ingredients..."
+                        autocomplete="off"
+                        required
+                        rows="1"
+                        style="resize: none; min-height: 2.5rem; max-height: 8rem; padding-right: 3rem;"
+                        onkeydown="handleChatKeyDown(event)"
+                        oninput="autoResizeTextarea(this)"
+                    ></textarea>
+                    
+                    <!-- Suggested Prompts -->
+                    <div id="suggested-prompts" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 0.5rem 0.5rem; z-index: 10; display: none;">
+                        <div class="prompt-suggestion" onclick="selectPrompt(this)" style="padding: 0.5rem; cursor: pointer; border-bottom: 1px solid #f3f4f6;">
+                            "What can I make with chicken and vegetables?"
+                        </div>
+                        <div class="prompt-suggestion" onclick="selectPrompt(this)" style="padding: 0.5rem; cursor: pointer; border-bottom: 1px solid #f3f4f6;">
+                            "Quick 30-minute dinner ideas"
+                        </div>
+                        <div class="prompt-suggestion" onclick="selectPrompt(this)" style="padding: 0.5rem; cursor: pointer; border-bottom: 1px solid #f3f4f6;">
+                            "Healthy vegetarian meal prep"
+                        </div>
+                        <div class="prompt-suggestion" onclick="selectPrompt(this)" style="padding: 0.5rem; cursor: pointer;">
+                            "How to substitute butter in baking?"
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Voice Input Button -->
+                <button 
+                    type="button" 
+                    id="voice-button" 
+                    class="btn voice-button"
+                    title="Use voice input (hold to speak)"
+                    aria-label="Voice input"
+                    onmousedown="startVoiceRecording()"
+                    onmouseup="stopVoiceRecording()"
+                    onmouseleave="stopVoiceRecording()"
+                    style="height: 2.5rem; width: 2.5rem; padding: 0; border-radius: 50%; position: relative;"
+                >
+                    <span id="voice-icon">🎤</span>
+                    <div id="voice-pulse" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 100%; border-radius: 50%; background: #ef4444; opacity: 0.6; animation: pulse 1s infinite;"></div>
+                </button>
+                
+                <!-- Send Button -->
+                <button 
+                    type="submit" 
+                    class="btn btn-primary"
+                    style="height: 2.5rem; min-width: 4rem;"
+                    disabled
+                    id="send-button"
+                >
+                    <span id="send-spinner" class="htmx-indicator spinner" style="margin-right: 0.5rem; display: none;"></span>
+                    <span id="send-text">Send</span>
+                </button>
+            </form>
+        </div>
+        
+        <!-- Chat Features -->
+        <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button class="btn btn-sm btn-secondary" onclick="insertPrompt('What can I make with ')">
+                🥘 Ingredients
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="insertPrompt('Quick recipes under 30 minutes')">
+                ⏱️ Quick Meals
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="insertPrompt('Healthy ')">
+                🥗 Healthy
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="insertPrompt('Vegetarian ')">
+                🌱 Vegetarian
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="insertPrompt('How to cook ')">
+                📚 How-to
+            </button>
+        </div>
+    </section>
+
+    <!-- Quick Search -->
+    <section class="card" aria-labelledby="search-title">
+        <h2 id="search-title">Find Recipes</h2>
+        <div class="search-container">
+            <input 
+                type="text" 
+                id="search-input"
+                name="q"
+                class="form-input search-input" 
+                placeholder="Search recipes, ingredients, cuisines..."
+                hx-post="/htmx/recipes/search"
+                hx-target="#search-results"
+                hx-trigger="keyup changed delay:300ms"
+                autocomplete="off"
+            >
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+        </div>
+        <div id="search-results">
+            <!-- Search results will be loaded here -->
+        </div>
+    </section>
+
+    <!-- Featured Recipes -->
+    <section aria-labelledby="featured-title">
+        <h2 id="featured-title" style="margin-bottom: 1.5rem;">Featured Recipes</h2>
+        <div class="recipe-grid">
+            {{range .Data.FeaturedRecipes}}
+            {{template "recipe-card" .}}
+            {{else}}
+            <!-- Placeholder recipes for demo -->
+            <div class="recipe-card">
+                <img src="/static/img/placeholder-recipe.jpg" alt="Pasta Carbonara" loading="lazy">
+                <div class="recipe-card-content">
+                    <h3>Classic Pasta Carbonara</h3>
+                    <p style="color: #718096; margin-bottom: 1rem;">Rich and creamy Italian pasta with eggs, cheese, and pancetta</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="rating">
+                            <span style="color: #f39c12;">★★★★★</span>
+                            <span style="color: #718096; font-size: 0.875rem;">4.8 (124)</span>
+                        </div>
+                        <div style="color: #718096; font-size: 0.875rem;">
+                            ⏱️ 25 min
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                        <a href="/recipes/1" class="btn btn-primary" style="flex: 1; text-align: center;">View Recipe</a>
+                        <button 
+                            class="btn btn-secondary like-button"
+                            hx-post="/htmx/recipes/1/like"
+                            hx-target="this"
+                            hx-swap="outerHTML"
+                            title="Like this recipe"
+                        >
+                            ❤️
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="recipe-card">
+                <img src="/static/img/placeholder-recipe-2.jpg" alt="Chicken Tikka Masala" loading="lazy">
+                <div class="recipe-card-content">
+                    <h3>Chicken Tikka Masala</h3>
+                    <p style="color: #718096; margin-bottom: 1rem;">Creamy tomato-based curry with tender marinated chicken</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="rating">
+                            <span style="color: #f39c12;">★★★★☆</span>
+                            <span style="color: #718096; font-size: 0.875rem;">4.6 (89)</span>
+                        </div>
+                        <div style="color: #718096; font-size: 0.875rem;">
+                            ⏱️ 45 min
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                        <a href="/recipes/2" class="btn btn-primary" style="flex: 1; text-align: center;">View Recipe</a>
+                        <button 
+                            class="btn btn-secondary like-button"
+                            hx-post="/htmx/recipes/2/like"
+                            hx-target="this"
+                            hx-swap="outerHTML"
+                            title="Like this recipe"
+                        >
+                            ❤️
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="recipe-card">
+                <img src="/static/img/placeholder-recipe-3.jpg" alt="Chocolate Chip Cookies" loading="lazy">
+                <div class="recipe-card-content">
+                    <h3>Perfect Chocolate Chip Cookies</h3>
+                    <p style="color: #718096; margin-bottom: 1rem;">Crispy edges, chewy center, and loaded with chocolate chips</p>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="rating">
+                            <span style="color: #f39c12;">★★★★★</span>
+                            <span style="color: #718096; font-size: 0.875rem;">4.9 (256)</span>
+                        </div>
+                        <div style="color: #718096; font-size: 0.875rem;">
+                            ⏱️ 30 min
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                        <a href="/recipes/3" class="btn btn-primary" style="flex: 1; text-align: center;">View Recipe</a>
+                        <button 
+                            class="btn btn-secondary like-button"
+                            hx-post="/htmx/recipes/3/like"
+                            hx-target="this"
+                            hx-swap="outerHTML"
+                            title="Like this recipe"
+                        >
+                            ❤️
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section style="margin-top: 3rem;" aria-labelledby="features-title">
+        <h2 id="features-title" style="text-align: center; margin-bottom: 2rem;">Why Choose Alchemorsel?</h2>
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🤖</div>
+                <h3>AI-Powered Assistant</h3>
+                <p style="color: #718096;">Get personalized recipe suggestions and cooking tips from our intelligent AI assistant.</p>
+            </div>
+            
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🎤</div>
+                <h3>Voice Commands</h3>
+                <p style="color: #718096;">Cook hands-free with voice commands. Ask questions while your hands are busy.</p>
+            </div>
+            
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">📱</div>
+                <h3>Works Offline</h3>
+                <p style="color: #718096;">Progressive web app that works offline. Access your recipes anywhere, anytime.</p>
+            </div>
+            
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">⚡</div>
+                <h3>Lightning Fast</h3>
+                <p style="color: #718096;">Optimized for speed with 14KB first packet. No waiting, just cooking.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+<style>
+@keyframes pulse {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.3; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+}
+
+.chat-message.user-message .message-content {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: white;
+    margin-left: auto;
+    max-width: 80%;
+}
+
+.chat-message.ai-message .message-content {
+    background: #ffffff;
+    max-width: 90%;
+}
+
+.prompt-suggestion:hover {
+    background-color: #f3f4f6;
+}
+
+.voice-button.recording {
+    background: #ef4444 !important;
+    color: white;
+    animation: pulse 1s infinite;
+}
+
+.chat-container.expanded {
+    height: 600px !important;
+}
+
+#send-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+</style>
+
+<script>
+let isRecording = false;
+let recognition = null;
+
+// Initialize speech recognition
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    
+    recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('chat-message').value = transcript;
+        autoResizeTextarea(document.getElementById('chat-message'));
+        checkSendButton();
+    };
+    
+    recognition.onerror = function(event) {
+        console.error('Speech recognition error:', event.error);
+        stopVoiceRecording();
+    };
+    
+    recognition.onend = function() {
+        stopVoiceRecording();
+    };
+}
+
+// Chat functionality
+function handleChatKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        if (!document.getElementById('send-button').disabled) {
+            document.getElementById('chat-form').dispatchEvent(new Event('submit'));
+        }
+    }
+    checkSendButton();
+}
+
+function autoResizeTextarea(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 128) + 'px';
+    checkSendButton();
+}
+
+function checkSendButton() {
+    const messageInput = document.getElementById('chat-message');
+    const sendButton = document.getElementById('send-button');
+    sendButton.disabled = !messageInput.value.trim();
+}
+
+function handleChatResponse(event) {
+    const chatContainer = document.getElementById('chat-container');
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    
+    // Clear the input
+    const messageInput = document.getElementById('chat-message');
+    messageInput.value = '';
+    autoResizeTextarea(messageInput);
+    
+    // Hide typing indicator
+    document.getElementById('typing-indicator').style.display = 'none';
+    
+    // Reset send button
+    document.getElementById('send-spinner').style.display = 'none';
+    document.getElementById('send-text').textContent = 'Send';
+}
+
+// Voice recording functions
+function startVoiceRecording() {
+    if (!recognition) {
+        alert('Speech recognition is not supported in your browser');
+        return;
+    }
+    
+    if (!isRecording) {
+        isRecording = true;
+        document.getElementById('voice-button').classList.add('recording');
+        document.getElementById('voice-icon').textContent = '🔴';
+        document.getElementById('voice-pulse').style.display = 'block';
+        
+        try {
+            recognition.start();
+        } catch (error) {
+            console.error('Error starting speech recognition:', error);
+            stopVoiceRecording();
+        }
+    }
+}
+
+function stopVoiceRecording() {
+    if (isRecording) {
+        isRecording = false;
+        document.getElementById('voice-button').classList.remove('recording');
+        document.getElementById('voice-icon').textContent = '🎤';
+        document.getElementById('voice-pulse').style.display = 'none';
+        
+        try {
+            recognition.stop();
+        } catch (error) {
+            console.error('Error stopping speech recognition:', error);
+        }
+    }
+}
+
+// Chat utility functions
+function clearChatHistory() {
+    const chatContainer = document.getElementById('chat-container');
+    // Keep only the welcome message (first child)
+    const welcomeMessage = chatContainer.children[0];
+    chatContainer.innerHTML = '';
+    chatContainer.appendChild(welcomeMessage);
+}
+
+function toggleChatSize() {
+    const chatContainer = document.getElementById('chat-container');
+    const expandButton = document.getElementById('chat-expand');
+    
+    if (chatContainer.classList.contains('expanded')) {
+        chatContainer.classList.remove('expanded');
+        expandButton.textContent = '⛶ Expand';
+        expandButton.title = 'Expand chat';
+    } else {
+        chatContainer.classList.add('expanded');
+        expandButton.textContent = '⛨ Collapse';
+        expandButton.title = 'Collapse chat';
+    }
+}
+
+function insertPrompt(text) {
+    const messageInput = document.getElementById('chat-message');
+    messageInput.value = text;
+    messageInput.focus();
+    autoResizeTextarea(messageInput);
+    
+    // Position cursor at the end
+    messageInput.setSelectionRange(text.length, text.length);
+}
+
+function selectPrompt(element) {
+    const text = element.textContent.replace(/"/g, '');
+    const messageInput = document.getElementById('chat-message');
+    messageInput.value = text;
+    document.getElementById('suggested-prompts').style.display = 'none';
+    messageInput.focus();
+    autoResizeTextarea(messageInput);
+}
+
+// Show/hide suggested prompts
+document.getElementById('chat-message').addEventListener('focus', function() {
+    if (!this.value.trim()) {
+        document.getElementById('suggested-prompts').style.display = 'block';
+    }
+});
+
+document.getElementById('chat-message').addEventListener('blur', function() {
+    // Delay hiding to allow clicking on suggestions
+    setTimeout(() => {
+        document.getElementById('suggested-prompts').style.display = 'none';
+    }, 200);
+});
+
+document.getElementById('chat-message').addEventListener('input', function() {
+    if (this.value.trim()) {
+        document.getElementById('suggested-prompts').style.display = 'none';
+    }
+});
+
+// HTMX events
+document.body.addEventListener('htmx:beforeRequest', function(event) {
+    if (event.detail.elt.id === 'chat-form') {
+        document.getElementById('typing-indicator').style.display = 'block';
+        document.getElementById('send-spinner').style.display = 'inline-block';
+        document.getElementById('send-text').textContent = 'Sending...';
+    }
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    checkSendButton();
+    
+    // Auto-scroll chat to bottom
+    const chatContainer = document.getElementById('chat-container');
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+});
+</script>
+{{end}}

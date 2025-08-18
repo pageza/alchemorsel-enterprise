@@ -1,0 +1,80 @@
+{{define "header"}}
+<header class="header" role="banner">
+    <div class="container">
+        <nav class="nav" role="navigation" aria-label="Main navigation">
+            <div class="logo">
+                <a href="/" aria-label="Alchemorsel Home">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M12 2L13.09 8.26L19 9L13.09 9.74L12 16L10.91 9.74L5 9L10.91 8.26L12 2Z"/>
+                    </svg>
+                    <span style="margin-left: 0.5rem;">Alchemorsel</span>
+                </a>
+            </div>
+            
+            <div class="nav-links">
+                <ul style="display: flex; list-style: none; gap: 0.5rem; margin: 0; padding: 0;">
+                    <li><a href="/" {{if eq .CurrentPage "home"}}aria-current="page"{{end}}>Home</a></li>
+                    <li><a href="/recipes" {{if eq .CurrentPage "recipes"}}aria-current="page"{{end}}>Recipes</a></li>
+                    <li><a href="/dashboard" {{if eq .CurrentPage "dashboard"}}aria-current="page"{{end}}>Dashboard</a></li>
+                    {{if .User}}
+                    <li><a href="/recipes/new">New Recipe</a></li>
+                    <li><a href="/profile">Profile</a></li>
+                    <li><a href="/logout">Logout</a></li>
+                    {{else}}
+                    <li><a href="/login" {{if eq .CurrentPage "login"}}aria-current="page"{{end}}>Login</a></li>
+                    <li><a href="/register" {{if eq .CurrentPage "register"}}aria-current="page"{{end}}>Register</a></li>
+                    {{end}}
+                </ul>
+            </div>
+            
+            <!-- Mobile menu button -->
+            <button 
+                type="button" 
+                class="mobile-menu-button"
+                aria-expanded="false"
+                aria-controls="mobile-menu"
+                aria-label="Open main menu"
+                style="display: none; @media (max-width: 768px) { display: block; }"
+            >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                </svg>
+            </button>
+        </nav>
+        
+        <!-- Mobile menu -->
+        <div id="mobile-menu" class="mobile-menu" style="display: none;">
+            <ul style="list-style: none; padding: 1rem 0; margin: 0;">
+                <li><a href="/" style="display: block; padding: 0.5rem 0;">Home</a></li>
+                <li><a href="/recipes" style="display: block; padding: 0.5rem 0;">Recipes</a></li>
+                <li><a href="/dashboard" style="display: block; padding: 0.5rem 0;">Dashboard</a></li>
+                {{if .User}}
+                <li><a href="/recipes/new" style="display: block; padding: 0.5rem 0;">New Recipe</a></li>
+                <li><a href="/profile" style="display: block; padding: 0.5rem 0;">Profile</a></li>
+                <li><a href="/logout" style="display: block; padding: 0.5rem 0;">Logout</a></li>
+                {{else}}
+                <li><a href="/login" style="display: block; padding: 0.5rem 0;">Login</a></li>
+                <li><a href="/register" style="display: block; padding: 0.5rem 0;">Register</a></li>
+                {{end}}
+            </ul>
+        </div>
+    </div>
+</header>
+
+<script>
+// Mobile menu toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const menuButton = document.querySelector('.mobile-menu-button');
+    const mobileMenu = document.querySelector('.mobile-menu');
+    
+    if (menuButton && mobileMenu) {
+        menuButton.addEventListener('click', function() {
+            const isOpen = mobileMenu.style.display === 'block';
+            mobileMenu.style.display = isOpen ? 'none' : 'block';
+            menuButton.setAttribute('aria-expanded', !isOpen);
+            menuButton.setAttribute('aria-label', isOpen ? 'Open main menu' : 'Close main menu');
+        });
+    }
+});
+</script>
+{{end}}

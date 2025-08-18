@@ -1,0 +1,240 @@
+{{define "recipes"}}
+{{template "base" .}}
+{{end}}
+
+{{define "content"}}
+<div class="container">
+    <!-- Page Header -->
+    <header style="margin-bottom: 2rem;">
+        <h1>Recipe Collection</h1>
+        <p style="color: #718096; margin-bottom: 1.5rem;">
+            Discover amazing recipes from our community of home cooks and professional chefs.
+        </p>
+        
+        <!-- Action Bar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <a href="/recipes/new" class="btn btn-primary">
+                    ➕ Create Recipe
+                </a>
+                <button 
+                    class="btn btn-secondary"
+                    hx-get="/htmx/recipes/random"
+                    hx-target="#recipe-grid"
+                    hx-swap="innerHTML"
+                >
+                    🎲 Surprise Me
+                </button>
+            </div>
+            
+            <!-- View Toggle -->
+            <div style="display: flex; border-radius: 0.375rem; border: 1px solid #e2e8f0;">
+                <button 
+                    class="btn btn-secondary view-toggle active"
+                    data-view="grid"
+                    style="border-radius: 0.375rem 0 0 0.375rem; border: none;"
+                >
+                    ⊞ Grid
+                </button>
+                <button 
+                    class="btn btn-secondary view-toggle"
+                    data-view="list"
+                    style="border-radius: 0 0.375rem 0.375rem 0; border: none; border-left: 1px solid #e2e8f0;"
+                >
+                    ☰ List
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Filters and Search -->
+    <section class="card" style="margin-bottom: 2rem;">
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: end;">
+            <!-- Search -->
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="recipe-search" class="form-label">Search Recipes</label>
+                <input 
+                    type="text" 
+                    id="recipe-search"
+                    name="q"
+                    class="form-input" 
+                    placeholder="Search by name, ingredients, or cuisine..."
+                    hx-post="/htmx/recipes/search"
+                    hx-target="#recipe-grid"
+                    hx-trigger="keyup changed delay:300ms"
+                    value="{{.Query}}"
+                >
+            </div>
+            
+            <!-- Advanced Filters Button -->
+            <button 
+                type="button"
+                class="btn btn-secondary"
+                onclick="document.getElementById('advanced-filters').style.display = document.getElementById('advanced-filters').style.display === 'none' ? 'block' : 'none'"
+            >
+                🔧 Filters
+            </button>
+        </div>
+        
+        <!-- Advanced Filters (Initially Hidden) -->
+        <div id="advanced-filters" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0;">
+            <form hx-post="/htmx/recipes/filter" hx-target="#recipe-grid" hx-trigger="change">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <!-- Cuisine Filter -->
+                    <div class="form-group">
+                        <label for="cuisine" class="form-label">Cuisine</label>
+                        <select id="cuisine" name="cuisine" class="form-input form-select">
+                            <option value="">Any Cuisine</option>
+                            <option value="italian">Italian</option>
+                            <option value="indian">Indian</option>
+                            <option value="mexican">Mexican</option>
+                            <option value="chinese">Chinese</option>
+                            <option value="american">American</option>
+                            <option value="french">French</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Diet Filter -->
+                    <div class="form-group">
+                        <label for="diet" class="form-label">Diet</label>
+                        <select id="diet" name="diet" class="form-input form-select">
+                            <option value="">Any Diet</option>
+                            <option value="vegetarian">Vegetarian</option>
+                            <option value="vegan">Vegan</option>
+                            <option value="gluten-free">Gluten-Free</option>
+                            <option value="keto">Keto</option>
+                            <option value="paleo">Paleo</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Difficulty Filter -->
+                    <div class="form-group">
+                        <label for="difficulty" class="form-label">Difficulty</label>
+                        <select id="difficulty" name="difficulty" class="form-input form-select">
+                            <option value="">Any Difficulty</option>
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Cook Time Filter -->
+                    <div class="form-group">
+                        <label for="cook-time" class="form-label">Max Cook Time</label>
+                        <select id="cook-time" name="max_cook_time" class="form-input form-select">
+                            <option value="">Any Time</option>
+                            <option value="15">Under 15 min</option>
+                            <option value="30">Under 30 min</option>
+                            <option value="60">Under 1 hour</option>
+                            <option value="120">Under 2 hours</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                    <button 
+                        type="button" 
+                        class="btn btn-secondary"
+                        onclick="this.closest('form').reset(); htmx.trigger(this.closest('form'), 'change')"
+                    >
+                        Clear All
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- Sort Options -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div style="color: #718096; font-size: 0.875rem;">
+            <span id="recipe-count">{{.Data.Count | default "0"}} recipes found</span>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <label for="sort" style="color: #718096; font-size: 0.875rem;">Sort by:</label>
+            <select 
+                id="sort" 
+                name="sort"
+                class="form-input form-select"
+                style="width: auto; min-width: 150px;"
+                hx-post="/htmx/recipes/sort"
+                hx-target="#recipe-grid"
+                hx-trigger="change"
+            >
+                <option value="created_desc">Newest First</option>
+                <option value="created_asc">Oldest First</option>
+                <option value="rating_desc">Highest Rated</option>
+                <option value="rating_asc">Lowest Rated</option>
+                <option value="name_asc">Name A-Z</option>
+                <option value="name_desc">Name Z-A</option>
+                <option value="cook_time_asc">Quickest First</option>
+                <option value="cook_time_desc">Longest First</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Recipe Grid -->
+    <div id="recipe-grid" class="recipe-grid">
+        {{if .Data.Recipes}}
+        {{range .Data.Recipes}}
+        {{template "recipe-card" .}}
+        {{end}}
+        {{else}}
+        <!-- Loading placeholder or empty state -->
+        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #718096;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">👨‍🍳</div>
+            <h3 style="color: #4a5568; margin-bottom: 1rem;">Loading delicious recipes...</h3>
+            <div class="spinner" style="margin: 0 auto;"></div>
+        </div>
+        {{end}}
+    </div>
+
+    <!-- Load More -->
+    {{if .Data.HasMore}}
+    <div style="text-align: center; margin-top: 3rem;">
+        <button 
+            class="btn btn-secondary"
+            hx-get="/htmx/recipes/load-more?page={{.Data.NextPage}}"
+            hx-target="#recipe-grid"
+            hx-swap="beforeend"
+            hx-indicator="#load-more-indicator"
+        >
+            <span id="load-more-indicator" class="htmx-indicator spinner" style="margin-right: 0.5rem;"></span>
+            Load More Recipes
+        </button>
+    </div>
+    {{end}}
+</div>
+
+<script>
+// View toggle functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const viewToggles = document.querySelectorAll('.view-toggle');
+    const recipeGrid = document.getElementById('recipe-grid');
+    
+    viewToggles.forEach(button => {
+        button.addEventListener('click', function() {
+            // Update active state
+            viewToggles.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Update grid layout
+            const view = this.dataset.view;
+            if (view === 'list') {
+                recipeGrid.style.gridTemplateColumns = '1fr';
+                recipeGrid.querySelectorAll('.recipe-card').forEach(card => {
+                    card.style.display = 'flex';
+                    card.style.alignItems = 'center';
+                });
+            } else {
+                recipeGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
+                recipeGrid.querySelectorAll('.recipe-card').forEach(card => {
+                    card.style.display = 'block';
+                });
+            }
+        });
+    });
+});
+</script>
+{{end}}

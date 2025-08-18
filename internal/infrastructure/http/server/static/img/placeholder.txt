@@ -1,0 +1,3 @@
+# Image assets directory
+# This file exists to make the directory embeddable in Go
+# Real images would be placed here in production

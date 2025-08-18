@@ -1,0 +1,158 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alchemorsel-config
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel
+    app.kubernetes.io/component: config
+    app.kubernetes.io/part-of: alchemorsel-platform
+data:
+  config.yaml: |
+    app:
+      name: "Alchemorsel"
+      version: "3.0.0"
+      environment: "production"
+      debug: false
+      log_level: "info"
+      log_format: "json"
+    
+    server:
+      host: "0.0.0.0"
+      port: 8080
+      read_timeout: "30s"
+      write_timeout: "30s"
+      idle_timeout: "120s"
+      max_header_bytes: 1048576
+      shutdown_timeout: "30s"
+      enable_cors: true
+      allowed_origins:
+        - "https://alchemorsel.com"
+        - "https://www.alchemorsel.com"
+      trusted_proxies: []
+      enable_compression: true
+      enable_pprof: false
+    
+    database:
+      driver: "postgres"
+      host: "postgres-service"
+      port: 5432
+      database: "alchemorsel"
+      username: "postgres"
+      ssl_mode: "require"
+      max_open_conns: 25
+      max_idle_conns: 5
+      conn_max_lifetime: "1h"
+      conn_max_idle_time: "10m"
+      log_level: "warn"
+      slow_query_threshold: "200ms"
+      auto_migrate: false
+    
+    redis:
+      host: "redis-service"
+      port: 6379
+      database: 0
+      max_retries: 3
+      min_idle_conns: 5
+      max_idle_conns: 20
+      conn_max_lifetime: "1h"
+      dial_timeout: "5s"
+      read_timeout: "3s"
+      write_timeout: "3s"
+      pool_size: 20
+      enable_cluster: false
+    
+    monitoring:
+      enable_metrics: true
+      metrics_port: 9090
+      enable_tracing: true
+      jaeger_endpoint: "http://jaeger-collector:14268/api/traces"
+      sampling_rate: 0.1
+      health_check_path: "/health"
+      readiness_path: "/ready"
+    
+    rate_limit:
+      enable: true
+      requests_per_min: 1000
+      burst_size: 100
+      cleanup_interval: "1m"
+      use_redis: true
+    
+    features:
+      enable_ai_recipes: true
+      enable_social_features: true
+      enable_premium: true
+      enable_analytics: true
+      enable_export: true
+      maintenance_mode: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: 'kubernetes'
+        namespace: 'alchemorsel'
+    
+    rule_files:
+      - "/etc/prometheus/rules/*.yml"
+    
+    scrape_configs:
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+        - role: pod
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+        - source_labels: [__meta_kubernetes_namespace]
+          action: replace
+          target_label: kubernetes_namespace
+        - source_labels: [__meta_kubernetes_pod_name]
+          action: replace
+          target_label: kubernetes_pod_name
+      
+      - job_name: 'kubernetes-services'
+        kubernetes_sd_configs:
+        - role: service
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+        - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_service_label_(.+)
+        - source_labels: [__meta_kubernetes_namespace]
+          action: replace
+          target_label: kubernetes_namespace
+        - source_labels: [__meta_kubernetes_service_name]
+          action: replace
+          target_label: kubernetes_name

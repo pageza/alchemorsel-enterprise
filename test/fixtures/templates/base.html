@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}}</title>
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    
+    <!-- Styles -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem 0;
+        }
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav a {
+            color: white;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        .main {
+            min-height: 80vh;
+            padding: 2rem 0;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .btn-danger {
+            background: #e74c3c;
+        }
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        .btn-success {
+            background: #2ecc71;
+        }
+        .btn-success:hover {
+            background: #27ae60;
+        }
+        .error {
+            color: #e74c3c;
+            background: #fdf2f2;
+            border: 1px solid #fecaca;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            color: #059669;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .recipe-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .recipe-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .recipe-card-content {
+            padding: 15px;
+        }
+        .recipe-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .like-button {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .like-button.liked {
+            color: #c0392b;
+        }
+        .rating {
+            display: flex;
+            align-items: center;
+        }
+        .star {
+            color: #f39c12;
+            margin-right: 2px;
+        }
+        /* HTMX Loading States */
+        .htmx-loading {
+            opacity: 0.5;
+        }
+        .htmx-indicator {
+            display: none;
+        }
+        .htmx-request .htmx-indicator {
+            display: inline;
+        }
+        /* Accessibility */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    
+    <!-- Custom HTMX Extensions -->
+    <script>
+        // Add loading indicators
+        document.addEventListener('htmx:beforeRequest', function(event) {
+            event.target.classList.add('htmx-loading');
+        });
+        
+        document.addEventListener('htmx:afterRequest', function(event) {
+            event.target.classList.remove('htmx-loading');
+        });
+        
+        // Announce dynamic content changes to screen readers
+        document.addEventListener('htmx:afterSwap', function(event) {
+            const announcement = event.detail.target.getAttribute('data-announce');
+            if (announcement) {
+                const announcer = document.getElementById('announcer');
+                if (announcer) {
+                    announcer.textContent = announcement;
+                }
+            }
+        });
+    </script>
+</head>
+<body>
+    <!-- Screen Reader Announcements -->
+    <div id="announcer" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+    
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <nav class="nav">
+                <div>
+                    <a href="/" aria-label="Alchemorsel Home">
+                        <strong>Alchemorsel</strong>
+                    </a>
+                </div>
+                <div>
+                    <a href="/recipes">Recipes</a>
+                    <a href="/dashboard">Dashboard</a>
+                    <a href="/recipes/new">New Recipe</a>
+                    <a href="/login">Login</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            {{template "content" .}}
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer style="background: #34495e; color: white; text-align: center; padding: 20px 0;">
+        <div class="container">
+            <p>&copy; 2024 Alchemorsel. Built with Go, HTMX, and care.</p>
+        </div>
+    </footer>
+</body>
+</html>

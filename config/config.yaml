@@ -1,0 +1,156 @@
+# Alchemorsel v3 Configuration
+# This file contains default configuration values for development
+
+app:
+  name: "Alchemorsel"
+  version: "3.0.0"
+  environment: "development"
+  debug: true
+  log_level: "debug"
+  log_format: "console"
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: "15s"
+  write_timeout: "15s"
+  idle_timeout: "60s"
+  max_header_bytes: 1048576 # 1MB
+  shutdown_timeout: "30s"
+  enable_cors: true
+  allowed_origins:
+    - "http://localhost:3000"
+    - "http://localhost:8080"
+  trusted_proxies: []
+  enable_compression: true
+  enable_pprof: true
+
+database:
+  driver: "postgres"
+  host: "localhost"
+  port: 5432
+  database: "alchemorsel_dev"
+  username: "postgres"
+  password: "postgres"
+  ssl_mode: "disable"
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: "1h"
+  conn_max_idle_time: "10m"
+  log_level: "info"
+  slow_query_threshold: "100ms"
+  auto_migrate: true
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  database: 0
+  max_retries: 3
+  min_idle_conns: 2
+  max_idle_conns: 10
+  conn_max_lifetime: "1h"
+  dial_timeout: "5s"
+  read_timeout: "3s"
+  write_timeout: "3s"
+  pool_size: 10
+  enable_cluster: false
+  cluster_nodes: []
+
+auth:
+  jwt_secret: "your-super-secret-jwt-key-change-this-in-production"
+  jwt_expiration: "24h"
+  refresh_expiration: "168h" # 7 days
+  bcrypt_cost: 10
+  enable_oauth: true
+  google_client_id: ""
+  google_client_secret: ""
+  facebook_app_id: ""
+  facebook_app_secret: ""
+  session_secret: "your-session-secret-change-this"
+  session_max_age: 86400 # 24 hours
+
+aws:
+  region: "us-east-1"
+  access_key_id: ""
+  secret_access_key: ""
+  s3_bucket: "alchemorsel-dev"
+  cloudfront_url: ""
+
+ai:
+  provider: "openai"
+  openai_key: ""
+  openai_model: "gpt-4"
+  anthropic_key: ""
+  anthropic_model: "claude-3-sonnet"
+  max_tokens: 2000
+  temperature: 0.7
+  timeout_seconds: 30
+  enable_cache: true
+  cache_ttl: "1h"
+
+kafka:
+  brokers:
+    - "localhost:9092"
+  group_id: "alchemorsel-api"
+  client_id: "alchemorsel-api-v3"
+  enable_sasl: false
+  sasl_username: ""
+  sasl_password: ""
+  enable_tls: false
+  retry_max: 3
+  required_acks: 1
+
+monitoring:
+  enable_metrics: true
+  metrics_port: 9090
+  enable_tracing: true
+  jaeger_endpoint: "http://localhost:14268/api/traces"
+  sampling_rate: 0.1
+  enable_newrelic: false
+  newrelic_license: ""
+  newrelic_app_name: "Alchemorsel API v3"
+  sentry_dsn: ""
+  sentry_environment: "development"
+  health_check_path: "/health"
+  readiness_path: "/ready"
+
+email:
+  provider: "smtp"
+  smtp_host: "smtp.gmail.com"
+  smtp_port: 587
+  smtp_username: ""
+  smtp_password: ""
+  from_address: "noreply@alchemorsel.com"
+  from_name: "Alchemorsel"
+  sendgrid_api_key: ""
+  enable_tls: true
+
+storage:
+  provider: "local"
+  local_path: "./uploads"
+  max_file_size: 10485760 # 10MB
+  allowed_types:
+    - "image/jpeg"
+    - "image/png"
+    - "image/webp"
+    - "video/mp4"
+  image_max_width: 2048
+  image_max_height: 2048
+  enable_cdn: false
+  cdn_base_url: ""
+
+rate_limit:
+  enable: true
+  requests_per_min: 60
+  burst_size: 10
+  cleanup_interval: "1m"
+  use_redis: true
+
+features:
+  enable_ai_recipes: true
+  enable_social_features: true
+  enable_premium: false
+  enable_analytics: true
+  enable_export: true
+  maintenance_mode: false

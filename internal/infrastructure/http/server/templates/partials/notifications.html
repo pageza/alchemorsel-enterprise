@@ -1,0 +1,83 @@
+{{define "notifications"}}
+<div class="notifications-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 1000; max-width: 400px;">
+    {{range .notifications}}
+    <div class="notification alert alert-{{.type}}" 
+         style="margin-bottom: 0.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); animation: slideIn 0.3s ease-out;">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div style="flex: 1;">
+                {{if .title}}
+                <strong style="display: block; margin-bottom: 0.25rem;">{{.title}}</strong>
+                {{end}}
+                <p style="margin: 0;">{{.message}}</p>
+                {{if .timestamp}}
+                <small style="color: inherit; opacity: 0.8;">{{.timestamp | formatTime}}</small>
+                {{end}}
+            </div>
+            <button 
+                type="button"
+                onclick="this.closest('.notification').remove()"
+                style="background: none; border: none; color: inherit; opacity: 0.7; cursor: pointer; font-size: 1.2rem; line-height: 1; margin-left: 0.5rem;"
+                aria-label="Close notification"
+            >
+                ×
+            </button>
+        </div>
+        
+        {{if .actions}}
+        <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+            {{range .actions}}
+            <button 
+                class="btn {{.class | default "btn-secondary"}}"
+                style="font-size: 0.75rem; padding: 0.5rem 0.75rem;"
+                {{if .hx}}
+                hx-{{.hx.method}}="{{.hx.url}}"
+                {{if .hx.target}}hx-target="{{.hx.target}}"{{end}}
+                {{if .hx.swap}}hx-swap="{{.hx.swap}}"{{end}}
+                {{end}}
+                {{if .onclick}}onclick="{{.onclick}}"{{end}}
+            >
+                {{.text}}
+            </button>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+
+<style>
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.notification {
+    transform: translateX(0);
+    transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+.notification.removing {
+    transform: translateX(100%);
+    opacity: 0;
+}
+</style>
+
+<script>
+// Auto-remove notifications after 10 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    const notifications = document.querySelectorAll('.notification');
+    notifications.forEach(notification => {
+        setTimeout(() => {
+            notification.classList.add('removing');
+            setTimeout(() => notification.remove(), 300);
+        }, 10000);
+    });
+});
+</script>
+{{end}}

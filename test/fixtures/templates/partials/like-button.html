@@ -1,0 +1,8 @@
+<button class="like-button {{if .liked}}liked{{end}}" 
+        hx-post="/recipes/{{.recipe_id}}/like"
+        hx-target="this"
+        hx-swap="outerHTML"
+        aria-label="{{if .liked}}Unlike{{else}}Like{{end}} this recipe ({{.likes}} likes)"
+        data-announce="Recipe {{if .liked}}liked{{else}}unliked{{end}}. {{.likes}} total likes.">
+    {{if .liked}}❤️{{else}}🤍{{end}} {{.likes}}
+</button>

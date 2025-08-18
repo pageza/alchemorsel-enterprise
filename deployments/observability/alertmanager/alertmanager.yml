@@ -1,0 +1,198 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alerts@alchemorsel.com'
+  smtp_auth_username: 'alerts@alchemorsel.com'
+  smtp_auth_password: 'your-smtp-password'
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+  pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
+
+# Configure alert routing
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'default'
+  routes:
+    # Critical alerts go to PagerDuty immediately
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+      group_wait: 10s
+      repeat_interval: 5m
+      continue: true
+
+    # High severity alerts go to Slack and email
+    - match:
+        severity: warning
+      receiver: 'slack-warnings'
+      group_wait: 2m
+      repeat_interval: 1h
+
+    # Business alerts go to business team
+    - match:
+        team: business
+      receiver: 'business-team'
+
+    # Security alerts go to security team
+    - match:
+        team: security
+      receiver: 'security-team'
+
+    # Database alerts
+    - match:
+        service: database
+      receiver: 'database-team'
+
+    # Application alerts
+    - match_re:
+        service: alchemorsel-api|frontend
+      receiver: 'engineering-team'
+
+# Define alert receivers
+receivers:
+  - name: 'default'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#alerts'
+        title: 'Alchemorsel Alert'
+        text: |
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+        color: 'warning'
+
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: 'YOUR_PAGERDUTY_SERVICE_KEY'
+        description: |
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ end }}
+        details:
+          alert_count: '{{ .Alerts | len }}'
+          environment: '{{ .GroupLabels.environment }}'
+          service: '{{ .GroupLabels.service }}'
+
+  - name: 'slack-warnings'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#engineering'
+        title: 'Warning: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Service:* {{ .Labels.service }}
+          *Severity:* {{ .Labels.severity }}
+          *Environment:* {{ .Labels.environment }}
+          {{ end }}
+        color: 'warning'
+        actions:
+          - type: button
+            text: 'View Grafana Dashboard'
+            url: 'https://grafana.alchemorsel.com/d/app-overview'
+          - type: button
+            text: 'View Logs'
+            url: 'https://grafana.alchemorsel.com/explore'
+
+  - name: 'business-team'
+    email_configs:
+      - to: 'business@alchemorsel.com'
+        subject: 'Business Metric Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Alert Details:
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          
+          Current Value: {{ .Annotations.value }}
+          Threshold: {{ .Annotations.threshold }}
+          
+          Dashboard: https://grafana.alchemorsel.com/d/business-metrics
+          {{ end }}
+
+  - name: 'security-team'
+    email_configs:
+      - to: 'security@alchemorsel.com'
+        subject: 'SECURITY ALERT: {{ .GroupLabels.alertname }}'
+        body: |
+          SECURITY INCIDENT DETECTED
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          
+          Source IP: {{ .Labels.source_ip }}
+          User Agent: {{ .Labels.user_agent }}
+          
+          Immediate action may be required.
+          {{ end }}
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SECURITY/WEBHOOK'
+        channel: '#security-incidents'
+        title: '🚨 SECURITY ALERT: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+        color: 'danger'
+
+  - name: 'database-team'
+    email_configs:
+      - to: 'dba@alchemorsel.com'
+        subject: 'Database Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Database Issue Detected:
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Database: {{ .Labels.database }}
+          
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+
+  - name: 'engineering-team'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/ENGINEERING/WEBHOOK'
+        channel: '#engineering-alerts'
+        title: 'Engineering Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Service:* {{ .Labels.service }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Runbook:* {{ .Annotations.runbook_url }}
+          {{ end }}
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+
+# Inhibition rules to reduce noise
+inhibit_rules:
+  # Inhibit any alert that has alertname=NodeDown if there's an alert with alertname=ClusterDown
+  - source_match:
+      alertname: ClusterDown
+    target_match:
+      alertname: NodeDown
+    equal: ['cluster']
+
+  # Inhibit high severity alerts if critical alert is firing for same service
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ['service', 'instance']
+
+  # Inhibit application alerts if database is down
+  - source_match:
+      alertname: DatabaseDown
+    target_match_re:
+      alertname: HighErrorRate|HighLatency|ServiceUnavailable
+    equal: ['environment']
+
+# Template definitions for reusable alert formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

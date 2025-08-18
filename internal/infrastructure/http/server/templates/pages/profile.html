@@ -1,0 +1,279 @@
+{{define "profile"}}
+{{template "base" .}}
+{{end}}
+
+{{define "content"}}
+<div class="container">
+    <!-- Profile Header -->
+    <section class="card" style="margin-bottom: 2rem;">
+        <div style="display: flex; gap: 2rem; align-items: start;">
+            <div style="flex-shrink: 0;">
+                <img 
+                    src="{{.Data.User.Avatar | default "/static/img/default-avatar.jpg"}}" 
+                    alt="{{.Data.User.Name}}"
+                    style="width: 8rem; height: 8rem; border-radius: 50%; object-fit: cover; border: 3px solid #e2e8f0;"
+                >
+                {{if .Data.IsOwnProfile}}
+                <button 
+                    class="btn btn-sm btn-secondary" 
+                    style="margin-top: 1rem; width: 100%;"
+                    hx-get="/htmx/profile/upload-avatar"
+                    hx-target="#avatar-upload-modal"
+                >
+                    Change Photo
+                </button>
+                {{end}}
+            </div>
+            
+            <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                    <div>
+                        <h1 style="margin: 0 0 0.5rem 0;">{{.Data.User.Name}}</h1>
+                        <p style="color: #718096; margin: 0;">@{{.Data.User.Username | default .Data.User.Email}}</p>
+                        {{if .Data.User.Profile.CookingLevel}}
+                        <span class="badge" style="margin-top: 0.5rem; display: inline-block;">
+                            {{.Data.User.Profile.CookingLevel | title}} Chef
+                        </span>
+                        {{end}}
+                    </div>
+                    
+                    <div style="display: flex; gap: 0.5rem;">
+                        {{if .Data.IsOwnProfile}}
+                        <a href="/profile/edit" class="btn btn-primary">Edit Profile</a>
+                        <a href="/settings" class="btn btn-secondary">Settings</a>
+                        {{else}}
+                        <button 
+                            class="btn {{if .Data.IsFollowing}}btn-secondary{{else}}btn-primary{{end}}"
+                            hx-post="/htmx/users/{{.Data.User.ID}}/follow"
+                            hx-target="this"
+                            hx-swap="outerHTML"
+                        >
+                            {{if .Data.IsFollowing}}Unfollow{{else}}Follow{{end}}
+                        </button>
+                        <button 
+                            class="btn btn-secondary"
+                            hx-get="/htmx/messages/new/{{.Data.User.ID}}"
+                            hx-target="#message-modal"
+                        >
+                            Message
+                        </button>
+                        {{end}}
+                    </div>
+                </div>
+
+                {{if .Data.User.Profile.Bio}}
+                <p style="margin-bottom: 1rem; line-height: 1.6;">{{.Data.User.Profile.Bio}}</p>
+                {{end}}
+
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    {{if .Data.User.Profile.Location}}
+                    <div style="display: flex; align-items: center; gap: 0.5rem; color: #718096;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                        </svg>
+                        {{.Data.User.Profile.Location}}
+                    </div>
+                    {{end}}
+                    
+                    {{if .Data.User.Profile.Website}}
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+                        </svg>
+                        <a href="{{.Data.User.Profile.Website}}" target="_blank" style="color: #4f46e5; text-decoration: none;">
+                            {{.Data.User.Profile.Website | trimPrefix "https://" | trimPrefix "http://"}}
+                        </a>
+                    </div>
+                    {{end}}
+                    
+                    <div style="display: flex; align-items: center; gap: 0.5rem; color: #718096;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 11H7v9l5-6v-3h8l-5-9-3.5 4v5H9z"/>
+                        </svg>
+                        Joined {{.Data.User.CreatedAt | formatDate}}
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div style="display: flex; gap: 2rem;">
+                    <div style="text-align: center;">
+                        <div style="font-weight: bold; font-size: 1.25rem;">{{.Data.Stats.RecipeCount}}</div>
+                        <div style="color: #718096; font-size: 0.875rem;">Recipes</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-weight: bold; font-size: 1.25rem;">{{.Data.Stats.FollowersCount}}</div>
+                        <div style="color: #718096; font-size: 0.875rem;">Followers</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-weight: bold; font-size: 1.25rem;">{{.Data.Stats.FollowingCount}}</div>
+                        <div style="color: #718096; font-size: 0.875rem;">Following</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-weight: bold; font-size: 1.25rem;">{{.Data.Stats.LikesReceived}}</div>
+                        <div style="color: #718096; font-size: 0.875rem;">Likes</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Profile Navigation -->
+    <section style="margin-bottom: 2rem;">
+        <div class="card" style="padding: 0;">
+            <nav style="display: flex; border-bottom: 1px solid #e2e8f0;">
+                <button 
+                    class="profile-tab active" 
+                    data-tab="recipes" 
+                    style="flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; border-bottom: 2px solid #4f46e5;"
+                >
+                    Recipes ({{.Data.Stats.RecipeCount}})
+                </button>
+                <button 
+                    class="profile-tab" 
+                    data-tab="collections" 
+                    style="flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent;"
+                >
+                    Collections ({{.Data.Stats.CollectionsCount}})
+                </button>
+                <button 
+                    class="profile-tab" 
+                    data-tab="liked" 
+                    style="flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent;"
+                >
+                    Liked ({{.Data.Stats.LikedCount}})
+                </button>
+                {{if .Data.IsOwnProfile}}
+                <button 
+                    class="profile-tab" 
+                    data-tab="activity" 
+                    style="flex: 1; padding: 1rem; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent;"
+                >
+                    Activity
+                </button>
+                {{end}}
+            </nav>
+        </div>
+    </section>
+
+    <!-- Tab Content -->
+    <section>
+        <!-- Recipes Tab -->
+        <div id="recipes-tab" class="tab-content active">
+            <div id="user-recipes" hx-get="/htmx/users/{{.Data.User.ID}}/recipes" hx-trigger="load">
+                <div style="text-align: center; padding: 2rem;">
+                    <div class="spinner"></div>
+                    <p>Loading recipes...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collections Tab -->
+        <div id="collections-tab" class="tab-content" style="display: none;">
+            <div id="user-collections" hx-get="/htmx/users/{{.Data.User.ID}}/collections" hx-trigger="load">
+                <div style="text-align: center; padding: 2rem;">
+                    <div class="spinner"></div>
+                    <p>Loading collections...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liked Tab -->
+        <div id="liked-tab" class="tab-content" style="display: none;">
+            <div id="liked-recipes" hx-get="/htmx/users/{{.Data.User.ID}}/liked" hx-trigger="load">
+                <div style="text-align: center; padding: 2rem;">
+                    <div class="spinner"></div>
+                    <p>Loading liked recipes...</p>
+                </div>
+            </div>
+        </div>
+
+        {{if .Data.IsOwnProfile}}
+        <!-- Activity Tab -->
+        <div id="activity-tab" class="tab-content" style="display: none;">
+            <div id="user-activity" hx-get="/htmx/users/{{.Data.User.ID}}/activity" hx-trigger="load">
+                <div style="text-align: center; padding: 2rem;">
+                    <div class="spinner"></div>
+                    <p>Loading activity...</p>
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </section>
+</div>
+
+<!-- Modals -->
+<div id="avatar-upload-modal"></div>
+<div id="message-modal"></div>
+
+<script>
+// Tab switching
+document.addEventListener('DOMContentLoaded', function() {
+    const tabs = document.querySelectorAll('.profile-tab');
+    const contents = document.querySelectorAll('.tab-content');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const targetTab = this.dataset.tab;
+            
+            // Update tab styles
+            tabs.forEach(t => {
+                t.style.borderBottomColor = 'transparent';
+                t.classList.remove('active');
+            });
+            this.style.borderBottomColor = '#4f46e5';
+            this.classList.add('active');
+            
+            // Show/hide content
+            contents.forEach(content => {
+                content.style.display = 'none';
+                content.classList.remove('active');
+            });
+            
+            const targetContent = document.getElementById(targetTab + '-tab');
+            if (targetContent) {
+                targetContent.style.display = 'block';
+                targetContent.classList.add('active');
+                
+                // Trigger HTMX load if not already loaded
+                const htmxElement = targetContent.querySelector('[hx-get]');
+                if (htmxElement && !htmxElement.hasAttribute('data-loaded')) {
+                    htmx.trigger(htmxElement, 'load');
+                    htmxElement.setAttribute('data-loaded', 'true');
+                }
+            }
+        });
+    });
+    
+    // Load initial recipes tab
+    const recipesElement = document.querySelector('#user-recipes [hx-get]');
+    if (recipesElement) {
+        htmx.trigger(recipesElement, 'load');
+        recipesElement.setAttribute('data-loaded', 'true');
+    }
+});
+</script>
+
+<style>
+.tab-content {
+    min-height: 300px;
+}
+
+.profile-tab {
+    transition: border-color 0.2s ease;
+}
+
+.profile-tab:hover {
+    background-color: #f8f9fa;
+}
+
+.badge {
+    background: #4f46e5;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+</style>
+{{end}}

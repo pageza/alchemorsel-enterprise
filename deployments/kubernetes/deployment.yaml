@@ -1,0 +1,236 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alchemorsel-api
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: alchemorsel-platform
+    app.kubernetes.io/managed-by: kubernetes
+    app.kubernetes.io/version: "3.0.0"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alchemorsel-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: alchemorsel-api
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: alchemorsel-platform
+        app.kubernetes.io/version: "3.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+        # Force pod restart on config changes
+        checksum/config: "placeholder-will-be-replaced-by-ci"
+    spec:
+      serviceAccountName: alchemorsel-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: alchemorsel-api
+        image: alchemorsel/api:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        env:
+        # Database configuration
+        - name: DATABASE_HOST
+          value: "postgres-service"
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_NAME
+          value: "alchemorsel"
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: postgres-user
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: postgres-password
+        - name: DATABASE_URL
+          value: "postgres://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)?sslmode=require"
+        
+        # Redis configuration
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: redis-password
+        - name: REDIS_URL
+          value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+        
+        # JWT configuration
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: alchemorsel-secrets
+              key: jwt-secret
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: alchemorsel-secrets
+              key: session-secret
+        
+        # AI service configuration
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: alchemorsel-secrets
+              key: openai-api-key
+              optional: true
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: alchemorsel-secrets
+              key: anthropic-api-key
+              optional: true
+        
+        # Monitoring configuration
+        - name: JAEGER_ENDPOINT
+          value: "http://jaeger-collector:14268/api/traces"
+        
+        # Application configuration
+        - name: GO_ENV
+          value: "production"
+        - name: GIN_MODE
+          value: "release"
+        - name: CONFIG_PATH
+          value: "/app/config/config.yaml"
+        
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        - name: tmp-volume
+          mountPath: /tmp
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+          successThreshold: 1
+        
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
+          successThreshold: 1
+        
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          seccompProfile:
+            type: RuntimeDefault
+      
+      volumes:
+      - name: config-volume
+        configMap:
+          name: alchemorsel-config
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 100Mi
+      
+      # Node scheduling preferences
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - alchemorsel-api
+              topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - application
+      
+      tolerations:
+      - key: "application"
+        operator: "Equal"
+        value: "alchemorsel"
+        effect: "NoSchedule"
+      
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: alchemorsel-api
+      
+      terminationGracePeriodSeconds: 30
+      
+      # Image pull secrets (if using private registry)
+      # imagePullSecrets:
+      # - name: registry-secret

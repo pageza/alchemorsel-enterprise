@@ -1,0 +1,216 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Alchemorsel v3 - Application Overview",
+    "tags": ["alchemorsel", "overview", "application"],
+    "style": "dark",
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Health",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"alchemorsel-api\"}",
+            "legendFormat": "API Status"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Request Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"alchemorsel-api\"}[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps"
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Response Time P95",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"alchemorsel-api\"}[5m]))",
+            "legendFormat": "P95 Latency"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Error Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"alchemorsel-api\",status_code=~\"5..\"}[5m]) / rate(http_requests_total{job=\"alchemorsel-api\"}[5m])",
+            "legendFormat": "Error Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.01},
+                {"color": "red", "value": 0.05}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "id": 5,
+        "title": "HTTP Request Rate by Status Code",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"alchemorsel-api\"}[5m])",
+            "legendFormat": "{{status_code}}"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Requests/sec",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Response Time Percentiles",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{job=\"alchemorsel-api\"}[5m]))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"alchemorsel-api\"}[5m]))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job=\"alchemorsel-api\"}[5m]))",
+            "legendFormat": "P99"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Duration (s)",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 7,
+        "title": "Business Metrics",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(recipes_created_total{job=\"alchemorsel-api\"}[5m])",
+            "legendFormat": "Recipes Created/sec"
+          },
+          {
+            "expr": "rate(recipes_viewed_total{job=\"alchemorsel-api\"}[5m])",
+            "legendFormat": "Recipe Views/sec"
+          },
+          {
+            "expr": "rate(users_registered_total{job=\"alchemorsel-api\"}[5m])",
+            "legendFormat": "User Registrations/sec"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Events/sec",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 9, "w": 24, "x": 0, "y": 17}
+      },
+      {
+        "id": 8,
+        "title": "Database Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(db_query_duration_seconds_bucket{job=\"alchemorsel-api\"}[5m]))",
+            "legendFormat": "P95 Query Time"
+          },
+          {
+            "expr": "db_connections_active{job=\"alchemorsel-api\"}",
+            "legendFormat": "Active Connections"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Duration (s) / Connections",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 26}
+      },
+      {
+        "id": 9,
+        "title": "AI Service Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(ai_requests_total{job=\"alchemorsel-api\"}[5m])",
+            "legendFormat": "{{provider}} {{model}}"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(ai_request_duration_seconds_bucket{job=\"alchemorsel-api\"}[5m]))",
+            "legendFormat": "P95 Response Time"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Requests/sec",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 26}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "5s"
+  }
+}

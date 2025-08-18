@@ -1,0 +1,218 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alchemorsel-api
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-api
+    app.kubernetes.io/component: serviceaccount
+    app.kubernetes.io/part-of: alchemorsel-platform
+automountServiceAccountToken: true
+---
+# Role for the application to access necessary Kubernetes resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: alchemorsel-api-role
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-api
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: alchemorsel-platform
+rules:
+# Allow reading ConfigMaps for configuration
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+# Allow reading Secrets for credentials
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+# Allow reading own pod information for health checks
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+  resourceNames: [] # Restrict to own pod if needed
+# Allow reading Services for service discovery
+- apiGroups: [""]
+  resources: ["services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+# Allow reading events for debugging
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["get", "list"]
+---
+# Bind the role to the service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: alchemorsel-api-rolebinding
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-api
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: alchemorsel-platform
+subjects:
+- kind: ServiceAccount
+  name: alchemorsel-api
+  namespace: alchemorsel
+roleRef:
+  kind: Role
+  name: alchemorsel-api-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Service account for monitoring components
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: monitoring
+automountServiceAccountToken: true
+---
+# ClusterRole for Prometheus to scrape metrics across the cluster
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus-alchemorsel
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: monitoring
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+# Bind the cluster role to Prometheus service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-alchemorsel
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus-alchemorsel
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: alchemorsel
+---
+# Service account for database migration jobs
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alchemorsel-migration
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-migration
+    app.kubernetes.io/component: migration
+automountServiceAccountToken: false
+---
+# Role for migration jobs
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: alchemorsel-migration-role
+  namespace: alchemorsel
+rules:
+# Allow reading secrets for database credentials
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+  resourceNames: ["postgres-secrets", "alchemorsel-secrets"]
+# Allow reading ConfigMaps for configuration
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get"]
+  resourceNames: ["alchemorsel-config"]
+---
+# Bind migration role to migration service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: alchemorsel-migration-rolebinding
+  namespace: alchemorsel
+subjects:
+- kind: ServiceAccount
+  name: alchemorsel-migration
+  namespace: alchemorsel
+roleRef:
+  kind: Role
+  name: alchemorsel-migration-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Pod Security Policy (if enabled in cluster)
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: alchemorsel-psp
+  labels:
+    app.kubernetes.io/name: alchemorsel
+    app.kubernetes.io/component: security
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  seLinux:
+    rule: 'RunAsAny'
+  fsGroup:
+    rule: 'RunAsAny'
+  readOnlyRootFilesystem: true
+---
+# Role to use the PSP
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: alchemorsel-psp-role
+  namespace: alchemorsel
+rules:
+- apiGroups: ['policy']
+  resources: ['podsecuritypolicies']
+  verbs: ['use']
+  resourceNames:
+  - alchemorsel-psp
+---
+# Bind PSP role to service accounts
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: alchemorsel-psp-rolebinding
+  namespace: alchemorsel
+roleRef:
+  kind: Role
+  name: alchemorsel-psp-role
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: alchemorsel-api
+  namespace: alchemorsel
+- kind: ServiceAccount
+  name: alchemorsel-migration
+  namespace: alchemorsel

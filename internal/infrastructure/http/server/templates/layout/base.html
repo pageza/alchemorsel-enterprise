@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} | Alchemorsel</title>
+    
+    <!-- Meta Information -->
+    <meta name="description" content="{{.Description | default "AI-powered recipe platform for modern cooking"}}">
+    <meta name="keywords" content="{{.Keywords | default "recipes, cooking, AI, food, ingredients"}}">
+    <meta name="author" content="Alchemorsel">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    
+    <!-- Performance Optimizations -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://unpkg.com">
+    
+    <!-- Critical CSS (Inlined for 14KB optimization) -->
+    <style>
+        {{template "critical-css" .}}
+    </style>
+    
+    <!-- Preload Critical Resources -->
+    <link rel="preload" href="/static/js/htmx.min.js" as="script">
+    <link rel="preload" href="/static/js/app.js" as="script">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/img/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="{{.Title}} | Alchemorsel">
+    <meta property="og:description" content="{{.Description | default "AI-powered recipe platform"}}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{.URL}}">
+    <meta property="og:image" content="/static/img/og-image.jpg">
+    
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Alchemorsel",
+        "description": "AI-powered recipe platform for modern cooking",
+        "url": "{{.BaseURL}}",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": "{{.BaseURL}}/recipes?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+        }
+    }
+    </script>
+</head>
+<body class="antialiased">
+    <!-- Skip Navigation -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <!-- Screen Reader Announcements -->
+    <div id="announcer" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+    
+    <!-- Header -->
+    {{template "header" .}}
+    
+    <!-- Main Content -->
+    <main id="main-content" class="main" role="main">
+        <!-- Global Messages -->
+        {{if .Messages}}
+        <div class="container">
+            {{range .Messages}}
+            <div class="alert alert-{{.Type}}" role="alert">
+                {{.Content}}
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+        
+        <!-- Page Content -->
+        {{template "content" .}}
+    </main>
+    
+    <!-- Footer -->
+    {{template "footer" .}}
+    
+    <!-- Critical JavaScript (Inlined for performance) -->
+    <script>
+        // Performance measurement start
+        window.performanceStart = performance.now();
+        
+        // Critical HTMX initialization
+        window.htmx = window.htmx || {};
+        
+        // Service Worker registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js');
+            });
+        }
+    </script>
+    
+    <!-- HTMX Library -->
+    <script src="/static/js/htmx.min.js" defer></script>
+    
+    <!-- Application JavaScript -->
+    <script src="/static/js/app.js" defer></script>
+    
+    <!-- Performance Monitoring -->
+    <script src="/static/js/performance.js" defer></script>
+    
+    <!-- Accessibility Enhancement -->
+    <script src="/static/js/accessibility.js" defer></script>
+    
+    <!-- Non-critical CSS (Loaded asynchronously) -->
+    <link rel="preload" href="/static/css/extended.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/extended.css"></noscript>
+    
+    <!-- Accessibility CSS (Loaded asynchronously) -->
+    <link rel="preload" href="/static/css/accessibility.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/accessibility.css"></noscript>
+    
+    <!-- Performance monitoring -->
+    {{if .Debug}}
+    <script>
+        window.addEventListener('load', function() {
+            console.log('Page loaded in:', performance.now() - window.performanceStart, 'ms');
+        });
+    </script>
+    {{end}}
+</body>
+</html>

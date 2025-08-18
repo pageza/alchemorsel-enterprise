@@ -1,0 +1,225 @@
+{{define "dashboard"}}
+{{template "base" .}}
+{{end}}
+
+{{define "content"}}
+<div class="container">
+    <!-- Welcome Section -->
+    <section class="card" style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div>
+                <h1 style="margin: 0;">Welcome back, {{.Data.User.Name}}!</h1>
+                <p style="color: #718096; margin: 0.5rem 0 0 0;">
+                    Ready to cook something amazing today?
+                </p>
+            </div>
+            <div style="text-align: right;">
+                <img 
+                    src="{{.Data.User.Avatar | default "/static/img/default-avatar.jpg"}}" 
+                    alt="{{.Data.User.Name}}"
+                    style="width: 4rem; height: 4rem; border-radius: 50%; object-fit: cover;"
+                >
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+            <a href="/recipes/new" class="btn btn-primary">Create New Recipe</a>
+            <a href="/recipes" class="btn btn-secondary">Browse Recipes</a>
+            <button 
+                class="btn btn-secondary"
+                hx-get="/htmx/ai/suggestions"
+                hx-target="#ai-suggestions"
+                hx-trigger="click"
+            >
+                Get AI Suggestions
+            </button>
+        </div>
+    </section>
+
+    <!-- Quick Stats -->
+    <section style="margin-bottom: 2rem;">
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 2rem; font-weight: bold; color: #4f46e5;">{{.Data.Stats.RecipeCount | default "0"}}</div>
+                <div style="color: #718096;">Your Recipes</div>
+            </div>
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 2rem; font-weight: bold; color: #059669;">{{.Data.Stats.LikesReceived | default "0"}}</div>
+                <div style="color: #718096;">Likes Received</div>
+            </div>
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 2rem; font-weight: bold; color: #dc2626;">{{.Data.Stats.Followers | default "0"}}</div>
+                <div style="color: #718096;">Followers</div>
+            </div>
+            <div class="card" style="text-align: center;">
+                <div style="font-size: 2rem; font-weight: bold; color: #7c3aed;">{{.Data.Stats.Collections | default "0"}}</div>
+                <div style="color: #718096;">Collections</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Two Column Layout -->
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: start;">
+        <!-- Main Content -->
+        <div>
+            <!-- AI Suggestions -->
+            <section class="card" style="margin-bottom: 2rem;">
+                <h2 style="margin-bottom: 1rem;">AI Recipe Suggestions</h2>
+                <div id="ai-suggestions">
+                    <p style="color: #718096;">Click "Get AI Suggestions" to get personalized recipe recommendations based on your preferences!</p>
+                </div>
+            </section>
+
+            <!-- Your Recent Recipes -->
+            <section class="card" style="margin-bottom: 2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h2 style="margin: 0;">Your Recent Recipes</h2>
+                    <a href="/recipes?author={{.Data.User.ID}}" style="color: #4f46e5; text-decoration: none;">View all</a>
+                </div>
+                
+                <div id="user-recipes">
+                    {{if .Data.UserRecipes}}
+                    <div class="recipe-grid">
+                        {{range .Data.UserRecipes}}
+                        {{template "recipe-card" .}}
+                        {{end}}
+                    </div>
+                    {{else}}
+                    <div style="text-align: center; padding: 2rem; color: #718096;">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" style="margin-bottom: 1rem;">
+                            <path d="M12 2l3.09 6.26L22 9l-6.91 1.01L12 16l-3.09-5.99L2 9l6.91-1.01L12 2z"/>
+                        </svg>
+                        <h3>No recipes yet</h3>
+                        <p>Start by creating your first recipe!</p>
+                        <a href="/recipes/new" class="btn btn-primary" style="margin-top: 1rem;">Create Recipe</a>
+                    </div>
+                    {{end}}
+                </div>
+            </section>
+
+            <!-- Recent Activity -->
+            <section class="card">
+                <h2 style="margin-bottom: 1.5rem;">Recent Activity</h2>
+                <div id="recent-activity">
+                    {{if .Data.RecentActivity}}
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        {{range .Data.RecentActivity}}
+                        <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
+                            <div style="width: 2rem; height: 2rem; border-radius: 50%; background: #4f46e5; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.875rem;">
+                                {{if eq .Type "like"}}❤️{{else if eq .Type "comment"}}💬{{else if eq .Type "follow"}}👤{{else}}📝{{end}}
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 500;">{{.Message}}</div>
+                                <div style="color: #718096; font-size: 0.875rem;">{{.CreatedAt | timeAgo}}</div>
+                            </div>
+                        </div>
+                        {{end}}
+                    </div>
+                    {{else}}
+                    <p style="color: #718096; text-align: center; padding: 1rem;">No recent activity</p>
+                    {{end}}
+                </div>
+            </section>
+        </div>
+
+        <!-- Sidebar -->
+        <div>
+            <!-- Quick Actions -->
+            <section class="card" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem;">Quick Actions</h3>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <a href="/recipes/new" class="btn btn-primary" style="text-align: center;">Create Recipe</a>
+                    <a href="/profile/edit" class="btn btn-secondary" style="text-align: center;">Edit Profile</a>
+                    <a href="/collections" class="btn btn-secondary" style="text-align: center;">My Collections</a>
+                    <a href="/following" class="btn btn-secondary" style="text-align: center;">Following</a>
+                </div>
+            </section>
+
+            <!-- Trending Recipes -->
+            <section class="card" style="margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem;">Trending This Week</h3>
+                <div id="trending-recipes">
+                    {{if .Data.TrendingRecipes}}
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        {{range .Data.TrendingRecipes}}
+                        <div style="display: flex; gap: 1rem;">
+                            <img 
+                                src="{{.ImageURL | default "/static/img/placeholder-recipe.jpg"}}" 
+                                alt="{{.Title}}"
+                                style="width: 3rem; height: 3rem; border-radius: 0.5rem; object-fit: cover;"
+                            >
+                            <div style="flex: 1;">
+                                <a href="/recipes/{{.ID}}" style="text-decoration: none; color: #1a202c;">
+                                    <div style="font-weight: 500; font-size: 0.875rem;">{{.Title}}</div>
+                                </a>
+                                <div style="color: #718096; font-size: 0.75rem;">{{.LikesCount}} likes</div>
+                            </div>
+                        </div>
+                        {{end}}
+                    </div>
+                    {{else}}
+                    <p style="color: #718096; font-size: 0.875rem;">Check back soon for trending recipes!</p>
+                    {{end}}
+                </div>
+            </section>
+
+            <!-- Your Collections -->
+            <section class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="margin: 0;">Your Collections</h3>
+                    <button 
+                        class="btn btn-sm btn-secondary"
+                        hx-get="/htmx/collections/new-form"
+                        hx-target="#new-collection-modal"
+                        hx-trigger="click"
+                    >
+                        New
+                    </button>
+                </div>
+                
+                <div id="user-collections">
+                    {{if .Data.UserCollections}}
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        {{range .Data.UserCollections}}
+                        <a href="/collections/{{.ID}}" style="text-decoration: none; color: #1a202c;">
+                            <div style="padding: 0.75rem; background: #f8f9fa; border-radius: 0.5rem; border: 1px solid #e2e8f0;">
+                                <div style="font-weight: 500; font-size: 0.875rem;">{{.Name}}</div>
+                                <div style="color: #718096; font-size: 0.75rem;">{{.RecipeCount}} recipes</div>
+                            </div>
+                        </a>
+                        {{end}}
+                    </div>
+                    {{else}}
+                    <p style="color: #718096; font-size: 0.875rem;">No collections yet. Create one to organize your favorite recipes!</p>
+                    {{end}}
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for new collection -->
+<div id="new-collection-modal"></div>
+
+<script>
+// Auto-refresh activity feed every 30 seconds
+setInterval(function() {
+    const activityElement = document.getElementById('recent-activity');
+    if (activityElement) {
+        htmx.ajax('GET', '/htmx/dashboard/activity', {target: '#recent-activity'});
+    }
+}, 30000);
+
+// Load dashboard data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Load user recipes
+    htmx.ajax('GET', '/htmx/dashboard/recipes', {target: '#user-recipes'});
+    
+    // Load trending recipes
+    htmx.ajax('GET', '/htmx/dashboard/trending', {target: '#trending-recipes'});
+    
+    // Load user collections
+    htmx.ajax('GET', '/htmx/dashboard/collections', {target: '#user-collections'});
+});
+</script>
+{{end}}

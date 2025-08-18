@@ -1,0 +1,143 @@
+{{define "register"}}
+{{template "base" .}}
+{{end}}
+
+{{define "content"}}
+<div class="container">
+    <div class="auth-container" style="max-width: 400px; margin: 2rem auto;">
+        <div class="card">
+            <h1 style="text-align: center; margin-bottom: 2rem;">Join Alchemorsel</h1>
+            <p style="text-align: center; color: #718096; margin-bottom: 2rem;">
+                Create your account and start cooking smarter
+            </p>
+
+            <form 
+                hx-post="/htmx/auth/register" 
+                hx-target="#register-form" 
+                hx-swap="outerHTML"
+                hx-indicator="#register-spinner"
+                id="register-form"
+            >
+                <div id="register-messages"></div>
+                
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label for="name" class="form-label">Full Name</label>
+                    <input 
+                        type="text" 
+                        id="name" 
+                        name="name" 
+                        class="form-input" 
+                        required 
+                        autocomplete="name"
+                        placeholder="Your full name"
+                        minlength="2"
+                        maxlength="100"
+                    >
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label for="email" class="form-label">Email Address</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        class="form-input" 
+                        required 
+                        autocomplete="email"
+                        placeholder="your@email.com"
+                    >
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label for="password" class="form-label">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        class="form-input" 
+                        required 
+                        autocomplete="new-password"
+                        placeholder="Choose a secure password"
+                        minlength="8"
+                    >
+                    <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #718096;">
+                        Must be at least 8 characters long
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label for="password_confirm" class="form-label">Confirm Password</label>
+                    <input 
+                        type="password" 
+                        id="password_confirm" 
+                        name="password_confirm" 
+                        class="form-input" 
+                        required 
+                        autocomplete="new-password"
+                        placeholder="Confirm your password"
+                    >
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label style="display: flex; align-items: flex-start;">
+                        <input type="checkbox" name="terms" required style="margin-right: 0.5rem; margin-top: 0.125rem;">
+                        <span style="font-size: 0.875rem;">
+                            I agree to the <a href="/terms" style="color: #4f46e5;">Terms of Service</a> 
+                            and <a href="/privacy" style="color: #4f46e5;">Privacy Policy</a>
+                        </span>
+                    </label>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label style="display: flex; align-items: center;">
+                        <input type="checkbox" name="newsletter" style="margin-right: 0.5rem;">
+                        <span style="font-size: 0.875rem;">
+                            Send me recipe tips and updates (optional)
+                        </span>
+                    </label>
+                </div>
+
+                <button 
+                    type="submit" 
+                    class="btn btn-primary" 
+                    style="width: 100%; margin-bottom: 1rem;"
+                >
+                    <span id="register-spinner" class="htmx-indicator spinner" style="margin-right: 0.5rem;"></span>
+                    Create Account
+                </button>
+            </form>
+
+            <div style="text-align: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0;">
+                <p style="color: #718096;">
+                    Already have an account? 
+                    <a href="/login" style="color: #4f46e5; text-decoration: none;">Sign in</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Password confirmation validation
+document.getElementById('password_confirm').addEventListener('input', function() {
+    const password = document.getElementById('password').value;
+    const confirm = this.value;
+    
+    if (confirm && password !== confirm) {
+        this.setCustomValidity('Passwords do not match');
+    } else {
+        this.setCustomValidity('');
+    }
+});
+
+// Handle successful registration
+document.body.addEventListener('htmx:afterRequest', function(event) {
+    if (event.detail.xhr.status === 200 && event.detail.target.id === 'register-form') {
+        const response = event.detail.xhr.responseText;
+        if (response.includes('redirect')) {
+            window.location.href = '/dashboard';
+        }
+    }
+});
+</script>
+{{end}}

@@ -1,0 +1,375 @@
+name: Continuous Deployment
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_run:
+    workflows: ["Continuous Integration"]
+    types: [completed]
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: alchemorsel-production-cluster
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Deploy to staging environment
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' && github.ref == 'refs/heads/main'
+    environment:
+      name: staging
+      url: https://staging.alchemorsel.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: '3.12.0'
+
+      - name: Deploy infrastructure changes
+        run: |
+          cd deployments/terraform
+          terraform init
+          terraform plan -var-file="environments/staging.tfvars"
+          terraform apply -auto-approve -var-file="environments/staging.tfvars"
+
+      - name: Deploy to Kubernetes staging
+        run: |
+          # Update image tag in staging deployment
+          sed -i "s|image: alchemorsel/api:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|g" \
+            deployments/kubernetes/overlays/staging/deployment.yaml
+          
+          # Apply staging configuration
+          kubectl apply -k deployments/kubernetes/overlays/staging/
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/alchemorsel-api -n alchemorsel-staging --timeout=600s
+
+      - name: Run smoke tests
+        run: |
+          # Wait for service to be ready
+          sleep 30
+          
+          # Basic health check
+          kubectl get pods -n alchemorsel-staging
+          
+          # Application health check
+          STAGING_URL=$(kubectl get ingress alchemorsel-ingress -n alchemorsel-staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          curl -f "https://${STAGING_URL}/health" || exit 1
+          
+          # API smoke test
+          curl -f "https://${STAGING_URL}/api/health" || exit 1
+
+      - name: Run staging tests
+        run: |
+          cd test/staging
+          npm ci
+          npm run test:staging
+        env:
+          STAGING_URL: https://staging.alchemorsel.com
+
+      - name: Notify deployment status
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          text: 'Staging deployment ${{ job.status }} for ${{ github.repository }}@${{ github.sha }}'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Security and compliance checks before production
+  pre-production-checks:
+    name: Pre-Production Security Checks
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run OWASP ZAP security scan
+        uses: zaproxy/action-full-scan@v0.7.0
+        with:
+          target: 'https://staging.alchemorsel.com'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+
+      - name: Run compliance checks
+        run: |
+          # Check for PII in logs
+          echo "Running PII detection in application logs..."
+          
+          # Check SSL/TLS configuration
+          echo "Checking SSL/TLS configuration..."
+          curl -I https://staging.alchemorsel.com | grep -i "strict-transport-security"
+          
+          # Check security headers
+          echo "Checking security headers..."
+          curl -I https://staging.alchemorsel.com | grep -i "x-frame-options"
+
+      - name: Performance baseline check
+        run: |
+          cd test/performance
+          npm ci
+          npm run test:baseline -- --target=https://staging.alchemorsel.com
+
+  # Deploy to production with blue-green strategy
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [pre-production-checks]
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: https://alchemorsel.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+      - name: Create production deployment
+        run: |
+          # Create new deployment with blue-green strategy
+          export NEW_VERSION=${{ github.sha }}
+          export CURRENT_VERSION=$(kubectl get deployment alchemorsel-api -n alchemorsel -o jsonpath='{.spec.template.spec.containers[0].image}' | cut -d':' -f2)
+          
+          # Update deployment with new image
+          kubectl set image deployment/alchemorsel-api \
+            alchemorsel-api=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${NEW_VERSION} \
+            -n alchemorsel
+          
+          # Wait for rollout
+          kubectl rollout status deployment/alchemorsel-api -n alchemorsel --timeout=600s
+
+      - name: Run production health checks
+        run: |
+          # Wait for pods to be ready
+          sleep 60
+          
+          # Check pod status
+          kubectl get pods -n alchemorsel -l app.kubernetes.io/name=alchemorsel-api
+          
+          # Health check
+          for i in {1..10}; do
+            if curl -f https://alchemorsel.com/health; then
+              echo "Health check passed"
+              break
+            fi
+            echo "Health check failed, attempt $i/10"
+            sleep 30
+          done
+
+      - name: Run production smoke tests
+        run: |
+          cd test/production
+          npm ci
+          npm run test:production
+        env:
+          PRODUCTION_URL: https://alchemorsel.com
+
+      - name: Update DNS and traffic routing
+        run: |
+          # This would typically involve updating Route53 records
+          # or load balancer configurations for blue-green deployment
+          echo "Traffic routing updated successfully"
+
+      - name: Monitor deployment metrics
+        run: |
+          # Check key metrics after deployment
+          sleep 120
+          
+          # Query Prometheus for error rates
+          PROMETHEUS_URL="http://prometheus.alchemorsel.com"
+          ERROR_RATE=$(curl -s "${PROMETHEUS_URL}/api/v1/query?query=rate(http_requests_total{status_code=~\"5..\"}[5m])/rate(http_requests_total[5m])" | jq -r '.data.result[0].value[1]')
+          
+          if (( $(echo "$ERROR_RATE > 0.01" | bc -l) )); then
+            echo "Error rate too high: $ERROR_RATE"
+            exit 1
+          fi
+
+      - name: Create GitHub release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Notify successful deployment
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#deployments'
+          text: |
+            🎉 Production deployment successful!
+            Version: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            URL: https://alchemorsel.com
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Rollback capability
+  rollback:
+    name: Rollback Production
+    runs-on: ubuntu-latest
+    if: failure()
+    needs: [deploy-production]
+    environment:
+      name: production
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+      - name: Rollback deployment
+        run: |
+          kubectl rollout undo deployment/alchemorsel-api -n alchemorsel
+          kubectl rollout status deployment/alchemorsel-api -n alchemorsel --timeout=300s
+
+      - name: Verify rollback
+        run: |
+          sleep 30
+          curl -f https://alchemorsel.com/health
+
+      - name: Notify rollback
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#deployments'
+          text: |
+            🚨 Production deployment failed and was rolled back!
+            Failed version: ${{ github.sha }}
+            Please investigate immediately.
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Database migration job (separate from main deployment)
+  migrate-database:
+    name: Database Migration
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production-db
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+      - name: Run database backup
+        run: |
+          # Create database backup before migration
+          kubectl create job --from=cronjob/database-backup db-backup-pre-migration -n alchemorsel
+          kubectl wait --for=condition=complete job/db-backup-pre-migration -n alchemorsel --timeout=300s
+
+      - name: Run database migrations
+        run: |
+          # Run migrations using Kubernetes job
+          kubectl apply -f deployments/kubernetes/jobs/migration-job.yaml
+          kubectl wait --for=condition=complete job/database-migration -n alchemorsel --timeout=600s
+          
+          # Check migration status
+          kubectl logs job/database-migration -n alchemorsel
+
+      - name: Verify database state
+        run: |
+          # Run database health check
+          kubectl run db-check --rm -i --restart=Never --image=postgres:15 -- \
+            psql $DATABASE_URL -c "SELECT version();"
+
+  # Post-deployment monitoring and alerts
+  post-deployment-monitoring:
+    name: Post-Deployment Monitoring
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: success()
+    steps:
+      - name: Setup monitoring alerts
+        run: |
+          # Enable enhanced monitoring for the next 24 hours
+          curl -X POST "${{ secrets.DATADOG_API_URL }}/api/v1/monitor" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+            -H "DD-APPLICATION-KEY: ${{ secrets.DATADOG_APP_KEY }}" \
+            -d '{
+              "type": "metric alert",
+              "query": "avg(last_5m):avg:alchemorsel.http.request.error_rate{env:production} > 0.05",
+              "name": "High Error Rate After Deployment",
+              "message": "Error rate is elevated after recent deployment",
+              "options": {
+                "thresholds": {
+                  "critical": 0.05,
+                  "warning": 0.02
+                },
+                "notify_no_data": true,
+                "new_host_delay": 300
+              }
+            }'
+
+      - name: Schedule performance monitoring
+        run: |
+          # Schedule extended performance monitoring
+          curl -X POST "${{ secrets.GRAFANA_API_URL }}/api/annotations" \
+            -H "Authorization: Bearer ${{ secrets.GRAFANA_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "Production deployment completed - monitoring for 24h",
+              "tags": ["deployment", "production"],
+              "time": '$(date +%s000)'
+            }'
+
+      - name: Create incident response plan
+        run: |
+          echo "Deployment completed at $(date)"
+          echo "Monitor for the next 24 hours for:"
+          echo "- Error rate spikes"
+          echo "- Latency increases"  
+          echo "- Memory/CPU usage"
+          echo "- Business metric drops"

@@ -1,0 +1,417 @@
+{{define "recipe-form"}}
+{{template "base" .}}
+{{end}}
+
+{{define "content"}}
+<div class="container">
+    <!-- Page Header -->
+    <header style="margin-bottom: 2rem;">
+        <h1>{{if .Data.Recipe.ID}}Edit Recipe{{else}}Create New Recipe{{end}}</h1>
+        <p style="color: #718096;">
+            Share your culinary creation with the Alchemorsel community
+        </p>
+    </header>
+
+    <!-- Recipe Form -->
+    <form 
+        {{if .Data.Recipe.ID}}
+        hx-put="/htmx/recipes/{{.Data.Recipe.ID}}"
+        {{else}}
+        hx-post="/htmx/recipes"
+        {{end}}
+        hx-target="#form-messages"
+        hx-swap="innerHTML"
+        class="recipe-form"
+        data-validate="true"
+    >
+        <!-- Form Messages -->
+        <div id="form-messages" style="margin-bottom: 1rem;"></div>
+
+        <!-- Basic Information -->
+        <section class="card" style="margin-bottom: 2rem;">
+            <h2 style="margin-bottom: 1.5rem;">Basic Information</h2>
+            
+            <div class="form-group">
+                <label for="title" class="form-label">Recipe Title *</label>
+                <input 
+                    type="text" 
+                    id="title" 
+                    name="title" 
+                    class="form-input"
+                    placeholder="e.g., Grandma's Secret Chocolate Chip Cookies"
+                    value="{{.Data.Recipe.Title}}"
+                    required
+                    maxlength="100"
+                >
+                <small style="color: #718096;">Give your recipe a memorable name</small>
+            </div>
+
+            <div class="form-group">
+                <label for="description" class="form-label">Description *</label>
+                <textarea 
+                    id="description" 
+                    name="description" 
+                    class="form-input form-textarea"
+                    placeholder="Describe your recipe - what makes it special? What inspired it?"
+                    required
+                    maxlength="500"
+                    style="height: 100px;"
+                >{{.Data.Recipe.Description}}</textarea>
+                <small style="color: #718096;">Help others understand what makes this recipe unique</small>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                <div class="form-group">
+                    <label for="servings" class="form-label">Servings *</label>
+                    <input 
+                        type="number" 
+                        id="servings" 
+                        name="servings" 
+                        class="form-input"
+                        placeholder="4"
+                        value="{{.Data.Recipe.Servings}}"
+                        min="1"
+                        max="50"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="prep_time" class="form-label">Prep Time (minutes)</label>
+                    <input 
+                        type="number" 
+                        id="prep_time" 
+                        name="prep_time" 
+                        class="form-input"
+                        placeholder="15"
+                        value="{{.Data.Recipe.PrepTime}}"
+                        min="0"
+                        max="1440"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="cook_time" class="form-label">Cook Time (minutes) *</label>
+                    <input 
+                        type="number" 
+                        id="cook_time" 
+                        name="cook_time" 
+                        class="form-input"
+                        placeholder="30"
+                        value="{{.Data.Recipe.CookTime}}"
+                        min="0"
+                        max="1440"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="difficulty" class="form-label">Difficulty *</label>
+                    <select id="difficulty" name="difficulty" class="form-input form-select" required>
+                        <option value="">Choose difficulty</option>
+                        <option value="easy" {{if eq .Data.Recipe.Difficulty "easy"}}selected{{end}}>Easy</option>
+                        <option value="medium" {{if eq .Data.Recipe.Difficulty "medium"}}selected{{end}}>Medium</option>
+                        <option value="hard" {{if eq .Data.Recipe.Difficulty "hard"}}selected{{end}}>Hard</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Ingredients -->
+        <section class="card ingredients-container" style="margin-bottom: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2>Ingredients</h2>
+                <button 
+                    type="button" 
+                    class="btn btn-secondary add-ingredient"
+                    hx-get="/htmx/forms/ingredients/{{len .Data.Recipe.Ingredients | default 1}}"
+                    hx-target="#ingredients-container"
+                    hx-swap="beforeend"
+                >
+                    ➕ Add Ingredient
+                </button>
+            </div>
+            
+            <div id="ingredients-container">
+                {{range $index, $ingredient := .Data.Recipe.Ingredients}}
+                <div class="ingredient-input" style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 0.5rem; margin-bottom: 0.5rem; align-items: end;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 0.875rem;">Amount</label>
+                        <input 
+                            type="text" 
+                            name="ingredients[{{$index}}][amount]" 
+                            class="form-input"
+                            placeholder="1 cup"
+                            value="{{$ingredient.Amount}}"
+                            required
+                        >
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 0.875rem;">Ingredient</label>
+                        <input 
+                            type="text" 
+                            name="ingredients[{{$index}}][name]" 
+                            class="form-input"
+                            placeholder="all-purpose flour"
+                            value="{{$ingredient.Name}}"
+                            required
+                        >
+                    </div>
+                    <button 
+                        type="button" 
+                        class="btn btn-danger"
+                        onclick="this.closest('.ingredient-input').remove()"
+                        style="height: fit-content;"
+                    >
+                        🗑️
+                    </button>
+                </div>
+                {{else}}
+                <div class="ingredient-input" style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 0.5rem; margin-bottom: 0.5rem; align-items: end;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 0.875rem;">Amount</label>
+                        <input 
+                            type="text" 
+                            name="ingredients[0][amount]" 
+                            class="form-input"
+                            placeholder="1 cup"
+                            required
+                        >
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" style="font-size: 0.875rem;">Ingredient</label>
+                        <input 
+                            type="text" 
+                            name="ingredients[0][name]" 
+                            class="form-input"
+                            placeholder="all-purpose flour"
+                            required
+                        >
+                    </div>
+                    <button 
+                        type="button" 
+                        class="btn btn-danger"
+                        onclick="this.closest('.ingredient-input').remove()"
+                        style="height: fit-content;"
+                    >
+                        🗑️
+                    </button>
+                </div>
+                {{end}}
+            </div>
+            
+            <!-- AI Ingredient Assistant -->
+            <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 0.375rem; border: 1px solid #e9ecef;">
+                <p style="margin-bottom: 0.5rem; font-weight: 500; color: #495057;">🤖 AI Assistant</p>
+                <p style="color: #6c757d; font-size: 0.875rem; margin-bottom: 1rem;">
+                    Describe your recipe and I'll suggest ingredients and amounts!
+                </p>
+                <div style="display: flex; gap: 0.5rem;">
+                    <input 
+                        type="text" 
+                        id="ai-ingredient-input"
+                        class="form-input" 
+                        placeholder="e.g., chocolate chip cookies for 12 people"
+                        style="flex: 1;"
+                    >
+                    <button 
+                        type="button" 
+                        class="btn btn-primary"
+                        hx-post="/htmx/ai/ingredients"
+                        hx-vals="js:{description: document.getElementById('ai-ingredient-input').value}"
+                        hx-target="#ingredients-container"
+                        hx-swap="innerHTML"
+                    >
+                        Suggest
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Instructions -->
+        <section class="card instructions-container" style="margin-bottom: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2>Instructions</h2>
+                <button 
+                    type="button" 
+                    class="btn btn-secondary add-instruction"
+                    hx-get="/htmx/forms/instructions/{{len .Data.Recipe.Instructions | default 1}}"
+                    hx-target="#instructions-container"
+                    hx-swap="beforeend"
+                >
+                    ➕ Add Step
+                </button>
+            </div>
+            
+            <div id="instructions-container">
+                {{range $index, $instruction := .Data.Recipe.Instructions}}
+                <div class="instruction-input" style="display: grid; grid-template-columns: auto 1fr auto; gap: 0.5rem; margin-bottom: 1rem; align-items: start;">
+                    <div style="background: #e2e8f0; border-radius: 50%; width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #4a5568; margin-top: 0.75rem;">
+                        {{add $index 1}}
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <textarea 
+                            name="instructions[{{$index}}]" 
+                            class="form-input form-textarea"
+                            placeholder="Describe this step in detail..."
+                            required
+                            style="height: 80px;"
+                        >{{$instruction}}</textarea>
+                    </div>
+                    <button 
+                        type="button" 
+                        class="btn btn-danger"
+                        onclick="this.closest('.instruction-input').remove(); updateStepNumbers()"
+                        style="height: fit-content; margin-top: 0.75rem;"
+                    >
+                        🗑️
+                    </button>
+                </div>
+                {{else}}
+                <div class="instruction-input" style="display: grid; grid-template-columns: auto 1fr auto; gap: 0.5rem; margin-bottom: 1rem; align-items: start;">
+                    <div style="background: #e2e8f0; border-radius: 50%; width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #4a5568; margin-top: 0.75rem;">
+                        1
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <textarea 
+                            name="instructions[0]" 
+                            class="form-input form-textarea"
+                            placeholder="Describe this step in detail..."
+                            required
+                            style="height: 80px;"
+                        ></textarea>
+                    </div>
+                    <button 
+                        type="button" 
+                        class="btn btn-danger"
+                        onclick="this.closest('.instruction-input').remove(); updateStepNumbers()"
+                        style="height: fit-content; margin-top: 0.75rem;"
+                    >
+                        🗑️
+                    </button>
+                </div>
+                {{end}}
+            </div>
+        </section>
+
+        <!-- Additional Information -->
+        <section class="card" style="margin-bottom: 2rem;">
+            <h2 style="margin-bottom: 1.5rem;">Additional Information</h2>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                <div class="form-group">
+                    <label for="cuisine" class="form-label">Cuisine</label>
+                    <select id="cuisine" name="cuisine" class="form-input form-select">
+                        <option value="">Select cuisine</option>
+                        <option value="italian" {{if eq .Data.Recipe.Cuisine "italian"}}selected{{end}}>Italian</option>
+                        <option value="indian" {{if eq .Data.Recipe.Cuisine "indian"}}selected{{end}}>Indian</option>
+                        <option value="mexican" {{if eq .Data.Recipe.Cuisine "mexican"}}selected{{end}}>Mexican</option>
+                        <option value="chinese" {{if eq .Data.Recipe.Cuisine "chinese"}}selected{{end}}>Chinese</option>
+                        <option value="american" {{if eq .Data.Recipe.Cuisine "american"}}selected{{end}}>American</option>
+                        <option value="french" {{if eq .Data.Recipe.Cuisine "french"}}selected{{end}}>French</option>
+                        <option value="other" {{if eq .Data.Recipe.Cuisine "other"}}selected{{end}}>Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="diet" class="form-label">Dietary Restrictions</label>
+                    <select id="diet" name="diet" class="form-input form-select">
+                        <option value="">None specified</option>
+                        <option value="vegetarian" {{if eq .Data.Recipe.Diet "vegetarian"}}selected{{end}}>Vegetarian</option>
+                        <option value="vegan" {{if eq .Data.Recipe.Diet "vegan"}}selected{{end}}>Vegan</option>
+                        <option value="gluten-free" {{if eq .Data.Recipe.Diet "gluten-free"}}selected{{end}}>Gluten-Free</option>
+                        <option value="keto" {{if eq .Data.Recipe.Diet "keto"}}selected{{end}}>Keto</option>
+                        <option value="paleo" {{if eq .Data.Recipe.Diet "paleo"}}selected{{end}}>Paleo</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="tags" class="form-label">Tags</label>
+                <input 
+                    type="text" 
+                    id="tags" 
+                    name="tags" 
+                    class="form-input"
+                    placeholder="e.g., quick, easy, comfort food (separate with commas)"
+                    value="{{join .Data.Recipe.Tags ", "}}"
+                >
+                <small style="color: #718096;">Add tags to help others find your recipe</small>
+            </div>
+
+            <div class="form-group">
+                <label for="notes" class="form-label">Chef's Notes</label>
+                <textarea 
+                    id="notes" 
+                    name="notes" 
+                    class="form-input form-textarea"
+                    placeholder="Any tips, variations, or special notes about this recipe..."
+                    style="height: 80px;"
+                >{{.Data.Recipe.Notes}}</textarea>
+            </div>
+        </section>
+
+        <!-- Form Actions -->
+        <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-bottom: 2rem;">
+            <a href="/recipes" class="btn btn-secondary">Cancel</a>
+            <button type="button" class="btn btn-secondary" onclick="saveDraft()">
+                💾 Save Draft
+            </button>
+            <button type="submit" class="btn btn-primary">
+                <span class="htmx-indicator spinner" style="margin-right: 0.5rem;"></span>
+                {{if .Data.Recipe.ID}}Update Recipe{{else}}Create Recipe{{end}}
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Update step numbers when instructions are added/removed
+function updateStepNumbers() {
+    const instructions = document.querySelectorAll('.instruction-input');
+    instructions.forEach((instruction, index) => {
+        const stepNumber = instruction.querySelector('div:first-child');
+        stepNumber.textContent = index + 1;
+        
+        const textarea = instruction.querySelector('textarea');
+        textarea.name = `instructions[${index}]`;
+    });
+}
+
+// Save draft functionality
+function saveDraft() {
+    const form = document.querySelector('.recipe-form');
+    const formData = new FormData(form);
+    formData.append('draft', 'true');
+    
+    fetch('/htmx/recipes/draft', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'HX-Request': 'true'
+        }
+    })
+    .then(response => response.text())
+    .then(html => {
+        document.getElementById('form-messages').innerHTML = html;
+    });
+}
+
+// Auto-save functionality
+let autoSaveTimer;
+function setupAutoSave() {
+    const form = document.querySelector('.recipe-form');
+    const inputs = form.querySelectorAll('input, textarea, select');
+    
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(saveDraft, 5000); // Auto-save after 5 seconds of inactivity
+        });
+    });
+}
+
+// Initialize auto-save
+document.addEventListener('DOMContentLoaded', setupAutoSave);
+</script>
+{{end}}

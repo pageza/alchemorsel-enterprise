@@ -1,0 +1,58 @@
+<div class="recipe-card" data-recipe-id="{{.recipe.id}}" role="article" aria-labelledby="recipe-title-{{.recipe.id}}">
+    {{if .recipe.image}}
+    <img src="{{.recipe.image}}" alt="{{.recipe.title}}" loading="lazy">
+    {{else}}
+    <div style="height: 200px; background: linear-gradient(45deg, #f0f0f0, #e0e0e0); display: flex; align-items: center; justify-content: center; color: #666;">
+        <span style="font-size: 2rem;">🍽️</span>
+    </div>
+    {{end}}
+    
+    <div class="recipe-card-content">
+        <h3 id="recipe-title-{{.recipe.id}}" style="margin-top: 0;">{{.recipe.title}}</h3>
+        <p style="color: #666; margin-bottom: 15px;">{{.recipe.description}}</p>
+        
+        <div class="recipe-meta" style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #888; margin-bottom: 15px;">
+            {{if .recipe.author}}
+            <span>by {{.recipe.author}}</span>
+            {{end}}
+            
+            {{if .recipe.prep_time}}
+            <span>⏱️ {{.recipe.prep_time}}</span>
+            {{end}}
+            
+            {{if .recipe.servings}}
+            <span>👥 {{.recipe.servings}} servings</span>
+            {{end}}
+        </div>
+        
+        <div class="recipe-actions">
+            <div class="rating" aria-label="{{.recipe.rating}} out of 5 stars">
+                {{$rating := .recipe.rating}}
+                {{range $i := iterate 5}}
+                    {{if lt $i $rating}}
+                        <span class="star">★</span>
+                    {{else}}
+                        <span class="star">☆</span>
+                    {{end}}
+                {{end}}
+                <span style="margin-left: 5px;">{{.recipe.rating}}</span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button class="like-button" 
+                        hx-post="/recipes/{{.recipe.id}}/like"
+                        hx-target="closest .recipe-actions"
+                        hx-swap="innerHTML"
+                        aria-label="Like this recipe ({{.recipe.likes}} likes)">
+                    ❤️ {{.recipe.likes}}
+                </button>
+                
+                <a href="/recipes/{{.recipe.id}}" 
+                   class="btn" 
+                   style="font-size: 12px; padding: 5px 10px; text-decoration: none;">
+                    View Recipe
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

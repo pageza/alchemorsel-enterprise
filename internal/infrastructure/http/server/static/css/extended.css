@@ -1,0 +1,406 @@
+/* Extended CSS - Loaded asynchronously for non-critical styles */
+
+/* Advanced Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@keyframes bounce {
+    0%, 20%, 53%, 80%, 100% {
+        transform: translate3d(0, 0, 0);
+    }
+    40%, 43% {
+        transform: translate3d(0, -15px, 0);
+    }
+    70% {
+        transform: translate3d(0, -7px, 0);
+    }
+    90% {
+        transform: translate3d(0, -2px, 0);
+    }
+}
+
+/* Enhanced Recipe Cards */
+.recipe-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.recipe-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.recipe-card-content {
+    position: relative;
+}
+
+.recipe-card-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3182ce, #9f7aea, #38a169);
+    border-radius: 0.5rem 0.5rem 0 0;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.recipe-card:hover .recipe-card-content::before {
+    opacity: 1;
+}
+
+/* Advanced Form Styling */
+.form-input:focus {
+    transform: scale(1.01);
+    transition: all 0.2s ease;
+}
+
+.form-group {
+    position: relative;
+}
+
+.form-input.error {
+    border-color: #e53e3e;
+    box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1);
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* Loading States */
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Enhanced Chat Interface */
+.chat-container {
+    position: relative;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.chat-message {
+    animation: slideInLeft 0.3s ease-out;
+    position: relative;
+}
+
+.chat-message.user {
+    background: linear-gradient(135deg, #ebf8ff, #dbeafe);
+    border-left: 4px solid #3182ce;
+}
+
+.chat-message.ai {
+    background: linear-gradient(135deg, #f7fafc, #edf2f7);
+    border-left: 4px solid #38a169;
+}
+
+.chat-message::before {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: currentColor;
+    border-radius: 50%;
+    left: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Voice Interface */
+.voice-button.recording {
+    background: #e53e3e !important;
+    animation: pulse 1s infinite;
+    box-shadow: 0 0 20px rgba(229, 62, 62, 0.5);
+}
+
+.voice-result {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+/* Advanced Search */
+.search-container {
+    position: relative;
+}
+
+.search-container::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #3182ce, transparent);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.search-container:focus-within::after {
+    transform: scaleX(1);
+}
+
+/* Advanced Filters */
+#advanced-filters {
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    animation: fadeInUp 0.3s ease-out;
+}
+
+/* Notification System */
+.notifications-container {
+    pointer-events: none;
+}
+
+.notification {
+    pointer-events: all;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.notification.alert-success {
+    background: rgba(240, 255, 244, 0.95);
+    border-color: rgba(56, 161, 105, 0.3);
+}
+
+.notification.alert-error {
+    background: rgba(254, 215, 215, 0.95);
+    border-color: rgba(229, 62, 62, 0.3);
+}
+
+.notification.alert-info {
+    background: rgba(235, 248, 255, 0.95);
+    border-color: rgba(49, 130, 206, 0.3);
+}
+
+/* Rating System */
+.star-button {
+    transition: all 0.2s ease;
+    transform: scale(1);
+}
+
+.star-button:hover {
+    transform: scale(1.2);
+    filter: drop-shadow(0 0 5px currentColor);
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+    .recipe-card:hover {
+        transform: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .chat-container {
+        max-height: 200px;
+    }
+    
+    .notifications-container {
+        left: 0.5rem;
+        right: 0.5rem;
+        max-width: none;
+    }
+}
+
+/* Dark Mode Enhancements */
+@media (prefers-color-scheme: dark) {
+    .recipe-card-content::before {
+        background: linear-gradient(90deg, #60a5fa, #a78bfa, #34d399);
+    }
+    
+    .chat-container {
+        background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+    }
+    
+    .chat-message.user {
+        background: linear-gradient(135deg, #1e3a8a, #1e40af);
+        color: #e5e7eb;
+    }
+    
+    .chat-message.ai {
+        background: linear-gradient(135deg, #064e3b, #065f46);
+        color: #e5e7eb;
+    }
+    
+    .skeleton {
+        background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+    }
+}
+
+/* Performance Optimizations */
+.recipe-grid {
+    contain: layout style paint;
+}
+
+.recipe-card {
+    contain: layout style paint;
+    will-change: transform;
+}
+
+/* High Contrast Support */
+@media (prefers-contrast: high) {
+    .btn {
+        border: 2px solid currentColor;
+    }
+    
+    .recipe-card {
+        border: 2px solid #000;
+    }
+    
+    .form-input {
+        border: 2px solid #000;
+    }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    .recipe-card:hover {
+        transform: none;
+    }
+}
+
+/* Print Optimizations */
+@media print {
+    .recipe-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    
+    .chat-container,
+    .voice-button,
+    .notifications-container {
+        display: none !important;
+    }
+    
+    .recipe-card-content::before {
+        display: none;
+    }
+}
+
+/* Focus Indicators for Better Accessibility */
+.btn:focus-visible {
+    outline: 3px solid #3182ce;
+    outline-offset: 2px;
+}
+
+.form-input:focus-visible {
+    outline: 3px solid #3182ce;
+    outline-offset: 2px;
+}
+
+/* Enhanced Typography */
+.hero h1 {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Interactive Elements */
+.like-button.liked {
+    animation: bounce 0.6s ease-in-out;
+}
+
+/* Loading Placeholders */
+.recipe-placeholder {
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.recipe-placeholder .skeleton {
+    height: 1rem;
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.recipe-placeholder .skeleton:last-child {
+    width: 60%;
+}
+
+/* Smooth Scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Enhanced Hover Effects */
+.nav a::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: currentColor;
+    transition: width 0.3s ease;
+}
+
+.nav a:hover::after {
+    width: 100%;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}

@@ -1,0 +1,558 @@
+{{define "recipe-detail"}}
+{{template "base" .}}
+{{end}}
+
+{{define "content"}}
+<div class="container">
+    <!-- Recipe Header -->
+    <section class="recipe-header" style="margin-bottom: 2rem;">
+        <!-- Breadcrumb -->
+        <nav style="margin-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: #718096; font-size: 0.875rem;">
+                <a href="/" style="color: #4f46e5; text-decoration: none;">Home</a>
+                <span>›</span>
+                <a href="/recipes" style="color: #4f46e5; text-decoration: none;">Recipes</a>
+                <span>›</span>
+                <span>{{.Data.Recipe.Title}}</span>
+            </div>
+        </nav>
+
+        <div class="card">
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 2rem; align-items: start;">
+                <!-- Recipe Info -->
+                <div>
+                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                        <h1 style="margin: 0;">{{.Data.Recipe.Title}}</h1>
+                        {{if .Data.Recipe.AIGenerated}}
+                        <span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">
+                            🤖 AI Generated
+                        </span>
+                        {{end}}
+                    </div>
+
+                    <p style="color: #718096; font-size: 1.125rem; line-height: 1.6; margin-bottom: 1.5rem;">
+                        {{.Data.Recipe.Description}}
+                    </p>
+
+                    <!-- Author Info -->
+                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                        <img 
+                            src="{{.Data.Recipe.Author.Avatar | default "/static/img/default-avatar.jpg"}}" 
+                            alt="{{.Data.Recipe.Author.Name}}"
+                            style="width: 3rem; height: 3rem; border-radius: 50%; object-fit: cover;"
+                        >
+                        <div>
+                            <div style="font-weight: 600;">
+                                <a href="/profile/{{.Data.Recipe.Author.ID}}" style="color: #1a202c; text-decoration: none;">
+                                    {{.Data.Recipe.Author.Name}}
+                                </a>
+                            </div>
+                            <div style="color: #718096; font-size: 0.875rem;">
+                                {{if .Data.Recipe.Author.Profile.CookingLevel}}{{.Data.Recipe.Author.Profile.CookingLevel | title}} Chef{{end}}
+                                • Published {{.Data.Recipe.CreatedAt | timeAgo}}
+                            </div>
+                        </div>
+                        {{if ne .Data.CurrentUser.ID .Data.Recipe.Author.ID}}
+                        <button 
+                            class="btn btn-sm {{if .Data.IsFollowing}}btn-secondary{{else}}btn-primary{{end}}"
+                            hx-post="/htmx/users/{{.Data.Recipe.Author.ID}}/follow"
+                            hx-target="this"
+                            hx-swap="outerHTML"
+                            style="margin-left: auto;"
+                        >
+                            {{if .Data.IsFollowing}}Following{{else}}Follow{{end}}
+                        </button>
+                        {{end}}
+                    </div>
+
+                    <!-- Recipe Meta -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #4f46e5;">{{.Data.Recipe.Servings}}</div>
+                            <div style="color: #718096; font-size: 0.875rem;">Servings</div>
+                        </div>
+                        <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #059669;">{{.Data.Recipe.PrepTimeMinutes}}</div>
+                            <div style="color: #718096; font-size: 0.875rem;">Prep (min)</div>
+                        </div>
+                        <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #dc2626;">{{.Data.Recipe.CookTimeMinutes}}</div>
+                            <div style="color: #718096; font-size: 0.875rem;">Cook (min)</div>
+                        </div>
+                        <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #7c3aed;">{{.Data.Recipe.Difficulty | title}}</div>
+                            <div style="color: #718096; font-size: 0.875rem;">Difficulty</div>
+                        </div>
+                        {{if .Data.Recipe.Calories}}
+                        <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #f59e0b;">{{.Data.Recipe.Calories}}</div>
+                            <div style="color: #718096; font-size: 0.875rem;">Calories</div>
+                        </div>
+                        {{end}}
+                    </div>
+
+                    <!-- Tags -->
+                    {{if .Data.Recipe.Tags}}
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                            {{range .Data.Recipe.Tags}}
+                            <span class="tag" style="background: #e2e8f0; color: #4a5568; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem;">
+                                #{{.}}
+                            </span>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+
+                    <!-- Social Actions -->
+                    <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem 0; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
+                        <!-- Like Button -->
+                        <button 
+                            class="btn btn-sm {{if .Data.IsLiked}}btn-primary{{else}}btn-secondary{{end}}"
+                            hx-post="/htmx/recipes/{{.Data.Recipe.ID}}/like"
+                            hx-target="this"
+                            hx-swap="outerHTML"
+                            style="display: flex; align-items: center; gap: 0.5rem;"
+                        >
+                            {{if .Data.IsLiked}}❤️{{else}}🤍{{end}}
+                            <span>{{.Data.Recipe.Likes}}</span>
+                        </button>
+
+                        <!-- Save to Collection -->
+                        <button 
+                            class="btn btn-sm btn-secondary"
+                            hx-get="/htmx/recipes/{{.Data.Recipe.ID}}/save"
+                            hx-target="#save-modal"
+                            style="display: flex; align-items: center; gap: 0.5rem;"
+                        >
+                            📋 Save
+                        </button>
+
+                        <!-- Share -->
+                        <button 
+                            class="btn btn-sm btn-secondary"
+                            onclick="shareRecipe()"
+                            style="display: flex; align-items: center; gap: 0.5rem;"
+                        >
+                            🔗 Share
+                        </button>
+
+                        <!-- Print -->
+                        <button 
+                            class="btn btn-sm btn-secondary"
+                            onclick="printRecipe()"
+                            style="display: flex; align-items: center; gap: 0.5rem;"
+                        >
+                            🖨️ Print
+                        </button>
+
+                        <!-- Rating Display -->
+                        <div style="margin-left: auto; display: flex; align-items: center; gap: 0.5rem;">
+                            <div class="rating-display">
+                                {{range $i := iterate 5}}
+                                <span style="color: {{if lt $i $.Data.Recipe.AverageRating}}#f59e0b{{else}}#e5e7eb{{end}};">★</span>
+                                {{end}}
+                            </div>
+                            <span style="color: #718096; font-size: 0.875rem;">
+                                {{printf "%.1f" .Data.Recipe.AverageRating}} ({{.Data.Recipe.RatingsCount}} reviews)
+                            </span>
+                        </div>
+
+                        <!-- Edit Button (for recipe author) -->
+                        {{if eq .Data.CurrentUser.ID .Data.Recipe.Author.ID}}
+                        <a href="/recipes/{{.Data.Recipe.ID}}/edit" class="btn btn-sm btn-secondary">
+                            ✏️ Edit
+                        </a>
+                        {{end}}
+                    </div>
+                </div>
+
+                <!-- Recipe Image -->
+                <div style="min-width: 300px;">
+                    {{if .Data.Recipe.Images}}
+                    <img 
+                        src="{{index .Data.Recipe.Images 0}}" 
+                        alt="{{.Data.Recipe.Title}}"
+                        style="width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 0.75rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"
+                    >
+                    {{else}}
+                    <div style="width: 100%; aspect-ratio: 4/3; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; color: white; font-size: 3rem;">
+                        🍽️
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Recipe Content -->
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: start;">
+        <!-- Ingredients -->
+        <section class="card ingredients-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2>Ingredients</h2>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <label for="servings-adjuster" style="font-size: 0.875rem; color: #718096;">Servings:</label>
+                    <select id="servings-adjuster" class="form-input form-select" style="width: auto; min-width: 80px;" onchange="adjustServings(this.value)">
+                        {{range $i := iterate 12}}
+                        <option value="{{add $i 1}}" {{if eq (add $i 1) $.Data.Recipe.Servings}}selected{{end}}>{{add $i 1}}</option>
+                        {{end}}
+                    </select>
+                </div>
+            </div>
+
+            <div class="ingredients-list">
+                {{range $index, $ingredient := .Data.Recipe.Ingredients}}
+                <div class="ingredient-item" style="display: flex; align-items: center; gap: 1rem; padding: 0.75rem; border-radius: 0.5rem; margin-bottom: 0.5rem; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#f8f9fa'" onmouseout="this.style.backgroundColor='transparent'">
+                    <input 
+                        type="checkbox" 
+                        id="ingredient-{{$index}}"
+                        class="ingredient-checkbox"
+                        style="width: 1.25rem; height: 1.25rem;"
+                        onchange="toggleIngredient(this)"
+                    >
+                    <label for="ingredient-{{$index}}" style="flex: 1; cursor: pointer; display: flex; justify-content: space-between;">
+                        <span class="ingredient-name">{{$ingredient.Name}}</span>
+                        <span class="ingredient-amount" style="color: #718096; font-weight: 600;" data-original="{{$ingredient.Amount}}">
+                            {{$ingredient.Amount}} {{$ingredient.Unit}}
+                        </span>
+                    </label>
+                </div>
+                {{end}}
+            </div>
+
+            <!-- AI Shopping List -->
+            <div style="margin-top: 1.5rem; padding: 1rem; background: #f0f7ff; border: 1px solid #bfdbfe; border-radius: 0.5rem;">
+                <button 
+                    class="btn btn-primary"
+                    hx-post="/htmx/recipes/{{.Data.Recipe.ID}}/shopping-list"
+                    hx-target="#shopping-list-modal"
+                    style="width: 100%;"
+                >
+                    🛒 Generate Smart Shopping List
+                </button>
+                <p style="margin-top: 0.5rem; color: #1e40af; font-size: 0.875rem; text-align: center;">
+                    AI will organize ingredients by store section and suggest substitutions
+                </p>
+            </div>
+        </section>
+
+        <!-- Instructions -->
+        <section class="card instructions-section">
+            <h2 style="margin-bottom: 1.5rem;">Instructions</h2>
+            
+            <div class="instructions-list">
+                {{range $index, $instruction := .Data.Recipe.Instructions}}
+                <div class="instruction-step" style="display: flex; gap: 1rem; margin-bottom: 2rem; align-items: start;">
+                    <div style="background: #4f46e5; color: white; border-radius: 50%; width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; margin-top: 0.25rem;">
+                        {{add $index 1}}
+                    </div>
+                    <div style="flex: 1;">
+                        <div class="instruction-text" style="line-height: 1.7; margin-bottom: 0.5rem;">
+                            {{$instruction.Description}}
+                        </div>
+                        {{if $instruction.Duration}}
+                        <div style="color: #718096; font-size: 0.875rem;">
+                            ⏱️ {{$instruction.Duration}} minutes
+                        </div>
+                        {{end}}
+                        {{if or $instruction.Temperature $instruction.TemperatureUnit}}
+                        <div style="color: #718096; font-size: 0.875rem;">
+                            🌡️ {{$instruction.Temperature}}°{{$instruction.TemperatureUnit}}
+                        </div>
+                        {{end}}
+                    </div>
+                    <input 
+                        type="checkbox" 
+                        class="step-checkbox"
+                        style="width: 1.25rem; height: 1.25rem; margin-top: 0.5rem;"
+                        onchange="toggleStep(this)"
+                    >
+                </div>
+                {{end}}
+            </div>
+
+            <!-- Cooking Timer -->
+            <div style="margin-top: 2rem; padding: 1rem; background: #fef3c7; border: 1px solid #fbbf24; border-radius: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; color: #92400e;">Cooking Timer</h3>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input 
+                            type="number" 
+                            id="timer-minutes"
+                            class="form-input"
+                            placeholder="Minutes"
+                            style="width: 80px;"
+                        >
+                        <button class="btn btn-sm btn-secondary" onclick="startTimer()">Start</button>
+                        <button class="btn btn-sm btn-secondary" onclick="stopTimer()">Stop</button>
+                    </div>
+                </div>
+                <div id="timer-display" style="font-size: 1.5rem; font-weight: bold; color: #92400e; text-align: center; margin-top: 0.5rem; display: none;">
+                    00:00
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Nutrition Info -->
+    {{if .Data.Recipe.NutritionInfo}}
+    <section class="card" style="margin-top: 2rem;">
+        <h2 style="margin-bottom: 1.5rem;">Nutrition Information</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem;">
+            {{range $key, $value := .Data.Recipe.NutritionInfo}}
+            <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
+                <div style="font-size: 1.25rem; font-weight: bold; color: #4f46e5;">{{$value}}</div>
+                <div style="color: #718096; font-size: 0.875rem; text-transform: capitalize;">{{$key}}</div>
+            </div>
+            {{end}}
+        </div>
+        <p style="margin-top: 1rem; color: #718096; font-size: 0.875rem; text-align: center;">
+            * Nutritional values are estimates and may vary based on cooking methods and brands of ingredients used.
+        </p>
+    </section>
+    {{end}}
+
+    <!-- Reviews and Comments -->
+    <section class="card" style="margin-top: 2rem;">
+        <h2 style="margin-bottom: 1.5rem;">Reviews & Comments</h2>
+        
+        <!-- Add Review Form -->
+        {{if .Data.CurrentUser}}
+        <div style="margin-bottom: 2rem; padding: 1.5rem; background: #f8f9fa; border-radius: 0.75rem;">
+            <h3 style="margin-bottom: 1rem;">Share Your Experience</h3>
+            <form hx-post="/htmx/recipes/{{.Data.Recipe.ID}}/review" hx-target="#reviews-list" hx-swap="afterbegin">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                    <label style="font-weight: 600;">Your Rating:</label>
+                    <div class="rating-input" style="display: flex; gap: 0.25rem;">
+                        {{range $i := iterate 5}}
+                        <button type="button" class="star-btn" data-rating="{{add $i 1}}" style="background: none; border: none; font-size: 1.5rem; color: #e5e7eb; cursor: pointer; transition: color 0.2s;" onclick="setRating({{add $i 1}})">★</button>
+                        {{end}}
+                    </div>
+                    <input type="hidden" name="rating" id="rating-value" required>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <textarea 
+                        name="comment" 
+                        class="form-input form-textarea"
+                        placeholder="Tell others about your experience with this recipe..."
+                        style="height: 100px;"
+                        required
+                    ></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit Review</button>
+            </form>
+        </div>
+        {{else}}
+        <div style="margin-bottom: 2rem; padding: 1.5rem; background: #f8f9fa; border-radius: 0.75rem; text-align: center;">
+            <p style="color: #718096; margin-bottom: 1rem;">Want to share your experience with this recipe?</p>
+            <a href="/login" class="btn btn-primary">Login to Review</a>
+        </div>
+        {{end}}
+
+        <!-- Reviews List -->
+        <div id="reviews-list">
+            {{range .Data.Recipe.Reviews}}
+            <div class="review-item" style="padding: 1.5rem; border: 1px solid #e2e8f0; border-radius: 0.75rem; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <img 
+                            src="{{.User.Avatar | default "/static/img/default-avatar.jpg"}}" 
+                            alt="{{.User.Name}}"
+                            style="width: 3rem; height: 3rem; border-radius: 50%; object-fit: cover;"
+                        >
+                        <div>
+                            <div style="font-weight: 600;">{{.User.Name}}</div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div class="rating-display">
+                                    {{range $i := iterate 5}}
+                                    <span style="color: {{if lt $i $.Value}}#f59e0b{{else}}#e5e7eb{{end}}; font-size: 0.875rem;">★</span>
+                                    {{end}}
+                                </div>
+                                <span style="color: #718096; font-size: 0.875rem;">{{.CreatedAt | timeAgo}}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p style="line-height: 1.6; color: #4a5568;">{{.Comment}}</p>
+            </div>
+            {{else}}
+            <div style="text-align: center; padding: 2rem; color: #718096;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">💬</div>
+                <p>No reviews yet. Be the first to share your experience!</p>
+            </div>
+            {{end}}
+        </div>
+    </section>
+
+    <!-- Related Recipes -->
+    {{if .Data.RelatedRecipes}}
+    <section style="margin-top: 3rem;">
+        <h2 style="margin-bottom: 1.5rem;">You Might Also Like</h2>
+        <div class="recipe-grid">
+            {{range .Data.RelatedRecipes}}
+            {{template "recipe-card" .}}
+            {{end}}
+        </div>
+    </section>
+    {{end}}
+</div>
+
+<!-- Modals -->
+<div id="save-modal"></div>
+<div id="shopping-list-modal"></div>
+
+<style>
+.ingredient-checkbox:checked + label .ingredient-name {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.step-checkbox:checked ~ * {
+    opacity: 0.6;
+}
+
+.star-btn:hover,
+.star-btn.active {
+    color: #f59e0b !important;
+}
+
+@media print {
+    .social-actions, .reviews-section, nav, footer {
+        display: none !important;
+    }
+    
+    .recipe-content {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .ingredients-section, .instructions-section {
+        break-inside: avoid;
+    }
+}
+</style>
+
+<script>
+let timerInterval;
+let timerSeconds = 0;
+
+// Adjust serving sizes
+function adjustServings(newServings) {
+    const originalServings = {{.Data.Recipe.Servings}};
+    const ratio = newServings / originalServings;
+    
+    document.querySelectorAll('.ingredient-amount').forEach(element => {
+        const original = parseFloat(element.dataset.original) || 0;
+        if (original > 0) {
+            const adjusted = (original * ratio).toFixed(2);
+            element.textContent = adjusted + element.textContent.split(' ').slice(1).join(' ');
+        }
+    });
+}
+
+// Toggle ingredient completion
+function toggleIngredient(checkbox) {
+    const label = checkbox.nextElementSibling;
+    if (checkbox.checked) {
+        label.style.opacity = '0.6';
+        label.querySelector('.ingredient-name').style.textDecoration = 'line-through';
+    } else {
+        label.style.opacity = '1';
+        label.querySelector('.ingredient-name').style.textDecoration = 'none';
+    }
+}
+
+// Toggle step completion
+function toggleStep(checkbox) {
+    const step = checkbox.closest('.instruction-step');
+    if (checkbox.checked) {
+        step.style.opacity = '0.6';
+        step.querySelector('.instruction-text').style.textDecoration = 'line-through';
+    } else {
+        step.style.opacity = '1';
+        step.querySelector('.instruction-text').style.textDecoration = 'none';
+    }
+}
+
+// Rating functionality
+function setRating(rating) {
+    document.getElementById('rating-value').value = rating;
+    
+    document.querySelectorAll('.star-btn').forEach((btn, index) => {
+        if (index < rating) {
+            btn.classList.add('active');
+            btn.style.color = '#f59e0b';
+        } else {
+            btn.classList.remove('active');
+            btn.style.color = '#e5e7eb';
+        }
+    });
+}
+
+// Timer functionality
+function startTimer() {
+    const minutes = parseInt(document.getElementById('timer-minutes').value) || 0;
+    if (minutes <= 0) return;
+    
+    timerSeconds = minutes * 60;
+    document.getElementById('timer-display').style.display = 'block';
+    
+    timerInterval = setInterval(() => {
+        const mins = Math.floor(timerSeconds / 60);
+        const secs = timerSeconds % 60;
+        document.getElementById('timer-display').textContent = 
+            `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        
+        if (timerSeconds <= 0) {
+            clearInterval(timerInterval);
+            alert('Timer finished! ⏰');
+            document.getElementById('timer-display').textContent = '00:00';
+        } else {
+            timerSeconds--;
+        }
+    }, 1000);
+}
+
+function stopTimer() {
+    clearInterval(timerInterval);
+    document.getElementById('timer-display').style.display = 'none';
+    document.getElementById('timer-minutes').value = '';
+}
+
+// Share functionality
+function shareRecipe() {
+    if (navigator.share) {
+        navigator.share({
+            title: '{{.Data.Recipe.Title}}',
+            text: '{{.Data.Recipe.Description}}',
+            url: window.location.href
+        });
+    } else {
+        // Fallback: copy to clipboard
+        navigator.clipboard.writeText(window.location.href).then(() => {
+            alert('Recipe link copied to clipboard!');
+        });
+    }
+}
+
+// Print functionality
+function printRecipe() {
+    window.print();
+}
+
+// Track recipe view
+document.addEventListener('DOMContentLoaded', function() {
+    // Send view event
+    fetch('/htmx/recipes/{{.Data.Recipe.ID}}/view', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            referrer: document.referrer,
+            timestamp: new Date().toISOString()
+        })
+    });
+});
+</script>
+{{end}}

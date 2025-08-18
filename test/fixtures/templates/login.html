@@ -1,0 +1,159 @@
+{{define "content"}}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
+    <div class="card" style="width: 100%; max-width: 400px;">
+        <h2 style="text-align: center; margin-bottom: 2rem;">Login to Alchemorsel</h2>
+        
+        {{if .error}}
+        <div class="error" role="alert" aria-live="polite">
+            {{.error}}
+        </div>
+        {{end}}
+        
+        <form method="POST" action="/auth/login" 
+              hx-post="/auth/login" 
+              hx-target="#login-form"
+              hx-swap="outerHTML"
+              id="login-form">
+            
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" 
+                       id="email" 
+                       name="email" 
+                       required 
+                       autocomplete="email"
+                       aria-describedby="email-help"
+                       placeholder="Enter your email">
+                <small id="email-help" class="sr-only">Enter the email address associated with your account</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" 
+                       id="password" 
+                       name="password" 
+                       required 
+                       autocomplete="current-password"
+                       aria-describedby="password-help"
+                       placeholder="Enter your password">
+                <small id="password-help" class="sr-only">Enter your account password</small>
+            </div>
+            
+            <div class="form-group" style="display: flex; align-items: center; margin-bottom: 20px;">
+                <input type="checkbox" 
+                       id="remember" 
+                       name="remember" 
+                       style="width: auto; margin-right: 8px;">
+                <label for="remember" style="margin-bottom: 0; font-weight: normal;">Remember me</label>
+            </div>
+            
+            <button type="submit" 
+                    class="btn btn-success" 
+                    style="width: 100%; margin-bottom: 15px;"
+                    aria-describedby="login-help">
+                <span class="htmx-indicator">Logging in...</span>
+                <span>Login</span>
+            </button>
+            
+            <div id="login-help" class="sr-only">Click to log into your account</div>
+        </form>
+        
+        <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+            <p style="margin-bottom: 10px;">Don't have an account?</p>
+            <a href="/register" class="btn" style="text-decoration: none; display: inline-block;">Create Account</a>
+        </div>
+        
+        <div style="text-align: center; margin-top: 15px;">
+            <a href="/forgot-password" style="color: #6c757d; text-decoration: none; font-size: 14px;">Forgot your password?</a>
+        </div>
+    </div>
+</div>
+
+<!-- Demo Credentials for Testing -->
+<div class="card" style="background: #e8f4fd; border: 1px solid #bee5eb; margin-top: 20px;">
+    <h4 style="color: #0c5460; margin-bottom: 10px;">Demo Account</h4>
+    <p style="color: #0c5460; margin-bottom: 10px;">For testing purposes, you can use:</p>
+    <ul style="color: #0c5460; margin: 0;">
+        <li>Email: <code>test@example.com</code></li>
+        <li>Password: <code>password123</code></li>
+    </ul>
+</div>
+
+<!-- Accessibility Features -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Enhance form accessibility
+    const form = document.getElementById('login-form');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    
+    // Add live validation feedback
+    emailInput.addEventListener('blur', function() {
+        if (this.validity.typeMismatch) {
+            this.setAttribute('aria-invalid', 'true');
+            this.setAttribute('aria-describedby', 'email-error');
+            
+            let errorElement = document.getElementById('email-error');
+            if (!errorElement) {
+                errorElement = document.createElement('div');
+                errorElement.id = 'email-error';
+                errorElement.className = 'error';
+                errorElement.setAttribute('role', 'alert');
+                errorElement.textContent = 'Please enter a valid email address';
+                this.parentNode.appendChild(errorElement);
+            }
+        } else {
+            this.removeAttribute('aria-invalid');
+            const errorElement = document.getElementById('email-error');
+            if (errorElement) {
+                errorElement.remove();
+            }
+        }
+    });
+    
+    passwordInput.addEventListener('blur', function() {
+        if (this.value.length > 0 && this.value.length < 8) {
+            this.setAttribute('aria-invalid', 'true');
+            this.setAttribute('aria-describedby', 'password-error');
+            
+            let errorElement = document.getElementById('password-error');
+            if (!errorElement) {
+                errorElement = document.createElement('div');
+                errorElement.id = 'password-error';
+                errorElement.className = 'error';
+                errorElement.setAttribute('role', 'alert');
+                errorElement.textContent = 'Password must be at least 8 characters long';
+                this.parentNode.appendChild(errorElement);
+            }
+        } else {
+            this.removeAttribute('aria-invalid');
+            const errorElement = document.getElementById('password-error');
+            if (errorElement) {
+                errorElement.remove();
+            }
+        }
+    });
+    
+    // Focus management for HTMX responses
+    document.addEventListener('htmx:afterSwap', function(event) {
+        if (event.target.id === 'login-form') {
+            // If there's an error, focus on the first invalid field
+            const errorElement = event.target.querySelector('.error');
+            if (errorElement) {
+                const firstInput = event.target.querySelector('input');
+                if (firstInput) {
+                    firstInput.focus();
+                }
+            }
+        }
+    });
+});
+</script>
+
+<!-- Progressive Enhancement Notice -->
+<noscript>
+    <div class="card" style="border-left: 4px solid #17a2b8; background: #e6fffa;">
+        <p><strong>JavaScript Disabled:</strong> The login form will work without JavaScript using traditional form submission. Enable JavaScript for enhanced interactions.</p>
+    </div>
+</noscript>
+{{end}}

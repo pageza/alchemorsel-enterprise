@@ -1,0 +1,56 @@
+# Development Dockerfile with hot reload and debugging tools
+FROM golang:1.22-alpine AS development
+
+# Install development dependencies
+RUN apk add --no-cache \
+    git \
+    ca-certificates \
+    tzdata \
+    air \
+    delve \
+    gcc \
+    musl-dev
+
+# Install air for hot reload
+RUN go install github.com/cosmtrek/air@latest
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Expose ports (app, debug, metrics)
+EXPOSE 8080 2345 9090
+
+# Environment variables for development
+ENV GO_ENV=development
+ENV GIN_MODE=debug
+ENV AIR_CONFIG=.air.toml
+
+# Create air config
+RUN echo 'root = "."' > .air.toml && \
+    echo 'testdata_dir = "testdata"' >> .air.toml && \
+    echo 'tmp_dir = "tmp"' >> .air.toml && \
+    echo '' >> .air.toml && \
+    echo '[build]' >> .air.toml && \
+    echo '  cmd = "go build -o ./tmp/main cmd/api/main.go"' >> .air.toml && \
+    echo '  bin = "tmp/main"' >> .air.toml && \
+    echo '  full_bin = "dlv exec ./tmp/main --headless --listen=:2345 --api-version=2 --accept-multiclient"' >> .air.toml && \
+    echo '  include_ext = ["go", "tpl", "tmpl", "html", "yaml", "yml"]' >> .air.toml && \
+    echo '  exclude_dir = ["assets", "tmp", "vendor", "testdata"]' >> .air.toml && \
+    echo '  include_dir = []' >> .air.toml && \
+    echo '  exclude_file = []' >> .air.toml && \
+    echo '  delay = 1000' >> .air.toml && \
+    echo '  stop_on_error = false' >> .air.toml && \
+    echo '  send_interrupt = false' >> .air.toml && \
+    echo '  kill_delay = 500' >> .air.toml
+
+# Run with hot reload
+CMD ["air", "-c", ".air.toml"]

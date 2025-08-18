@@ -1,0 +1,58 @@
+{{define "rating-display"}}
+<div class="rating-display" style="display: flex; align-items: center; gap: 0.5rem;">
+    <div class="stars" style="color: #f59e0b;">
+        {{range $i := (seq 1 6)}}
+        <button 
+            type="button"
+            class="star-button"
+            data-rating="{{$i}}"
+            style="background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0; color: {{if le $i $.rating}}#f59e0b{{else}}#d1d5db{{end}};"
+            hx-post="/htmx/recipes/{{$.id}}/rating"
+            hx-vals='{"rating": "{{$i}}"}'
+            hx-target="this"
+            hx-swap="none"
+            onclick="updateRatingDisplay(this, {{$i}})"
+            title="Rate {{$i}} star{{if ne $i 1}}s{{end}}"
+            aria-label="Rate {{$i}} star{{if ne $i 1}}s{{end}}"
+        >
+            ★
+        </button>
+        {{end}}
+    </div>
+    
+    <span style="color: #6b7280; font-size: 0.875rem;">
+        {{if .average}}
+        {{.average}} / 5.0
+        {{else}}
+        Not rated yet
+        {{end}}
+    </span>
+    
+    <span style="color: #9ca3af; font-size: 0.75rem;" id="rating-feedback">
+        {{if .rating}}Your rating: {{.rating}} star{{if ne .rating 1}}s{{end}}{{end}}
+    </span>
+</div>
+
+<script>
+function updateRatingDisplay(element, rating) {
+    const stars = element.closest('.rating-display').querySelectorAll('.star-button');
+    const feedback = element.closest('.rating-display').querySelector('#rating-feedback');
+    
+    stars.forEach((star, index) => {
+        if (index < rating) {
+            star.style.color = '#f59e0b';
+        } else {
+            star.style.color = '#d1d5db';
+        }
+    });
+    
+    feedback.textContent = `Your rating: ${rating} star${rating !== 1 ? 's' : ''}`;
+    
+    // Announce to screen readers
+    const announcer = document.getElementById('announcer');
+    if (announcer) {
+        announcer.textContent = `Rated ${rating} out of 5 stars`;
+    }
+}
+</script>
+{{end}}

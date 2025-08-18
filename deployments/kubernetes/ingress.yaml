@@ -1,0 +1,155 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alchemorsel-ingress
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: alchemorsel-platform
+  annotations:
+    # NGINX Ingress Controller annotations
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit: "1000"
+    nginx.ingress.kubernetes.io/rate-limit-burst: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    
+    # Security headers
+    nginx.ingress.kubernetes.io/custom-http-errors: "404,503"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: SAMEORIGIN";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self';";
+    
+    # Performance optimizations
+    nginx.ingress.kubernetes.io/enable-compression: "true"
+    nginx.ingress.kubernetes.io/enable-brotli: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-buffering: "on"
+    
+    # Load balancing
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
+    nginx.ingress.kubernetes.io/load-balance: "round_robin"
+    
+    # Health checks
+    nginx.ingress.kubernetes.io/health-check-path: "/health"
+    nginx.ingress.kubernetes.io/health-check-timeout: "5"
+    
+    # Certificate management (Let's Encrypt)
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/acme-challenge-type: http01
+    
+    # AWS ALB annotations (alternative to NGINX)
+    # kubernetes.io/ingress.class: "alb"
+    # alb.ingress.kubernetes.io/scheme: internet-facing
+    # alb.ingress.kubernetes.io/target-type: ip
+    # alb.ingress.kubernetes.io/healthcheck-path: "/health"
+    # alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    # alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    # alb.ingress.kubernetes.io/success-codes: "200"
+    # alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    # alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - alchemorsel.com
+    - www.alchemorsel.com
+    - api.alchemorsel.com
+    secretName: alchemorsel-tls
+  rules:
+  - host: alchemorsel.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: alchemorsel-api-service
+            port:
+              number: 80
+  - host: www.alchemorsel.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: alchemorsel-api-service
+            port:
+              number: 80
+  - host: api.alchemorsel.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: alchemorsel-api-service
+            port:
+              number: 80
+---
+# Dedicated ingress for monitoring (internal access only)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alchemorsel-monitoring-ingress
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: alchemorsel-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: monitoring-auth
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required - Monitoring'
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - monitoring.alchemorsel.com
+    secretName: alchemorsel-tls
+  rules:
+  - host: monitoring.alchemorsel.com
+    http:
+      paths:
+      - path: /metrics
+        pathType: Prefix
+        backend:
+          service:
+            name: alchemorsel-api-service
+            port:
+              number: 9090
+      - path: /grafana
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana-service
+            port:
+              number: 3000
+      - path: /prometheus
+        pathType: Prefix
+        backend:
+          service:
+            name: prometheus-service
+            port:
+              number: 9090
+      - path: /jaeger
+        pathType: Prefix
+        backend:
+          service:
+            name: jaeger-query-service
+            port:
+              number: 16686

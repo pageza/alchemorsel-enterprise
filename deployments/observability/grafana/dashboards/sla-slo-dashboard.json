@@ -1,0 +1,261 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Alchemorsel v3 - SLA/SLO Dashboard",
+    "tags": ["alchemorsel", "sla", "slo", "reliability"],
+    "style": "dark",
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Availability (99.9% SLA)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "avg_over_time(up{job=\"alchemorsel-api\"}[30d])",
+            "legendFormat": "30-day Availability"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0.99,
+            "max": 1,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 0.999},
+                {"color": "green", "value": 0.9999}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Request Success Rate (99.5% SLO)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "1 - (rate(http_requests_total{job=\"alchemorsel-api\",status_code=~\"5..\"}[30d]) / rate(http_requests_total{job=\"alchemorsel-api\"}[30d]))",
+            "legendFormat": "30-day Success Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0.99,
+            "max": 1,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 0.995},
+                {"color": "green", "value": 0.999}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Response Time P95 (<100ms SLO)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"alchemorsel-api\"}[30d]))",
+            "legendFormat": "30-day P95"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "max": 0.2,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.1},
+                {"color": "red", "value": 0.15}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Error Budget Remaining",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "1 - ((rate(http_requests_total{job=\"alchemorsel-api\",status_code=~\"5..\"}[30d]) / rate(http_requests_total{job=\"alchemorsel-api\"}[30d])) / 0.005)",
+            "legendFormat": "Error Budget"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 0.2},
+                {"color": "green", "value": 0.5}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "id": 5,
+        "title": "Availability Trend (7 days)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "avg_over_time(up{job=\"alchemorsel-api\"}[1h])",
+            "legendFormat": "Availability"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Availability",
+            "min": 0.99,
+            "max": 1
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 0.999,
+            "colorMode": "critical",
+            "op": "lt"
+          }
+        ],
+        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Error Rate Trend (7 days)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"alchemorsel-api\",status_code=~\"5..\"}[1h]) / rate(http_requests_total{job=\"alchemorsel-api\"}[1h])",
+            "legendFormat": "Error Rate"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Error Rate",
+            "min": 0,
+            "max": 0.01
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 0.005,
+            "colorMode": "critical",
+            "op": "gt"
+          }
+        ],
+        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 7,
+        "title": "SLO Burn Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "(rate(http_requests_total{job=\"alchemorsel-api\",status_code=~\"5..\"}[1h]) / rate(http_requests_total{job=\"alchemorsel-api\"}[1h])) / 0.005",
+            "legendFormat": "1h Burn Rate"
+          },
+          {
+            "expr": "(rate(http_requests_total{job=\"alchemorsel-api\",status_code=~\"5..\"}[6h]) / rate(http_requests_total{job=\"alchemorsel-api\"}[6h])) / 0.005",
+            "legendFormat": "6h Burn Rate"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Burn Rate",
+            "min": 0
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "query": {"params": ["A", "1m", "now"]},
+              "reducer": {"params": [], "type": "last"},
+              "evaluator": {"params": [14.4], "type": "gt"}
+            }
+          ],
+          "executionErrorState": "alerting",
+          "for": "2m",
+          "frequency": "10s",
+          "handler": 1,
+          "name": "High SLO Burn Rate",
+          "noDataState": "no_data",
+          "notifications": []
+        },
+        "gridPos": {"h": 9, "w": 24, "x": 0, "y": 17}
+      },
+      {
+        "id": 8,
+        "title": "Request Latency Distribution",
+        "type": "heatmap",
+        "targets": [
+          {
+            "expr": "rate(http_request_duration_seconds_bucket{job=\"alchemorsel-api\"}[5m])",
+            "format": "heatmap",
+            "legendFormat": "{{le}}"
+          }
+        ],
+        "heatmap": {
+          "xBucketSize": null,
+          "yBucketSize": null,
+          "yBucketBound": "auto"
+        },
+        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 26}
+      },
+      {
+        "id": 9,
+        "title": "Critical Business Metrics",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "increase(recipes_created_total{job=\"alchemorsel-api\"}[1d])",
+            "legendFormat": "Daily Recipe Creation"
+          },
+          {
+            "expr": "increase(users_registered_total{job=\"alchemorsel-api\"}[1d])",
+            "legendFormat": "Daily User Registration"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Count",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 26}
+      }
+    ],
+    "time": {
+      "from": "now-7d",
+      "to": "now"
+    },
+    "refresh": "1m"
+  }
+}
