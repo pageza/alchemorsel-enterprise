@@ -1,0 +1,224 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: alchemorsel-postgres
+    environment:
+      POSTGRES_DB: alchemorsel_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - alchemorsel-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: alchemorsel-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - alchemorsel-network
+
+  # Pure JSON API Backend Service
+  api-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: alchemorsel-api-backend
+    environment:
+      # Application settings
+      ALCHEMORSEL_APP_ENVIRONMENT: development
+      ALCHEMORSEL_SERVER_PORT: 3000
+      
+      # Database configuration
+      ALCHEMORSEL_DATABASE_HOST: postgres
+      ALCHEMORSEL_DATABASE_PORT: 5432
+      ALCHEMORSEL_DATABASE_DATABASE: alchemorsel_dev
+      ALCHEMORSEL_DATABASE_USERNAME: postgres
+      ALCHEMORSEL_DATABASE_PASSWORD: postgres
+      ALCHEMORSEL_DATABASE_SSL_MODE: disable
+      
+      # Redis configuration
+      ALCHEMORSEL_REDIS_HOST: redis
+      ALCHEMORSEL_REDIS_PORT: 6379
+      ALCHEMORSEL_REDIS_DATABASE: 0
+      
+      # JWT configuration
+      ALCHEMORSEL_JWT_SECRET: your-super-secret-jwt-key-development-only
+      ALCHEMORSEL_JWT_EXPIRATION: 24h
+      
+      # AI Service configuration
+      ALCHEMORSEL_AI_PROVIDER: anthropic
+      ALCHEMORSEL_AI_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-sk-ant-test}
+      ALCHEMORSEL_AI_MAX_TOKENS: 4096
+      ALCHEMORSEL_AI_TEMPERATURE: 0.7
+      
+      # Monitoring
+      ALCHEMORSEL_MONITORING_JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+      ALCHEMORSEL_MONITORING_PROMETHEUS_ENABLED: true
+      
+      # CORS settings
+      ALCHEMORSEL_CORS_ALLOWED_ORIGINS: "http://localhost:8080,http://web-frontend:8080"
+      ALCHEMORSEL_CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
+      ALCHEMORSEL_CORS_ALLOWED_HEADERS: "Content-Type,Authorization,X-Requested-With"
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/api-server", "--health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - alchemorsel-network
+    restart: unless-stopped
+
+  # HTMX Web Frontend Service
+  web-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: alchemorsel-web-frontend
+    environment:
+      # Application settings
+      ALCHEMORSEL_APP_ENVIRONMENT: development
+      ALCHEMORSEL_SERVER_PORT: 8080
+      
+      # API Backend URL
+      API_URL: http://api-backend:3000
+      
+      # Session configuration
+      ALCHEMORSEL_SESSION_SECRET: your-super-secret-session-key-development-only
+      ALCHEMORSEL_SESSION_SECURE: false
+      ALCHEMORSEL_SESSION_MAX_AGE: 86400
+      
+      # Logging
+      ALCHEMORSEL_LOG_LEVEL: debug
+    ports:
+      - "8080:8080"
+    depends_on:
+      api-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/web-server", "--health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - alchemorsel-network
+    restart: unless-stopped
+
+  # Jaeger (Distributed Tracing)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: alchemorsel-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14250:14250"  # gRPC
+      - "14268:14268"  # HTTP
+    networks:
+      - alchemorsel-network
+
+  # Prometheus (Metrics)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: alchemorsel-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployments/docker/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - alchemorsel-network
+
+  # Grafana (Metrics Visualization)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: alchemorsel-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3001:3000"  # Changed from 3000 to avoid conflict with API
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployments/docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./deployments/docker/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - alchemorsel-network
+
+  # MinIO (S3-compatible storage for development)
+  minio:
+    image: minio/minio:latest
+    container_name: alchemorsel-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - alchemorsel-network
+
+  # Nginx Reverse Proxy (Optional - for production-like setup)
+  nginx:
+    image: nginx:alpine
+    container_name: alchemorsel-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deployments/docker/nginx.conf:/etc/nginx/nginx.conf
+      - ./deployments/docker/ssl:/etc/nginx/ssl
+    depends_on:
+      - api-backend
+      - web-frontend
+    networks:
+      - alchemorsel-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  minio_data:
+
+networks:
+  alchemorsel-network:
+    driver: bridge

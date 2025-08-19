@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/alchemorsel/v3/internal/domain/ai"
+	"github.com/alchemorsel/v3/internal/domain/recipe"
 	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -120,7 +121,7 @@ func (s *AIService) AnalyzeNutrition(ctx context.Context, ingredients []string) 
 }
 
 // GenerateDescription generates a description for a recipe
-func (s *AIService) GenerateDescription(ctx context.Context, recipe interface{}) (string, error) {
+func (s *AIService) GenerateDescription(ctx context.Context, rec *recipe.Recipe) (string, error) {
 	s.logger.Info("Generating recipe description")
 
 	// Mock description generation
@@ -138,7 +139,7 @@ func (s *AIService) GenerateDescription(ctx context.Context, recipe interface{})
 }
 
 // ClassifyRecipe classifies a recipe's cuisine, category, and difficulty
-func (s *AIService) ClassifyRecipe(ctx context.Context, recipe interface{}) (*outbound.RecipeClassification, error) {
+func (s *AIService) ClassifyRecipe(ctx context.Context, rec *recipe.Recipe) (*outbound.RecipeClassification, error) {
 	s.logger.Info("Classifying recipe")
 
 	// Mock classification

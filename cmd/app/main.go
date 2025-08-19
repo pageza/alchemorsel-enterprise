@@ -865,12 +865,100 @@ func seedDatabase() {
 
 func initTemplates() {
 	var err error
-	templates, err = template.ParseGlob("internal/infrastructure/http/server/templates/**/*.html")
+	
+	// Create template with custom functions
+	funcMap := template.FuncMap{
+		"default": func(def interface{}, val interface{}) interface{} {
+			if val == nil || val == "" {
+				return def
+			}
+			return val
+		},
+		"title": func(str string) string {
+			return strings.Title(str)
+		},
+		"iterate": func(count int) []int {
+			slice := make([]int, count)
+			for i := range slice {
+				slice[i] = i + 1
+			}
+			return slice
+		},
+		"sub": func(a, b int) int {
+			return a - b
+		},
+		"timeAgo": func(t time.Time) string {
+			duration := time.Since(t)
+			if duration < time.Minute {
+				return "just now"
+			}
+			if duration < time.Hour {
+				minutes := int(duration.Minutes())
+				if minutes == 1 {
+					return "1 minute ago"
+				}
+				return fmt.Sprintf("%d minutes ago", minutes)
+			}
+			if duration < 24*time.Hour {
+				hours := int(duration.Hours())
+				if hours == 1 {
+					return "1 hour ago"
+				}
+				return fmt.Sprintf("%d hours ago", hours)
+			}
+			days := int(duration.Hours() / 24)
+			if days == 1 {
+				return "1 day ago"
+			}
+			if days < 30 {
+				return fmt.Sprintf("%d days ago", days)
+			}
+			return t.Format("Jan 2, 2006")
+		},
+		"trimPrefix": func(s, prefix string) string {
+			return strings.TrimPrefix(s, prefix)
+		},
+		"formatDate": func(t time.Time, layout string) string {
+			return t.Format(layout)
+		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"join": func(elems []string, sep string) string {
+			return strings.Join(elems, sep)
+		},
+		"formatTime": func(t time.Time) string {
+			return t.Format("3:04 PM")
+		},
+		"contains": func(s, substr string) bool {
+			return strings.Contains(s, substr)
+		},
+		"urlQuery": func(s string) string {
+			return strings.ReplaceAll(s, " ", "+")
+		},
+		"seq": func(n int) []int {
+			seq := make([]int, n)
+			for i := range seq {
+				seq[i] = i
+			}
+			return seq
+		},
+		"truncate": func(s string, length int) string {
+			if len(s) <= length {
+				return s
+			}
+			return s[:length] + "..."
+		},
+	}
+	
+	templates = template.New("").Funcs(funcMap)
+	templates, err = templates.ParseGlob("internal/infrastructure/http/server/templates/**/*.html")
 	if err != nil {
-		templates, err = template.ParseGlob("internal/infrastructure/http/server/templates/*/*.html")
+		templates = template.New("").Funcs(funcMap)
+		templates, err = templates.ParseGlob("internal/infrastructure/http/server/templates/*/*.html")
 		if err != nil {
 			log.Printf("Warning: Could not load templates: %v", err)
-			templates = template.New("")
+			templates = template.New("").Funcs(funcMap)
 		}
 	}
 }

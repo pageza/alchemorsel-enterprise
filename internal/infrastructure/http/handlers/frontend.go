@@ -2,8 +2,9 @@
 package handlers
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
+	"html"
 	"html/template"
 	"net/http"
 	"strconv"
@@ -11,8 +12,10 @@ import (
 	"time"
 
 	"github.com/alchemorsel/v3/internal/application/user"
+	"github.com/alchemorsel/v3/internal/domain/recipe"
 	"github.com/alchemorsel/v3/internal/infrastructure/security"
 	"github.com/alchemorsel/v3/internal/ports/inbound"
+	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -20,11 +23,13 @@ import (
 
 // FrontendHandlers handles frontend HTMX requests
 type FrontendHandlers struct {
-	templates     *template.Template
-	recipeService inbound.RecipeService
-	userService   *user.UserService
-	authService   *security.AuthService
-	logger        *zap.Logger
+	templates       *template.Template
+	recipeService   inbound.RecipeService
+	userService     *user.UserService
+	authService     *security.AuthService
+	aiService       outbound.AIService
+	xssProtection   *security.XSSProtectionService
+	logger          *zap.Logger
 }
 
 // NewFrontendHandlers creates a new frontend handlers instance
@@ -33,6 +38,8 @@ func NewFrontendHandlers(
 	recipeService inbound.RecipeService,
 	userService *user.UserService,
 	authService *security.AuthService,
+	aiService outbound.AIService,
+	xssProtection *security.XSSProtectionService,
 	logger *zap.Logger,
 ) *FrontendHandlers {
 	return &FrontendHandlers{
@@ -40,6 +47,8 @@ func NewFrontendHandlers(
 		recipeService: recipeService,
 		userService:   userService,
 		authService:   authService,
+		aiService:     aiService,
+		xssProtection: xssProtection,
 		logger:        logger,
 	}
 }
@@ -394,25 +403,411 @@ func (h *FrontendHandlers) HandleDeleteRecipe(w http.ResponseWriter, r *http.Req
 
 // AI Chat handlers
 
-// HandleAIChat handles AI chat messages
+// HandleAIChat handles AI chat messages and generates recipes using AI
 func (h *FrontendHandlers) HandleAIChat(w http.ResponseWriter, r *http.Request) {
-	message := r.FormValue("message")
+	message := strings.TrimSpace(r.FormValue("message"))
 	
+	// Input validation
 	if message == "" {
 		h.renderError(w, "Message cannot be empty")
 		return
 	}
-
-	// TODO: Process with AI service
-	response := fmt.Sprintf("I understand you want help with: %s. Let me suggest some recipes!", message)
-
-	data := map[string]interface{}{
-		"message":  message,
-		"response": response,
-		"timestamp": time.Now(),
+	
+	// Check message length limit
+	if len(message) > 1000 {
+		h.renderError(w, "Message is too long. Please keep it under 1000 characters.")
+		return
+	}
+	
+	// Validate input for dangerous patterns using XSS protection
+	if err := h.xssProtection.ValidateInput(message); err != nil {
+		h.logger.Warn("XSS pattern detected in AI chat message",
+			zap.String("message", h.xssProtection.StripHTML(message)[:50]),
+			zap.String("ip", r.RemoteAddr),
+			zap.Error(err),
+		)
+		h.renderError(w, "Invalid input detected. Please remove any special characters or scripts.")
+		return
 	}
 
-	h.renderTemplate(w, "chat-message", data)
+	// Get user from request context
+	user := h.getUserFromRequest(r)
+
+	// Log the AI chat request with sanitized message
+	h.logger.Info("AI chat request received", 
+		zap.String("message", h.xssProtection.StripHTML(message)),
+		zap.String("user_id", getUserID(user)),
+	)
+
+	// Build user message HTML
+	userMessageHTML := h.buildUserMessageHTML(message, user)
+
+	// Check if this is a recipe generation request
+	if h.isRecipeRequest(message) {
+		if user == nil {
+			// User not logged in
+			aiResponseHTML := h.buildAuthRequiredResponse()
+			h.writeHTMLResponse(w, userMessageHTML+aiResponseHTML)
+			return
+		}
+
+		// Generate recipe using AI service
+		aiResponse := h.generateRecipeWithAI(r.Context(), message, user)
+		h.writeHTMLResponse(w, userMessageHTML+aiResponse)
+	} else {
+		// General cooking advice/conversation
+		aiResponse := h.generateCookingAdvice(message)
+		h.writeHTMLResponse(w, userMessageHTML+aiResponse)
+	}
+}
+
+// isRecipeRequest determines if the message is asking for recipe generation
+func (h *FrontendHandlers) isRecipeRequest(message string) bool {
+	lowerMessage := strings.ToLower(message)
+	recipeKeywords := []string{
+		"recipe", "create", "make", "cook", "generate", "suggest", 
+		"how to make", "i want to", "show me", "give me",
+	}
+	
+	for _, keyword := range recipeKeywords {
+		if strings.Contains(lowerMessage, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
+// generateRecipeWithAI uses the AI service to generate a recipe
+func (h *FrontendHandlers) generateRecipeWithAI(ctx context.Context, message string, user *user.UserDTO) string {
+	// Build AI constraints from the message
+	constraints := h.buildAIConstraints(message)
+	
+	// Call AI service to generate recipe
+	aiResponse, err := h.aiService.GenerateRecipe(ctx, message, constraints)
+	if err != nil {
+		h.logger.Error("Failed to generate recipe with AI", 
+			zap.Error(err),
+			zap.String("message", message),
+		)
+		return h.buildErrorResponse("I had trouble generating that recipe. Please try again with different ingredients or description.")
+	}
+
+	// For now, just return the AI response as text 
+	// TODO: Implement proper recipe creation and persistence
+	h.logger.Info("Generated AI recipe",
+		zap.String("title", aiResponse.Title),
+		zap.String("user_id", user.ID.String()),
+	)
+
+	// Build success response with AI data
+	return h.buildRecipeAIResponseText(aiResponse)
+}
+
+// buildAIConstraints extracts constraints from the user message
+func (h *FrontendHandlers) buildAIConstraints(message string) outbound.AIConstraints {
+	lowerMessage := strings.ToLower(message)
+	
+	constraints := outbound.AIConstraints{
+		ServingSize: 4, // default
+		SkillLevel:  "medium", // default
+	}
+
+	// Extract dietary requirements
+	dietaryKeywords := map[string]string{
+		"vegetarian": "vegetarian",
+		"vegan":      "vegan",
+		"gluten-free": "gluten-free",
+		"dairy-free": "dairy-free",
+		"low-carb":   "low-carb",
+		"keto":       "keto",
+		"healthy":    "healthy",
+	}
+	
+	for keyword, dietary := range dietaryKeywords {
+		if strings.Contains(lowerMessage, keyword) {
+			constraints.Dietary = append(constraints.Dietary, dietary)
+		}
+	}
+
+	// Extract cuisine
+	cuisineKeywords := map[string]string{
+		"italian":   "italian",
+		"mexican":   "mexican",
+		"asian":     "asian",
+		"indian":    "indian",
+		"french":    "french",
+		"thai":      "thai",
+		"chinese":   "chinese",
+		"japanese":  "japanese",
+	}
+	
+	for keyword, cuisine := range cuisineKeywords {
+		if strings.Contains(lowerMessage, keyword) {
+			constraints.Cuisine = cuisine
+			break
+		}
+	}
+
+	// Extract cooking time
+	if strings.Contains(lowerMessage, "quick") || strings.Contains(lowerMessage, "fast") {
+		constraints.CookingTime = 30
+	} else if strings.Contains(lowerMessage, "slow") {
+		constraints.CookingTime = 120
+	}
+
+	// Extract skill level
+	if strings.Contains(lowerMessage, "easy") || strings.Contains(lowerMessage, "simple") {
+		constraints.SkillLevel = "easy"
+	} else if strings.Contains(lowerMessage, "advanced") || strings.Contains(lowerMessage, "complex") {
+		constraints.SkillLevel = "hard"
+	}
+
+	return constraints
+}
+
+// createRecipeFromAI converts AI response to domain recipe entity
+func (h *FrontendHandlers) createRecipeFromAI(aiResponse *outbound.AIRecipeResponse, userID uuid.UUID, originalPrompt string) (*recipe.Recipe, error) {
+	// Create new recipe
+	domainRecipe, err := recipe.NewRecipe(aiResponse.Title, aiResponse.Description, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create recipe: %w", err)
+	}
+
+	// Add ingredients
+	for _, aiIngredient := range aiResponse.Ingredients {
+		ingredient := recipe.Ingredient{
+			ID:     uuid.New(),
+			Name:   aiIngredient.Name,
+			Amount: aiIngredient.Amount,
+			Unit:   h.parseUnit(aiIngredient.Unit),
+		}
+		
+		if err := domainRecipe.AddIngredient(ingredient); err != nil {
+			h.logger.Warn("Failed to add ingredient", 
+				zap.Error(err), 
+				zap.String("ingredient", aiIngredient.Name),
+			)
+		}
+	}
+
+	// Add instructions
+	for i, instructionText := range aiResponse.Instructions {
+		instruction := recipe.Instruction{
+			StepNumber:  i + 1,
+			Description: instructionText,
+		}
+		
+		if err := domainRecipe.AddInstruction(instruction); err != nil {
+			h.logger.Warn("Failed to add instruction", 
+				zap.Error(err), 
+				zap.Int("step", i+1),
+			)
+		}
+	}
+
+	// Publish the recipe immediately for AI-generated recipes
+	if err := domainRecipe.Publish(); err != nil {
+		return nil, fmt.Errorf("failed to publish recipe: %w", err)
+	}
+
+	return domainRecipe, nil
+}
+
+// parseUnit converts string unit to domain measurement unit
+func (h *FrontendHandlers) parseUnit(unit string) recipe.MeasurementUnit {
+	unitMap := map[string]recipe.MeasurementUnit{
+		"tsp":   recipe.MeasurementUnitTeaspoon,
+		"tbsp":  recipe.MeasurementUnitTablespoon,
+		"cup":   recipe.MeasurementUnitCup,
+		"cups":  recipe.MeasurementUnitCup,
+		"oz":    recipe.MeasurementUnitOunce,
+		"ml":    recipe.MeasurementUnitMilliliter,
+		"l":     recipe.MeasurementUnitLiter,
+		"g":     recipe.MeasurementUnitGram,
+		"kg":    recipe.MeasurementUnitKilogram,
+		"lb":    recipe.MeasurementUnitPound,
+		"piece": recipe.MeasurementUnitPiece,
+		"pieces": recipe.MeasurementUnitPiece,
+		"dash":  recipe.MeasurementUnitDash,
+		"pinch": recipe.MeasurementUnitPinch,
+	}
+	
+	if mappedUnit, exists := unitMap[strings.ToLower(unit)]; exists {
+		return mappedUnit
+	}
+	
+	return recipe.MeasurementUnitPiece // default
+}
+
+// generateCookingAdvice provides general cooking advice
+func (h *FrontendHandlers) generateCookingAdvice(message string) string {
+	responses := []string{
+		"🤖 AI Chef: That's an interesting cooking question! While I specialize in creating recipes, I'd suggest trying to phrase your request like 'Create a recipe for...' or 'I want to make...' to get personalized recipes.",
+		"🤖 AI Chef: I'm here to help you create amazing recipes! Try asking me to 'make a pasta recipe with mushrooms' or 'create a vegetarian stir fry' and I'll generate a complete recipe for you.",
+		"🤖 AI Chef: I understand you're looking for cooking help! For the best results, tell me what dish you'd like to make or what ingredients you want to use, and I'll create a custom recipe.",
+		"🤖 AI Chef: Great question! I'm designed to create personalized recipes based on your preferences. Try saying something like 'generate a chicken curry recipe' or 'I want to cook with tomatoes and herbs'.",
+	}
+	
+	// Simple response selection based on message content
+	responseIndex := 0
+	if strings.Contains(strings.ToLower(message), "help") {
+		responseIndex = 1
+	} else if strings.Contains(strings.ToLower(message), "what") {
+		responseIndex = 2
+	} else if strings.Contains(strings.ToLower(message), "how") {
+		responseIndex = 3
+	}
+	
+	if responseIndex >= len(responses) {
+		responseIndex = 0
+	}
+	
+	response := responses[responseIndex]
+	
+	// Add recipe examples
+	response += `<br><br><strong>Try these examples:</strong>
+		<ul>
+			<li>"Create a pasta recipe with mushrooms"</li>
+			<li>"I want to make chicken tacos"</li>
+			<li>"Generate a vegetarian stir-fry recipe"</li>
+			<li>"Make me a healthy salad with avocado"</li>
+		</ul>`
+	
+	return h.buildAIMessageHTML(response)
+}
+
+// buildUserMessageHTML creates HTML for user message
+func (h *FrontendHandlers) buildUserMessageHTML(message string, user *user.UserDTO) string {
+	userName := "Anonymous"
+	if user != nil {
+		userName = html.EscapeString(user.Name)
+	}
+	
+	// Sanitize the message using XSS protection service
+	sanitizedMessage := h.xssProtection.StripHTML(message)
+	escapedMessage := html.EscapeString(sanitizedMessage)
+	
+	return fmt.Sprintf(`
+		<div class="chat-message user-message" style="margin-bottom: 1rem;">
+			<div style="display: flex; align-items: flex-start; gap: 0.75rem; justify-content: flex-end;">
+				<div class="message-content" style="flex: 1; max-width: 80%%; background: linear-gradient(135deg, #4f46e5 0%%, #7c3aed 100%%); color: white; padding: 1rem; border-radius: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+					<div style="font-weight: 600; color: #e0e7ff; margin-bottom: 0.5rem;">%s</div>
+					<div style="line-height: 1.6;">%s</div>
+					<div style="font-size: 0.75rem; color: #c7d2fe; margin-top: 0.5rem;">
+						Just now
+					</div>
+				</div>
+				<div class="avatar user-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%%; background: linear-gradient(135deg, #4f46e5 0%%, #7c3aed 100%%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
+					👤
+				</div>
+			</div>
+		</div>`, userName, escapedMessage)
+}
+
+// buildAIMessageHTML creates HTML for AI message
+func (h *FrontendHandlers) buildAIMessageHTML(content string) string {
+	// Sanitize AI response content to allow safe HTML but prevent XSS
+	sanitizedContent := h.xssProtection.SanitizeHTML(content)
+	
+	return fmt.Sprintf(`
+		<div class="chat-message ai-message" style="margin-bottom: 1rem;">
+			<div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+				<div class="avatar ai-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%%; background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
+					👨‍🍳
+				</div>
+				<div class="message-content" style="flex: 1; background: #ffffff; padding: 1rem; border-radius: 1rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+					<div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.5rem;">AI Chef</div>
+					<div style="line-height: 1.6;">%s</div>
+					<div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">
+						Just now
+					</div>
+				</div>
+			</div>
+		</div>`, sanitizedContent)
+}
+
+// buildAuthRequiredResponse creates response for non-authenticated users
+func (h *FrontendHandlers) buildAuthRequiredResponse() string {
+	content := `🤖 AI Chef: I'd love to create a personalized recipe for you! However, you need to be logged in to save recipes. 
+		<br><br>
+		<div class="auth-prompt" style="background: #bee3f8; border: 1px solid #90cdf4; padding: 15px; border-radius: 8px; margin: 10px 0;">
+			<p style="margin: 0 0 10px 0; color: #2c5282;"><strong>Please log in to unlock AI recipe creation:</strong></p>
+			<a href="/login" class="btn btn-primary" style="background: #3182ce; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin: 2px;">Login</a>
+			<a href="/register" class="btn" style="background: #e2e8f0; color: #4a5568; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin: 2px;">Register</a>
+		</div>`
+	
+	return h.buildAIMessageHTML(content)
+}
+
+// buildErrorResponse creates error response HTML
+func (h *FrontendHandlers) buildErrorResponse(errorMsg string) string {
+	return h.buildAIMessageHTML("🤖 AI Chef: " + errorMsg)
+}
+
+// buildRecipeCreatedResponse creates success response for recipe creation
+func (h *FrontendHandlers) buildRecipeCreatedResponse(domainRecipe *recipe.Recipe, aiResponse *outbound.AIRecipeResponse) string {
+	// Get ingredient preview
+	ingredientPreview := "fresh ingredients"
+	if len(aiResponse.Ingredients) > 0 {
+		var names []string
+		for i, ing := range aiResponse.Ingredients {
+			if i >= 3 { break }
+			names = append(names, ing.Name)
+		}
+		ingredientPreview = strings.Join(names, ", ")
+		if len(aiResponse.Ingredients) > 3 {
+			ingredientPreview += " and more"
+		}
+	}
+
+	// Calculate total time
+	totalTime := int(domainRecipe.PrepTime().Minutes()) + int(domainRecipe.CookTime().Minutes())
+	if totalTime == 0 {
+		totalTime = 30 // default
+	}
+
+	content := fmt.Sprintf(`🤖 AI Chef: Perfect! I've created "<strong>%s</strong>" for you! This %s recipe features %s and takes about %d minutes to prepare.
+		<br><br>
+		<div class="recipe-created-notification" style="background: #c6f6d5; border: 1px solid #9ae6b4; padding: 20px; border-radius: 8px; margin: 15px 0;">
+			<h4 style="margin: 0 0 10px 0; color: #276749;">✨ Recipe Created Successfully!</h4>
+			<p style="margin: 0 0 10px 0;"><strong>%s</strong></p>
+			<p style="margin: 0 0 10px 0;">%s</p>
+			<div class="recipe-quick-stats" style="margin: 10px 0;">
+				<span class="badge" style="background: #e2e8f0; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; margin: 2px;">%s</span>
+				<span class="badge" style="background: #e2e8f0; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; margin: 2px;">%s</span>
+				<span class="badge ai-badge" style="background: #9f7aea; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; margin: 2px;">AI Generated</span>
+			</div>
+			<div style="margin-top: 15px;">
+				<a href="/recipes/%s" class="btn btn-primary" style="background: #3182ce; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin: 2px;">View Full Recipe</a>
+				<a href="/dashboard" class="btn" style="background: #e2e8f0; color: #4a5568; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin: 2px;">Go to Dashboard</a>
+			</div>
+		</div>`,
+		domainRecipe.Title(),
+		strings.ToLower(string(domainRecipe.Difficulty())),
+		ingredientPreview,
+		totalTime,
+		domainRecipe.Title(),
+		domainRecipe.Description(),
+		string(domainRecipe.Cuisine()),
+		string(domainRecipe.Difficulty()),
+		domainRecipe.ID().String(),
+	)
+	
+	return h.buildAIMessageHTML(content)
+}
+
+// writeHTMLResponse writes HTML response
+func (h *FrontendHandlers) writeHTMLResponse(w http.ResponseWriter, html string) {
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+// getUserID safely gets user ID as string
+func getUserID(user *user.UserDTO) string {
+	if user != nil {
+		return user.ID.String()
+	}
+	return "anonymous"
 }
 
 // HandleAIChatStream handles streaming AI responses
@@ -742,4 +1137,27 @@ func parseUUID(s string) uuid.UUID {
 		return uuid.Nil
 	}
 	return id
+}
+
+// buildRecipeAIResponseText builds a text response for AI-generated recipes
+func (h *FrontendHandlers) buildRecipeAIResponseText(aiResponse *outbound.AIRecipeResponse) string {
+	response := fmt.Sprintf("🤖 I've created a recipe for you!\n\n")
+	response += fmt.Sprintf("**%s**\n\n", aiResponse.Title)
+	response += fmt.Sprintf("%s\n\n", aiResponse.Description)
+	
+	response += "**Ingredients:**\n"
+	for _, ing := range aiResponse.Ingredients {
+		response += fmt.Sprintf("• %.1f %s %s\n", ing.Amount, ing.Unit, ing.Name)
+	}
+	
+	response += "\n**Instructions:**\n"
+	for i, inst := range aiResponse.Instructions {
+		response += fmt.Sprintf("%d. %s\n", i+1, inst)
+	}
+	
+	if aiResponse.Nutrition != nil {
+		response += fmt.Sprintf("\n**Nutrition:** %d calories\n", aiResponse.Nutrition.Calories)
+	}
+	
+	return response
 }

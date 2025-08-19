@@ -1,20 +1,105 @@
 {{define "home"}}
-{{template "base" .}}
-{{end}}
-
-{{define "content"}}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} | Alchemorsel</title>
+    
+    <!-- Meta Information -->
+    <meta name="description" content="{{.Description | default "AI-powered recipe platform for modern cooking"}}">
+    <meta name="keywords" content="{{.Keywords | default "recipes, cooking, AI, food, ingredients"}}">
+    <meta name="author" content="Alchemorsel">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    
+    <!-- Performance Optimizations -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://unpkg.com">
+    
+    <!-- Critical CSS (Inlined for 14KB optimization) -->
+    <style>
+        {{template "critical-css" .}}
+    </style>
+    
+    <!-- Preload Critical Resources -->
+    <link rel="preload" href="/static/js/htmx.min.js" as="script">
+    <link rel="preload" href="/static/js/app.js" as="script">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/img/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="{{.Title}} | Alchemorsel">
+    <meta property="og:description" content="{{.Description | default "AI-powered recipe platform"}}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{.URL}}">
+    <meta property="og:image" content="/static/img/og-image.jpg">
+    
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Alchemorsel",
+        "description": "AI-powered recipe platform for modern cooking",
+        "url": "{{.BaseURL}}",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": "{{.BaseURL}}/recipes?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+        }
+    }
+    </script>
+</head>
+<body class="antialiased">
+    <!-- Skip Navigation -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <!-- Screen Reader Announcements -->
+    <div id="announcer" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+    
+    <!-- Header -->
+    {{template "header" .}}
+    
+    <!-- Main Content -->
+    <main id="main-content" class="main" role="main">
+        <!-- Global Messages -->
+        {{if .Messages}}
+        <div class="container">
+            {{range .Messages}}
+            <div class="alert alert-{{.Type}}" role="alert">
+                {{.Content}}
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+        
+        <!-- Page Content -->
 <div class="container">
-    <!-- Hero Section -->
+    {{if not .User}}
+    <!-- Hero Section for Unauthenticated Users -->
     <section class="hero" aria-labelledby="hero-title">
         <h1 id="hero-title">AI-Powered Recipe Platform</h1>
         <p>Discover, create, and share recipes with intelligent assistance. Cook smarter with Alchemorsel.</p>
         <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
             <a href="/recipes" class="btn btn-primary">Explore Recipes</a>
-            <a href="/recipes/new" class="btn btn-secondary">Create Recipe</a>
+            <a href="/login" class="btn btn-secondary">Sign In to Create</a>
+        </div>
+        <div style="margin-top: 1rem; text-align: center;">
+            <p style="color: #718096;">New to Alchemorsel? <a href="/register" style="color: #4f46e5; text-decoration: underline;">Create an account</a> to unlock AI recipe creation</p>
         </div>
     </section>
+    {{end}}
 
-    <!-- Enhanced AI Chat Interface -->
+    {{if .User}}
+    <!-- Enhanced AI Chat Interface for Authenticated Users -->
     <section class="card" aria-labelledby="ai-chat-title">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h2 id="ai-chat-title" style="margin: 0;">AI Chef Assistant</h2>
@@ -79,7 +164,7 @@
         <div class="chat-input-container" style="position: relative;">
             <form 
                 id="chat-form"
-                hx-post="/ai/chat" 
+                hx-post="/htmx/ai/chat" 
                 hx-target="#chat-container" 
                 hx-swap="beforeend"
                 hx-on:htmx:after-request="handleChatResponse(event)"
@@ -171,10 +256,10 @@
             </button>
         </div>
     </section>
-
-    <!-- Quick Search -->
+    {{if not .User}}
+    <!-- Preview Search for Unauthenticated Users -->
     <section class="card" aria-labelledby="search-title">
-        <h2 id="search-title">Find Recipes</h2>
+        <h2 id="search-title">Preview Recipes</h2>
         <div class="search-container">
             <input 
                 type="text" 
@@ -195,10 +280,39 @@
             <!-- Search results will be loaded here -->
         </div>
     </section>
+    {{else}}
+    <!-- Recipe Search for Authenticated Users -->
+    <section class="card" aria-labelledby="search-title">
+        <h2 id="search-title">Find Recipes</h2>
+        <div class="search-container">
+            <input 
+                type="text" 
+                id="search-input"
+                name="q"
+                class="form-input search-input" 
+                placeholder="Search your recipes, ingredients, cuisines..."
+                hx-post="/htmx/recipes/search"
+                hx-target="#search-results"
+                hx-trigger="keyup changed delay:300ms"
+                autocomplete="off"
+            >
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+        </div>
+        <div id="search-results">
+            <!-- Search results will be loaded here -->
+        </div>
+    </section>
+    {{end}}
 
     <!-- Featured Recipes -->
     <section aria-labelledby="featured-title">
+        {{if .User}}
+        <h2 id="featured-title" style="margin-bottom: 1.5rem;">Your Recent Recipes</h2>
+        {{else}}
         <h2 id="featured-title" style="margin-bottom: 1.5rem;">Featured Recipes</h2>
+        {{end}}
         <div class="recipe-grid">
             {{range .Data.FeaturedRecipes}}
             {{template "recipe-card" .}}
@@ -293,8 +407,10 @@
             {{end}}
         </div>
     </section>
+    {{end}}
 
-    <!-- Features Grid -->
+    {{if not .User}}
+    <!-- Features Grid for Unauthenticated Users -->
     <section style="margin-top: 3rem;" aria-labelledby="features-title">
         <h2 id="features-title" style="text-align: center; margin-bottom: 2rem;">Why Choose Alchemorsel?</h2>
         <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
@@ -322,7 +438,48 @@
                 <p style="color: #718096;">Optimized for speed with 14KB first packet. No waiting, just cooking.</p>
             </div>
         </div>
+        
+        <!-- Call to Action -->
+        <div style="text-align: center; margin-top: 3rem; padding: 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 1rem; color: white;">
+            <h3 style="margin-bottom: 1rem; color: white;">Ready to Start Cooking?</h3>
+            <p style="margin-bottom: 2rem; opacity: 0.9;">Join thousands of home cooks using AI to create amazing recipes</p>
+            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                <a href="/register" class="btn" style="background: white; color: #667eea; border: none;">Create Free Account</a>
+                <a href="/login" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid white;">Sign In</a>
+            </div>
+        </div>
     </section>
+    {{else}}
+    <!-- Quick Actions for Authenticated Users -->
+    <section style="margin-top: 3rem;" aria-labelledby="actions-title">
+        <h2 id="actions-title" style="text-align: center; margin-bottom: 2rem;">Quick Actions</h2>
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+            <a href="/recipes/new" class="card" style="text-align: center; text-decoration: none; color: inherit; transition: transform 0.2s; cursor: pointer;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">✨</div>
+                <h3>Create New Recipe</h3>
+                <p style="color: #718096;">Start with AI assistance or create from scratch</p>
+            </a>
+            
+            <a href="/recipes" class="card" style="text-align: center; text-decoration: none; color: inherit; transition: transform 0.2s; cursor: pointer;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">📚</div>
+                <h3>My Recipe Book</h3>
+                <p style="color: #718096;">Browse and manage your saved recipes</p>
+            </a>
+            
+            <a href="/favorites" class="card" style="text-align: center; text-decoration: none; color: inherit; transition: transform 0.2s; cursor: pointer;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">❤️</div>
+                <h3>Favorites</h3>
+                <p style="color: #718096;">Your most loved recipes</p>
+            </a>
+            
+            <a href="/profile" class="card" style="text-align: center; text-decoration: none; color: inherit; transition: transform 0.2s; cursor: pointer;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">⚙️</div>
+                <h3>Profile Settings</h3>
+                <p style="color: #718096;">Manage your account and preferences</p>
+            </a>
+        </div>
+    </section>
+    {{end}}
 </div>
 
 <style>
@@ -550,4 +707,55 @@ document.addEventListener('DOMContentLoaded', function() {
     chatContainer.scrollTop = chatContainer.scrollHeight;
 });
 </script>
+    </main>
+    
+    <!-- Footer -->
+    {{template "footer" .}}
+    
+    <!-- Critical JavaScript (Inlined for performance) -->
+    <script>
+        // Performance measurement start
+        window.performanceStart = performance.now();
+        
+        // Critical HTMX initialization
+        window.htmx = window.htmx || {};
+        
+        // Service Worker registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js');
+            });
+        }
+    </script>
+    
+    <!-- HTMX Library -->
+    <script src="/static/js/htmx.min.js" defer></script>
+    
+    <!-- Application JavaScript -->
+    <script src="/static/js/app.js" defer></script>
+    
+    <!-- Performance Monitoring -->
+    <script src="/static/js/performance.js" defer></script>
+    
+    <!-- Accessibility Enhancement -->
+    <script src="/static/js/accessibility.js" defer></script>
+    
+    <!-- Non-critical CSS (Loaded asynchronously) -->
+    <link rel="preload" href="/static/css/extended.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/extended.css"></noscript>
+    
+    <!-- Accessibility CSS (Loaded asynchronously) -->
+    <link rel="preload" href="/static/css/accessibility.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/static/css/accessibility.css"></noscript>
+    
+    <!-- Performance monitoring -->
+    {{if .Debug}}
+    <script>
+        window.addEventListener('load', function() {
+            console.log('Page loaded in:', performance.now() - window.performanceStart, 'ms');
+        });
+    </script>
+    {{end}}
+</body>
+</html>
 {{end}}

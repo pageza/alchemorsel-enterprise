@@ -163,7 +163,7 @@ func NewSecureGormLogger(logger *zap.Logger, sqlSecurity *SQLSecurityService) *S
 		logger:                    logger,
 		sqlSecurity:              sqlSecurity,
 		slowThreshold:            200 * time.Millisecond,
-		logLevel:                 logger.Warn,
+		logLevel:                 4, // Warn level
 		ignoreRecordNotFoundError: true,
 	}
 }
@@ -263,7 +263,9 @@ func (s *SecureDB) Raw(sql string, values ...interface{}) *gorm.DB {
 			zap.String("sql", s.sqlSecurity.sanitizeQueryForLogging(sql)),
 			zap.Error(err),
 		)
-		return s.DB.AddError(fmt.Errorf("SQL security violation: %w", err))
+		db := s.DB.Session(&gorm.Session{})
+		db.AddError(fmt.Errorf("SQL security violation: %w", err))
+		return db
 	}
 	
 	return s.DB.Raw(sql, values...)
@@ -276,7 +278,9 @@ func (s *SecureDB) Exec(sql string, values ...interface{}) *gorm.DB {
 			zap.String("sql", s.sqlSecurity.sanitizeQueryForLogging(sql)),
 			zap.Error(err),
 		)
-		return s.DB.AddError(fmt.Errorf("SQL security violation: %w", err))
+		db := s.DB.Session(&gorm.Session{})
+		db.AddError(fmt.Errorf("SQL security violation: %w", err))
+		return db
 	}
 	
 	return s.DB.Exec(sql, values...)

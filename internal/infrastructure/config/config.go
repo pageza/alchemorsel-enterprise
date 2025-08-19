@@ -297,10 +297,24 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("monitoring.health_check_path", "/health")
 	v.SetDefault("monitoring.readiness_path", "/ready")
 	
+	// AI defaults
+	v.SetDefault("ai.provider", "openai")
+	v.SetDefault("ai.openai_model", "gpt-3.5-turbo")
+	v.SetDefault("ai.max_tokens", 1500)
+	v.SetDefault("ai.temperature", 0.7)
+	v.SetDefault("ai.timeout_seconds", 30)
+	v.SetDefault("ai.enable_cache", true)
+	v.SetDefault("ai.cache_ttl", "1h")
+	
 	// Rate limit defaults
 	v.SetDefault("rate_limit.requests_per_min", 60)
 	v.SetDefault("rate_limit.burst_size", 10)
 	v.SetDefault("rate_limit.cleanup_interval", "1m")
+	
+	// Feature flags defaults
+	v.SetDefault("features.enable_ai_recipes", true)
+	v.SetDefault("features.enable_social_features", true)
+	v.SetDefault("features.enable_analytics", false)
 }
 
 // Validate validates the configuration

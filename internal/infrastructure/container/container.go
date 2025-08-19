@@ -5,15 +5,19 @@ package container
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
 
-	"github.com/alchemorsel/v3/internal/application/ai"
 	"github.com/alchemorsel/v3/internal/application/recipe"
 	"github.com/alchemorsel/v3/internal/application/user"
+	"github.com/alchemorsel/v3/internal/infrastructure/ai/openai"
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
+	"github.com/alchemorsel/v3/internal/infrastructure/http/apiserver"
 	"github.com/alchemorsel/v3/internal/infrastructure/http/server"
 	gormRepo "github.com/alchemorsel/v3/internal/infrastructure/persistence/gorm"
 	"github.com/alchemorsel/v3/internal/infrastructure/persistence/memory"
 	"github.com/alchemorsel/v3/internal/infrastructure/persistence/sqlite"
+	"github.com/alchemorsel/v3/internal/infrastructure/security"
 	"github.com/alchemorsel/v3/internal/ports/inbound"
 	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"github.com/alchemorsel/v3/pkg/logger"
@@ -111,6 +115,12 @@ var CacheModule = fx.Provide(
 		log.Info("Using in-memory cache for demo")
 		return memory.NewCacheRepository()
 	},
+	
+	// Mock message bus for demo
+	func(log *zap.Logger) outbound.MessageBus {
+		log.Info("Using mock message bus for demo")
+		return &MockMessageBus{}
+	},
 )
 
 // RepositoryModule provides repository implementations
@@ -131,12 +141,9 @@ var RepositoryModule = fx.Provide(
 // ServiceModule provides application services
 var ServiceModule = fx.Provide(
 	// AI service
-	func(cfg *config.Config, log *zap.Logger) outbound.AIService {
-		provider := cfg.AI.Provider
-		if provider == "" {
-			provider = "mock" // Default to mock for demo
-		}
-		return ai.NewAIService(provider, log)
+	func(log *zap.Logger) outbound.AIService {
+		// Use OpenAI client for real AI functionality
+		return openai.NewClient(log)
 	},
 	
 	// User service
@@ -158,6 +165,11 @@ var ServiceModule = fx.Provide(
 		recipe.NewRecipeService,
 		fx.As(new(inbound.RecipeService)),
 	),
+	
+	// Auth service (without Redis for now)
+	func(cfg *config.Config, log *zap.Logger) *security.AuthService {
+		return security.NewAuthService(cfg, log, nil)
+	},
 )
 
 // HTTPModule provides HTTP server and handlers
@@ -296,4 +308,165 @@ func NewEventHandlers(log *zap.Logger) *EventHandlers {
 			return nil
 		},
 	}
+}
+
+// MockMessageBus provides a mock implementation for demo purposes
+type MockMessageBus struct{}
+
+func (m *MockMessageBus) Publish(ctx context.Context, topic string, message outbound.Message) error {
+	return nil // No-op for demo
+}
+
+func (m *MockMessageBus) PublishBatch(ctx context.Context, topic string, messages []outbound.Message) error {
+	return nil // No-op for demo
+}
+
+func (m *MockMessageBus) Subscribe(ctx context.Context, topic string, handler outbound.MessageHandler) error {
+	return nil // No-op for demo
+}
+
+func (m *MockMessageBus) Unsubscribe(ctx context.Context, topic string) error {
+	return nil // No-op for demo
+}
+
+// PureAPIModule provides all dependencies for pure JSON API server (no templates/frontend)
+var PureAPIModule = fx.Options(
+	// Infrastructure modules (same as full app)
+	ConfigModule,
+	LoggerModule, 
+	DatabaseModule,
+	CacheModule,
+	
+	// Repository modules
+	RepositoryModule,
+	
+	// Service modules  
+	ServiceModule,
+	
+	// Pure API HTTP module (no templates)
+	PureAPIHTTPModule,
+	
+	// Event modules
+	EventModule,
+	
+	// Lifecycle hooks for API
+	PureAPILifecycleModule,
+)
+
+// PureAPIHTTPModule provides HTTP server for pure JSON API
+var PureAPIHTTPModule = fx.Provide(
+	NewPureAPIServer,
+)
+
+// PureAPILifecycleModule provides lifecycle hooks for pure API
+var PureAPILifecycleModule = fx.Invoke(
+	RegisterPureAPILifecycleHooks,
+)
+
+// NewPureAPIServer creates a new pure API server instance (no templates)
+func NewPureAPIServer(
+	cfg *config.Config,
+	log *zap.Logger,
+	recipeService inbound.RecipeService,
+	userService *user.UserService,
+	authService *security.AuthService,
+	aiService outbound.AIService,
+) *PureAPIServer {
+	return &PureAPIServer{
+		config:        cfg,
+		logger:        log,
+		recipeService: recipeService,
+		userService:   userService,
+		authService:   authService,
+		aiService:     aiService,
+	}
+}
+
+// RegisterPureAPILifecycleHooks registers lifecycle hooks for pure API server
+func RegisterPureAPILifecycleHooks(
+	lc fx.Lifecycle,
+	cfg *config.Config,
+	log *zap.Logger,
+	db *gorm.DB,
+	server *PureAPIServer,
+) {
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			// Override port from environment if set
+			if port := os.Getenv("PORT"); port != "" {
+				cfg.Server.Port = parsePort(port)
+			}
+			
+			log.Info("Starting Pure API server",
+				zap.Int("port", cfg.Server.Port),
+				zap.String("environment", cfg.App.Environment),
+			)
+			
+			fmt.Printf("🚀 Alchemorsel v3 Pure API starting on http://localhost:%d\n", cfg.Server.Port)
+			fmt.Println("🔥 Pure JSON API Backend - No Frontend Templates") 
+			fmt.Println("📊 Enterprise Architecture with DI Container")
+			fmt.Println("🛡️  Authentication, AI, Recipe Management APIs")
+			fmt.Printf("📖 API Documentation: http://localhost:%d/api/v1/docs\n", cfg.Server.Port)
+			
+			// Start server in background
+			go func() {
+				if err := server.Start(); err != nil && err != http.ErrServerClosed {
+					log.Fatal("Pure API server failed to start", zap.Error(err))
+				}
+			}()
+			
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			log.Info("Shutting down Pure API server...")
+			return server.Shutdown(ctx)
+		},
+	})
+}
+
+// parsePort parses a string to int for port, defaults to 3000 if invalid
+func parsePort(portStr string) int {
+	if portStr == "" {
+		return 3000
+	}
+	port := 3000
+	fmt.Sscanf(portStr, "%d", &port)
+	return port
+}
+
+// PureAPIServer represents a pure JSON API HTTP server (no templates)
+type PureAPIServer struct {
+	config        *config.Config
+	logger        *zap.Logger
+	server        *http.Server
+	recipeService inbound.RecipeService
+	userService   *user.UserService
+	authService   *security.AuthService
+	aiService     outbound.AIService
+}
+
+// Start starts the pure API HTTP server
+func (s *PureAPIServer) Start() error {
+	// Use the existing API server constructor
+	apiServer := apiserver.NewPureAPIServer(
+		s.config,
+		s.logger,
+		s.recipeService,
+		s.userService,
+		s.authService,
+		s.aiService,
+	)
+	
+	// Store the server instance for shutdown
+	s.server = apiServer.Server()
+	
+	return apiServer.Start()
+}
+
+// Shutdown gracefully shuts down the pure API server
+func (s *PureAPIServer) Shutdown(ctx context.Context) error {
+	if s.server == nil {
+		return nil
+	}
+	return s.server.Shutdown(ctx)
 }

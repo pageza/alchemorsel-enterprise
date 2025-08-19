@@ -119,6 +119,41 @@ func (h *APIHandlers) HealthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 // writeJSON writes a JSON response
+// RateRecipe handles POST /api/v1/recipes/{id}/rating
+func (h *APIHandlers) RateRecipe(w http.ResponseWriter, r *http.Request) {
+	// TODO: Implement recipe rating
+	response := APIResponse{
+		Success: true,
+		Message: "Recipe rated successfully",
+	}
+
+	h.writeJSON(w, http.StatusOK, response)
+}
+
+// GetUserRecipes handles GET /api/v1/users/{id}/recipes
+func (h *APIHandlers) GetUserRecipes(w http.ResponseWriter, r *http.Request) {
+	// TODO: Implement user recipes listing
+	response := APIResponse{
+		Success: true,
+		Data:    []interface{}{},
+		Message: "User recipes retrieved successfully",
+	}
+
+	h.writeJSON(w, http.StatusOK, response)
+}
+
+// GetUserFavorites handles GET /api/v1/users/{id}/favorites
+func (h *APIHandlers) GetUserFavorites(w http.ResponseWriter, r *http.Request) {
+	// TODO: Implement user favorites listing
+	response := APIResponse{
+		Success: true,
+		Data:    []interface{}{},
+		Message: "User favorites retrieved successfully",
+	}
+
+	h.writeJSON(w, http.StatusOK, response)
+}
+
 func (h *APIHandlers) writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

@@ -1,0 +1,77 @@
+# Dockerfile.web - HTMX Web Frontend Service
+# Build stage
+FROM golang:1.23-alpine AS builder
+
+# Install build dependencies and security tools
+RUN apk add --no-cache \
+    git \
+    ca-certificates \
+    tzdata \
+    upx \
+    gcc \
+    musl-dev
+
+# Set security labels
+LABEL maintainer="Alchemorsel Team <devops@alchemorsel.com>"
+LABEL org.opencontainers.image.source="https://github.com/alchemorsel/v3"
+LABEL org.opencontainers.image.description="Alchemorsel v3 Web Frontend Server"
+LABEL org.opencontainers.image.licenses="MIT"
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files first for better caching
+COPY go.mod go.sum ./
+
+# Download dependencies with verification
+RUN go mod download && go mod verify
+
+# Copy source code
+COPY . .
+
+# Run security and quality checks
+RUN go vet ./...
+RUN go test -race -short ./...
+
+# Build optimized binary with security flags for Web service
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -a \
+    -installsuffix cgo \
+    -ldflags='-w -s -extldflags "-static"' \
+    -tags netgo \
+    -o web-server cmd/web/main.go
+
+# Compress binary
+RUN upx --best --lzma web-server
+
+# Distroless stage for maximum security
+FROM gcr.io/distroless/static:nonroot
+
+# Import timezone data
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+
+# Copy binary from builder stage
+COPY --from=builder /app/web-server /app/web-server
+
+# Copy configuration files
+COPY --from=builder /app/config /app/config
+
+# Copy static files and templates for web frontend
+COPY --from=builder /app/internal/infrastructure/http/webserver/static /app/static
+COPY --from=builder /app/internal/infrastructure/http/webserver/templates /app/templates
+
+# Set working directory
+WORKDIR /app
+
+# Use nonroot user from distroless
+USER nonroot:nonroot
+
+# Expose web port
+EXPOSE 8080
+
+# Health check for Web service
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD ["/app/web-server", "--health-check"]
+
+# Run the Web application
+ENTRYPOINT ["/app/web-server"]

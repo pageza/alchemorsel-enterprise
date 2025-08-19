@@ -2,9 +2,6 @@
 package gorm
 
 import (
-	"encoding/json"
-	"time"
-
 	"github.com/alchemorsel/v3/internal/domain/ai"
 	"github.com/alchemorsel/v3/internal/domain/recipe"
 	"github.com/alchemorsel/v3/internal/domain/user"
@@ -77,11 +74,11 @@ func ModelToUser(model *UserModel) (*user.User, error) {
 
 // RecipeToModel converts a domain recipe to a GORM model
 func RecipeToModel(r *recipe.Recipe) *RecipeModel {
-	ingredients, _ := json.Marshal(convertIngredientsToJSON(r.Ingredients()))
-	instructions, _ := json.Marshal(convertInstructionsToJSON(r.Instructions()))
-	nutritionInfo, _ := json.Marshal(convertNutritionToJSON(r.NutritionInfo()))
-	images, _ := json.Marshal(convertImagesToJSON(r.Images()))
-	videos, _ := json.Marshal(convertVideosToJSON(r.Videos()))
+	ingredientsJSON := convertIngredientsToJSON(r.Ingredients())
+	instructionsJSON := convertInstructionsToJSON(r.Instructions())
+	nutritionJSON := convertNutritionToJSON(r.NutritionInfo())
+	imagesJSON := convertImagesToJSON(r.Images())
+	videosJSON := convertVideosToJSON(r.Videos())
 
 	tags := make([]string, len(r.Tags()))
 	for i, tag := range r.Tags() {
@@ -94,9 +91,9 @@ func RecipeToModel(r *recipe.Recipe) *RecipeModel {
 		Title:            r.Title(),
 		Description:      r.Description(),
 		AuthorID:         r.AuthorID(),
-		Ingredients:      JSONField(ingredients),
-		Instructions:     JSONField(instructions),
-		NutritionInfo:    JSONField(nutritionInfo),
+		Ingredients:      JSONField(map[string]interface{}{"data": ingredientsJSON}),
+		Instructions:     JSONField(map[string]interface{}{"data": instructionsJSON}),
+		NutritionInfo:    JSONField(nutritionJSON),
 		Cuisine:          string(r.Cuisine()),
 		Category:         string(r.Category()),
 		Difficulty:       string(r.Difficulty()),
@@ -112,8 +109,8 @@ func RecipeToModel(r *recipe.Recipe) *RecipeModel {
 		Likes:            r.Likes(),
 		Views:            r.Views(),
 		AverageRating:    r.AverageRating(),
-		Images:           JSONField(images),
-		Videos:           JSONField(videos),
+		Images:           JSONField(map[string]interface{}{"data": imagesJSON}),
+		Videos:           JSONField(map[string]interface{}{"data": videosJSON}),
 		Status:           string(r.Status()),
 		PublishedAt:      r.PublishedAt(),
 		CreatedAt:        r.CreatedAt(),
@@ -145,8 +142,8 @@ func ModelToRecipe(model *RecipeModel) (*recipe.Recipe, error) {
 
 // AIRequestToModel converts a domain AI request to a GORM model
 func AIRequestToModel(req *ai.AIRequest) *AIRequestModel {
-	parameters, _ := json.Marshal(req.Parameters())
-	response, _ := json.Marshal(req.Response())
+	parametersJSON := req.Parameters()
+	responseJSON := req.Response()
 
 	return &AIRequestModel{
 		ID:           req.ID(),
@@ -154,9 +151,9 @@ func AIRequestToModel(req *ai.AIRequest) *AIRequestModel {
 		Prompt:       req.Prompt(),
 		Provider:     string(req.Provider()),
 		Model:        req.Model(),
-		Parameters:   JSONField(parameters),
+		Parameters:   JSONField(parametersJSON),
 		Status:       string(req.Status()),
-		Response:     JSONField(response),
+		Response:     JSONField(map[string]interface{}{"data": responseJSON}),
 		TokensUsed:   req.TokensUsed(),
 		CostCents:    req.CostCents(),
 		CreatedAt:    req.CreatedAt(),

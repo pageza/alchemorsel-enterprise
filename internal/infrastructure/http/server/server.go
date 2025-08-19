@@ -19,6 +19,7 @@ import (
 	"github.com/alchemorsel/v3/internal/infrastructure/http/middleware"
 	"github.com/alchemorsel/v3/internal/infrastructure/security"
 	"github.com/alchemorsel/v3/internal/ports/inbound"
+	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
@@ -41,6 +42,8 @@ type Server struct {
 	recipeService inbound.RecipeService
 	userService   *user.UserService
 	authService   *security.AuthService
+	aiService     outbound.AIService
+	xssProtection *security.XSSProtectionService
 }
 
 // NewServer creates a new HTTP server instance
@@ -50,13 +53,19 @@ func NewServer(
 	recipeService inbound.RecipeService,
 	userService *user.UserService,
 	authService *security.AuthService,
+	aiService outbound.AIService,
 ) *Server {
+	// Initialize XSS protection service
+	xssProtection := security.NewXSSProtectionService(logger)
+	
 	s := &Server{
 		config:        cfg,
 		logger:        logger,
 		recipeService: recipeService,
 		userService:   userService,
 		authService:   authService,
+		aiService:     aiService,
+		xssProtection: xssProtection,
 	}
 
 	// Initialize templates with custom functions
@@ -234,7 +243,7 @@ func (s *Server) setupRouter() *chi.Mux {
 
 // setupFrontendRoutes configures frontend HTMX routes
 func (s *Server) setupFrontendRoutes(r chi.Router) {
-	h := handlers.NewFrontendHandlers(s.templates, s.recipeService, s.userService, s.authService, s.logger)
+	h := handlers.NewFrontendHandlers(s.templates, s.recipeService, s.userService, s.authService, s.aiService, s.xssProtection, s.logger)
 
 	// Main pages
 	r.Get("/", h.HandleHome)
@@ -248,26 +257,30 @@ func (s *Server) setupFrontendRoutes(r chi.Router) {
 
 	// HTMX endpoints for dynamic content
 	r.Route("/htmx", func(r chi.Router) {
-		// Recipe interactions
-		r.Post("/recipes/search", h.HandleRecipeSearch)
-		r.Post("/recipes/{id}/like", h.HandleRecipeLike)
-		r.Post("/recipes/{id}/rating", h.HandleRecipeRating)
-		r.Post("/recipes", h.HandleCreateRecipe)
-		r.Put("/recipes/{id}", h.HandleUpdateRecipe)
-		r.Delete("/recipes/{id}", h.HandleDeleteRecipe)
+		// State-changing operations (protected with CSRF)
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.CSRFProtection(s.authService))
+			// Recipe interactions
+			r.Post("/recipes/{id}/like", h.HandleRecipeLike)
+			r.Post("/recipes/{id}/rating", h.HandleRecipeRating)
+			r.Post("/recipes", h.HandleCreateRecipe)
+			r.Put("/recipes/{id}", h.HandleUpdateRecipe)
+			r.Delete("/recipes/{id}", h.HandleDeleteRecipe)
+			
+			// AI Chat interface
+			r.Post("/ai/chat", h.HandleAIChat)
+			r.Post("/ai/voice", h.HandleVoiceInput)
+			
+			// Feedback form
+			r.Post("/feedback", h.HandleFeedback)
+		})
 
-		// AI Chat interface
-		r.Post("/ai/chat", h.HandleAIChat)
-		r.Get("/ai/chat/stream", h.HandleAIChatStream)
-		r.Post("/ai/voice", h.HandleVoiceInput)
-
-		// Dynamic forms
+		// Safe operations (no CSRF required)
+		r.Post("/recipes/search", h.HandleRecipeSearch) // Search is safe
+		r.Get("/ai/chat/stream", h.HandleAIChatStream) // GET endpoint
 		r.Get("/forms/ingredients/{count}", h.HandleIngredientsForm)
 		r.Get("/forms/instructions/{count}", h.HandleInstructionsForm)
-
-		// Real-time features
 		r.Get("/notifications", h.HandleNotifications)
-		r.Post("/feedback", h.HandleFeedback)
 	})
 }
 

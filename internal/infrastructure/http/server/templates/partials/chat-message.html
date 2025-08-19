@@ -3,7 +3,7 @@
 <div class="chat-message user-message" style="margin-bottom: 1rem;">
     <div style="display: flex; align-items: flex-start; gap: 0.75rem; justify-content: flex-end;">
         <div class="message-content" style="flex: 0 1 auto; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 1rem; border-radius: 1rem; border-bottom-right-radius: 0.25rem; max-width: 80%; word-wrap: break-word;">
-            <div style="line-height: 1.6;">{{.message}}</div>
+            <div style="line-height: 1.6;">{{.message | html}}</div>
             <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.5rem;">
                 {{.timestamp | formatTime | default "Just now"}}
             </div>
@@ -26,7 +26,7 @@
         </div>
         <div class="message-content" style="flex: 1; background: #ffffff; padding: 1rem; border-radius: 1rem; border-bottom-left-radius: 0.25rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-width: 90%; word-wrap: break-word;">
             <div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.5rem;">AI Chef</div>
-            <div class="response-content" style="line-height: 1.6;">{{.response}}</div>
+            <div class="response-content" style="line-height: 1.6;">{{.response | html}}</div>
             <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">
                 {{.timestamp | formatTime | default "Just now"}}
             </div>
@@ -36,7 +36,7 @@
                 {{if or (contains .response "recipe") (contains .response "Recipe")}}
                 <button 
                     class="btn btn-sm btn-primary"
-                    hx-get="/recipes?ai_suggestion=true&q={{.message | urlQuery}}"
+                    hx-get="/recipes?ai_suggestion=true&q={{.message | urlQuery | html}}"
                     hx-target="#main-content"
                     hx-push-url="true"
                 >
@@ -47,7 +47,7 @@
                 {{if or (contains .response "ingredient") (contains .response "cook") (contains .response "preparation")}}
                 <button 
                     class="btn btn-sm btn-secondary"
-                    onclick="insertPrompt('Tell me more about {{.message}}')"
+                    onclick="insertPrompt('Tell me more about {{.message | js}}')"
                 >
                     📖 More Details
                 </button>

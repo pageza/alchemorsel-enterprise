@@ -1,0 +1,141 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: alchemorsel-postgres-local
+    environment:
+      POSTGRES_DB: alchemorsel_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_local_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - alchemorsel-local
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: alchemorsel-redis-local
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_local_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - alchemorsel-local
+
+  # Pure JSON API Backend Service
+  api-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: alchemorsel-api-local
+    environment:
+      # Application settings
+      ALCHEMORSEL_APP_ENVIRONMENT: development
+      ALCHEMORSEL_SERVER_PORT: 3000
+      
+      # Database configuration
+      ALCHEMORSEL_DATABASE_HOST: postgres
+      ALCHEMORSEL_DATABASE_PORT: 5432
+      ALCHEMORSEL_DATABASE_DATABASE: alchemorsel_dev
+      ALCHEMORSEL_DATABASE_USERNAME: postgres
+      ALCHEMORSEL_DATABASE_PASSWORD: postgres
+      ALCHEMORSEL_DATABASE_SSL_MODE: disable
+      
+      # Redis configuration
+      ALCHEMORSEL_REDIS_HOST: redis
+      ALCHEMORSEL_REDIS_PORT: 6379
+      ALCHEMORSEL_REDIS_DATABASE: 0
+      
+      # JWT configuration
+      ALCHEMORSEL_JWT_SECRET: your-super-secret-jwt-key-development-only
+      ALCHEMORSEL_JWT_EXPIRATION: 24h
+      
+      # AI Service configuration
+      ALCHEMORSEL_AI_PROVIDER: anthropic
+      ALCHEMORSEL_AI_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-sk-ant-test}
+      ALCHEMORSEL_AI_MAX_TOKENS: 4096
+      ALCHEMORSEL_AI_TEMPERATURE: 0.7
+      
+      # CORS settings
+      ALCHEMORSEL_CORS_ALLOWED_ORIGINS: "http://localhost:8080,http://web-frontend:8080"
+      ALCHEMORSEL_CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
+      ALCHEMORSEL_CORS_ALLOWED_HEADERS: "Content-Type,Authorization,X-Requested-With"
+      
+      # Logging
+      ALCHEMORSEL_LOG_LEVEL: debug
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/api-server", "--health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - alchemorsel-local
+    restart: unless-stopped
+
+  # HTMX Web Frontend Service
+  web-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: alchemorsel-web-local
+    environment:
+      # Application settings
+      ALCHEMORSEL_APP_ENVIRONMENT: development
+      ALCHEMORSEL_SERVER_PORT: 8080
+      
+      # API Backend URL
+      API_URL: http://api-backend:3000
+      
+      # Session configuration
+      ALCHEMORSEL_SESSION_SECRET: your-super-secret-session-key-development-only
+      ALCHEMORSEL_SESSION_SECURE: false
+      ALCHEMORSEL_SESSION_MAX_AGE: 86400
+      
+      # Logging
+      ALCHEMORSEL_LOG_LEVEL: debug
+    ports:
+      - "8080:8080"
+    depends_on:
+      api-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/web-server", "--health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - alchemorsel-local
+    restart: unless-stopped
+
+volumes:
+  postgres_local_data:
+  redis_local_data:
+
+networks:
+  alchemorsel-local:
+    driver: bridge

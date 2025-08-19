@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -468,7 +467,8 @@ func (a *AuditLogger) storeAuditEvent(event AuditEvent) {
 // Helper methods
 
 func (a *AuditLogger) generateEventID() string {
-	return fmt.Sprintf("audit_%d_%s", time.Now().UnixNano(), GenerateSecureToken(8))
+	token, _ := GenerateSecureToken(8)
+	return fmt.Sprintf("audit_%d_%s", time.Now().UnixNano(), token)
 }
 
 func (a *AuditLogger) encryptSensitiveFields(data map[string]interface{}) map[string]interface{} {
