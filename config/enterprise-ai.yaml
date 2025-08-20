@@ -1,0 +1,432 @@
+# Enterprise AI Service Configuration
+# This configuration file defines settings for the Alchemorsel v3 Enterprise AI Service
+
+ai:
+  # Primary AI provider configuration
+  primary_provider: "ollama"
+  
+  # Fallback providers in order of preference
+  fallback_providers:
+    - "openai"
+    - "mock"
+  
+  # Provider-specific configurations
+  providers:
+    ollama:
+      endpoint: "http://ollama:11434"
+      models:
+        - "llama3.2:3b"
+        - "llama3.2:1b"
+      timeout: "30s"
+      max_retries: 3
+      
+    openai:
+      api_key: "${OPENAI_API_KEY}"
+      models:
+        - "gpt-4"
+        - "gpt-3.5-turbo"
+      timeout: "60s"
+      max_retries: 3
+      
+    anthropic:
+      api_key: "${ANTHROPIC_API_KEY}"
+      models:
+        - "claude-3-haiku"
+        - "claude-3-sonnet"
+      timeout: "45s"
+      max_retries: 3
+
+  # Cost management configuration
+  cost_management:
+    daily_budget_cents: 10000      # $100.00 daily budget
+    monthly_budget_cents: 300000   # $3,000.00 monthly budget
+    
+    # Alert thresholds (percentage of budget)
+    cost_alert_thresholds:
+      - 0.5   # 50% alert
+      - 0.7   # 70% warning
+      - 0.9   # 90% critical
+      - 1.0   # 100% emergency
+    
+    # Cost tracking settings
+    tracking:
+      enabled: true
+      granularity: "user"     # user, feature, provider
+      retention_days: 90
+      
+    # Budget notifications
+    notifications:
+      email:
+        enabled: true
+        recipients:
+          - "admin@alchemorsel.com"
+          - "finance@alchemorsel.com"
+      webhook:
+        enabled: true
+        url: "${BUDGET_WEBHOOK_URL}"
+      slack:
+        enabled: false
+        channel: "#ai-alerts"
+
+  # Rate limiting configuration
+  rate_limit:
+    # Global rate limits
+    global:
+      requests_per_second: 100
+      requests_per_minute: 6000
+      requests_per_hour: 360000
+    
+    # Per-user rate limits
+    per_user:
+      requests_per_minute: 60
+      requests_per_hour: 3600
+      requests_per_day: 86400
+      requests_per_month: 2592000
+    
+    # Feature-specific limits
+    features:
+      recipe_generation:
+        requests_per_minute: 30
+        requests_per_hour: 1800
+      ingredient_suggestions:
+        requests_per_minute: 100
+        requests_per_hour: 6000
+      nutrition_analysis:
+        requests_per_minute: 50
+        requests_per_hour: 3000
+      meal_planning:
+        requests_per_minute: 10
+        requests_per_hour: 600
+
+  # Quality control configuration
+  quality:
+    enabled: true
+    min_score: 0.7
+    
+    # Quality assessment settings
+    assessment:
+      enabled: true
+      real_time: true
+      store_assessments: true
+      retention_days: 30
+    
+    # Quality monitoring
+    monitoring:
+      alert_threshold: 0.6
+      trend_analysis: true
+      improvement_suggestions: true
+    
+    # Quality rules
+    rules:
+      - name: "recipe_completeness"
+        type: "content"
+        weight: 0.3
+        required: true
+      - name: "instruction_clarity"
+        type: "content"
+        weight: 0.25
+        required: true
+      - name: "safety_guidelines"
+        type: "safety"
+        weight: 0.2
+        required: true
+      - name: "nutrition_accuracy"
+        type: "content"
+        weight: 0.15
+        required: false
+      - name: "format_compliance"
+        type: "format"
+        weight: 0.1
+        required: true
+
+  # Caching configuration
+  cache:
+    enabled: true
+    ttl: "2h"
+    
+    # Cache keys and strategies
+    strategies:
+      recipe_generation:
+        ttl: "2h"
+        key_components: ["prompt", "constraints", "user_preferences"]
+      ingredient_suggestions:
+        ttl: "1h"
+        key_components: ["partial_ingredients", "cuisine", "dietary"]
+      nutrition_analysis:
+        ttl: "4h"
+        key_components: ["ingredients", "quantities", "servings"]
+    
+    # Cache warming
+    warming:
+      enabled: true
+      popular_queries: true
+      scheduled: "0 6 * * *"  # 6 AM daily
+
+  # Analytics and monitoring
+  analytics:
+    enabled: true
+    
+    # Usage tracking
+    usage_tracking:
+      enabled: true
+      detailed_logging: true
+      user_attribution: true
+      feature_attribution: true
+    
+    # Performance monitoring
+    performance:
+      latency_tracking: true
+      error_tracking: true
+      success_rate_tracking: true
+      
+    # Business intelligence
+    business_intelligence:
+      enabled: true
+      kpi_calculation: true
+      trend_analysis: true
+      prediction_models: false  # Future feature
+
+  # Alert management
+  alerts:
+    enabled: true
+    
+    # Alert channels
+    channels:
+      email:
+        enabled: true
+        smtp_server: "${SMTP_SERVER}"
+        smtp_port: 587
+        username: "${SMTP_USERNAME}"
+        password: "${SMTP_PASSWORD}"
+        from: "alerts@alchemorsel.com"
+        to:
+          - "ops@alchemorsel.com"
+          - "admin@alchemorsel.com"
+      
+      webhook:
+        enabled: true
+        endpoints:
+          - url: "${ALERT_WEBHOOK_URL}"
+            method: "POST"
+            headers:
+              Authorization: "Bearer ${WEBHOOK_TOKEN}"
+      
+      slack:
+        enabled: false
+        webhook_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#ai-alerts"
+    
+    # Alert rules
+    rules:
+      - name: "high_error_rate"
+        condition: "error_rate > 0.05"
+        severity: "warning"
+        cooldown: "15m"
+      
+      - name: "very_high_error_rate"
+        condition: "error_rate > 0.15"
+        severity: "critical"
+        cooldown: "5m"
+      
+      - name: "high_latency"
+        condition: "avg_latency > 10s"
+        severity: "warning"
+        cooldown: "10m"
+      
+      - name: "very_high_latency"
+        condition: "avg_latency > 30s"
+        severity: "critical"
+        cooldown: "5m"
+      
+      - name: "quality_degradation"
+        condition: "avg_quality < min_quality_threshold"
+        severity: "warning"
+        cooldown: "30m"
+      
+      - name: "budget_threshold"
+        condition: "daily_spend > budget_threshold"
+        severity: "info"
+        cooldown: "1h"
+
+  # Model configuration
+  models:
+    llama3.2:3b:
+      max_tokens: 2048
+      temperature: 0.7
+      top_p: 0.9
+      cost_per_token: 0.001    # $0.001 per token (self-hosted)
+      request_timeout: "30s"
+      quality_weight: 1.0
+      context_window: 8192
+      
+    llama3.2:1b:
+      max_tokens: 1024
+      temperature: 0.7
+      top_p: 0.9
+      cost_per_token: 0.0005   # $0.0005 per token (smaller model)
+      request_timeout: "20s"
+      quality_weight: 0.8
+      context_window: 4096
+      
+    gpt-4:
+      max_tokens: 4096
+      temperature: 0.7
+      top_p: 0.9
+      cost_per_token: 0.03     # $0.03 per token
+      request_timeout: "60s"
+      quality_weight: 1.3
+      context_window: 8192
+      
+    gpt-3.5-turbo:
+      max_tokens: 4096
+      temperature: 0.7
+      top_p: 0.9
+      cost_per_token: 0.002    # $0.002 per token
+      request_timeout: "30s"
+      quality_weight: 0.9
+      context_window: 4096
+
+  # Feature-specific configuration
+  features:
+    recipe_generation:
+      enabled: true
+      default_model: "llama3.2:3b"
+      fallback_models: ["gpt-3.5-turbo", "mock"]
+      max_ingredients: 20
+      max_instructions: 15
+      quality_threshold: 0.8
+      
+    ingredient_suggestions:
+      enabled: true
+      default_model: "llama3.2:1b"  # Lighter model for suggestions
+      fallback_models: ["gpt-3.5-turbo"]
+      max_suggestions: 10
+      min_confidence: 0.6
+      
+    nutrition_analysis:
+      enabled: true
+      default_model: "gpt-3.5-turbo"  # Better for structured data
+      fallback_models: ["llama3.2:3b"]
+      database_fallback: true
+      accuracy_threshold: 0.85
+      
+    recipe_optimization:
+      enabled: true
+      default_model: "gpt-4"  # Best quality for optimization
+      fallback_models: ["llama3.2:3b", "gpt-3.5-turbo"]
+      optimization_types:
+        - "health"
+        - "cost"
+        - "taste" 
+        - "time"
+      quality_threshold: 0.9
+      
+    meal_planning:
+      enabled: true
+      default_model: "gpt-4"
+      fallback_models: ["llama3.2:3b"]
+      max_days: 30
+      budget_tracking: true
+      shopping_list: true
+
+  # Security configuration
+  security:
+    api_key_required: true
+    rate_limit_by_api_key: true
+    request_validation: true
+    response_sanitization: true
+    
+    # Data protection
+    data_protection:
+      pii_detection: true
+      data_retention_days: 90
+      anonymization: true
+      encryption_at_rest: true
+
+  # Logging configuration
+  logging:
+    level: "info"
+    format: "json"
+    
+    # Log destinations
+    destinations:
+      console:
+        enabled: true
+        level: "info"
+      file:
+        enabled: true
+        path: "/var/log/alchemorsel/ai-service.log"
+        level: "debug"
+        rotation: "daily"
+        max_size: "100MB"
+        max_files: 7
+      
+    # Structured logging
+    structured_logging:
+      enabled: true
+      fields:
+        - "user_id"
+        - "request_id"
+        - "feature"
+        - "provider"
+        - "cost"
+        - "quality_score"
+
+# Integration with existing services
+integration:
+  redis:
+    enabled: true
+    connection_string: "${REDIS_URL}"
+    database: 2  # Dedicated database for AI cache
+    
+  postgres:
+    enabled: true
+    connection_string: "${DATABASE_URL}"
+    schema: "ai_service"
+    
+  monitoring:
+    prometheus:
+      enabled: true
+      port: 9090
+      path: "/metrics"
+    
+    grafana:
+      enabled: true
+      dashboards:
+        - "ai-service-overview"
+        - "cost-tracking"
+        - "quality-metrics"
+
+# Environment-specific overrides
+environments:
+  development:
+    ai:
+      cost_management:
+        daily_budget_cents: 1000    # $10 for dev
+        monthly_budget_cents: 30000 # $300 for dev
+      rate_limit:
+        per_user:
+          requests_per_minute: 10
+          requests_per_hour: 600
+      quality:
+        min_score: 0.5  # Lower threshold for dev
+      
+  staging:
+    ai:
+      cost_management:
+        daily_budget_cents: 5000    # $50 for staging
+        monthly_budget_cents: 150000 # $1500 for staging
+      quality:
+        min_score: 0.65
+        
+  production:
+    ai:
+      cost_management:
+        daily_budget_cents: 20000   # $200 for production
+        monthly_budget_cents: 600000 # $6000 for production
+      quality:
+        min_score: 0.8
+      alerts:
+        channels:
+          slack:
+            enabled: true  # Enable Slack in production

@@ -117,15 +117,21 @@ type AWSConfig struct {
 
 // AIConfig contains AI service configuration
 type AIConfig struct {
-	Provider           string  `mapstructure:"provider"`
-	OpenAIKey          string  `mapstructure:"openai_key"`
-	OpenAIModel        string  `mapstructure:"openai_model"`
-	AnthropicKey       string  `mapstructure:"anthropic_key"`
-	AnthropicModel     string  `mapstructure:"anthropic_model"`
-	MaxTokens          int     `mapstructure:"max_tokens"`
-	Temperature        float64 `mapstructure:"temperature"`
-	TimeoutSeconds     int     `mapstructure:"timeout_seconds"`
-	EnableCache        bool    `mapstructure:"enable_cache"`
+	Provider           string        `mapstructure:"provider"`
+	OpenAIKey          string        `mapstructure:"openai_key"`
+	OpenAIModel        string        `mapstructure:"openai_model"`
+	AnthropicKey       string        `mapstructure:"anthropic_key"`
+	AnthropicModel     string        `mapstructure:"anthropic_model"`
+	
+	// Ollama configuration
+	OllamaHost         string        `mapstructure:"ollama_host"`
+	OllamaModel        string        `mapstructure:"ollama_model"`
+	OllamaTimeout      time.Duration `mapstructure:"ollama_timeout"`
+	
+	MaxTokens          int           `mapstructure:"max_tokens"`
+	Temperature        float64       `mapstructure:"temperature"`
+	TimeoutSeconds     int           `mapstructure:"timeout_seconds"`
+	EnableCache        bool          `mapstructure:"enable_cache"`
 	CacheTTL           time.Duration `mapstructure:"cache_ttl"`
 }
 
@@ -156,6 +162,34 @@ type MonitoringConfig struct {
 	SentryEnvironment string   `mapstructure:"sentry_environment"`
 	HealthCheckPath   string   `mapstructure:"health_check_path"`
 	ReadinessPath     string   `mapstructure:"readiness_path"`
+	HealthCheck       HealthCheckConfig `mapstructure:"health_check"`
+}
+
+// HealthCheckConfig contains health check configuration
+type HealthCheckConfig struct {
+	EnableEnterprise     bool          `mapstructure:"enable_enterprise"`
+	EnableMetrics        bool          `mapstructure:"enable_metrics"`
+	EnableCircuitBreaker bool          `mapstructure:"enable_circuit_breaker"`
+	EnableDependencies   bool          `mapstructure:"enable_dependencies"`
+	CacheTTL             time.Duration `mapstructure:"cache_ttl"`
+	Timeout              time.Duration `mapstructure:"timeout"`
+	CircuitBreaker       CircuitBreakerConfig `mapstructure:"circuit_breaker"`
+	Metrics              MetricsConfig        `mapstructure:"metrics"`
+}
+
+// CircuitBreakerConfig contains circuit breaker configuration
+type CircuitBreakerConfig struct {
+	FailureThreshold int           `mapstructure:"failure_threshold"`
+	SuccessThreshold int           `mapstructure:"success_threshold"`
+	Timeout          time.Duration `mapstructure:"timeout"`
+	MaxRequests      int           `mapstructure:"max_requests"`
+}
+
+// MetricsConfig contains metrics configuration
+type MetricsConfig struct {
+	Namespace string `mapstructure:"namespace"`
+	Subsystem string `mapstructure:"subsystem"`
+	Enabled   bool   `mapstructure:"enabled"`
 }
 
 // EmailConfig contains email service configuration
@@ -296,6 +330,25 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("monitoring.sampling_rate", 0.1)
 	v.SetDefault("monitoring.health_check_path", "/health")
 	v.SetDefault("monitoring.readiness_path", "/ready")
+	
+	// Health check defaults
+	v.SetDefault("monitoring.health_check.enable_enterprise", true)
+	v.SetDefault("monitoring.health_check.enable_metrics", true)
+	v.SetDefault("monitoring.health_check.enable_circuit_breaker", true)
+	v.SetDefault("monitoring.health_check.enable_dependencies", true)
+	v.SetDefault("monitoring.health_check.cache_ttl", "5s")
+	v.SetDefault("monitoring.health_check.timeout", "10s")
+	
+	// Circuit breaker defaults
+	v.SetDefault("monitoring.health_check.circuit_breaker.failure_threshold", 5)
+	v.SetDefault("monitoring.health_check.circuit_breaker.success_threshold", 2)
+	v.SetDefault("monitoring.health_check.circuit_breaker.timeout", "30s")
+	v.SetDefault("monitoring.health_check.circuit_breaker.max_requests", 3)
+	
+	// Metrics defaults
+	v.SetDefault("monitoring.health_check.metrics.namespace", "alchemorsel")
+	v.SetDefault("monitoring.health_check.metrics.subsystem", "healthcheck")
+	v.SetDefault("monitoring.health_check.metrics.enabled", true)
 	
 	// AI defaults
 	v.SetDefault("ai.provider", "openai")

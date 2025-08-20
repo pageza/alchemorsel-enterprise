@@ -1,0 +1,106 @@
+# Production web server Dockerfile
+# Nginx-based with security optimizations
+
+ARG NGINX_VERSION=1.25-alpine
+ARG NODE_VERSION=20
+ARG ALPINE_VERSION=3.20
+
+# Stage 1: Build frontend assets
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS frontend-builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy frontend source
+COPY src/ src/
+COPY webpack.config.js postcss.config.js ./
+
+# Build optimized frontend assets
+ENV NODE_ENV=production
+RUN npm run build:production
+
+# Stage 2: Frontend security scanner
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS frontend-scanner
+
+WORKDIR /app
+
+# Copy built assets
+COPY --from=frontend-builder /app/dist ./dist/
+
+# Install security scanner
+RUN npm install -g retire
+
+# Scan for vulnerable dependencies in built assets
+RUN retire --path ./dist --severity medium
+
+# Stage 3: Production web server
+FROM nginx:${NGINX_VERSION} AS production
+
+# Install security tools
+RUN apk add --no-cache \
+    curl \
+    openssl
+
+# Remove default nginx config
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copy custom nginx configuration
+COPY deployments/docker/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY deployments/docker/nginx/alchemorsel.conf /etc/nginx/conf.d/alchemorsel.conf
+
+# Copy SSL configuration
+COPY deployments/docker/nginx/ssl-params.conf /etc/nginx/conf.d/ssl-params.conf
+
+# Copy built frontend assets
+COPY --from=frontend-builder --chown=nginx:nginx /app/dist /usr/share/nginx/html
+
+# Copy static assets
+COPY --chown=nginx:nginx static/ /usr/share/nginx/html/static/
+
+# Create nginx cache directory
+RUN mkdir -p /var/cache/nginx/client_temp \
+    /var/cache/nginx/proxy_temp \
+    /var/cache/nginx/fastcgi_temp \
+    /var/cache/nginx/uwsgi_temp \
+    /var/cache/nginx/scgi_temp \
+    && chown -R nginx:nginx /var/cache/nginx
+
+# Create log directory
+RUN mkdir -p /var/log/nginx \
+    && chown -R nginx:nginx /var/log/nginx
+
+# Security: Create non-root user for nginx
+RUN addgroup -g 101 -S nginx || true
+RUN adduser -S -D -H -u 101 -h /var/cache/nginx -s /sbin/nologin -G nginx -g nginx nginx || true
+
+# Generate DH parameters for SSL
+RUN openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
+
+# Security headers and configuration
+COPY deployments/docker/nginx/security-headers.conf /etc/nginx/conf.d/security-headers.conf
+
+# Copy entrypoint script
+COPY deployments/docker/scripts/nginx-entrypoint.sh /docker-entrypoint.d/30-security-setup.sh
+RUN chmod +x /docker-entrypoint.d/30-security-setup.sh
+
+# Expose ports
+EXPOSE 80 443
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost/health || exit 1
+
+# Security: Run as non-root user
+USER nginx
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]

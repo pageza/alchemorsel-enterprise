@@ -1,0 +1,59 @@
+// Alchemorsel v3 Main Stylesheet
+// Hot reload enabled development build
+
+// Variables and configuration
+@import 'variables';
+@import 'mixins';
+
+// Base styles
+@import 'base/reset';
+@import 'base/typography';
+@import 'base/layout';
+
+// Components
+@import 'components/buttons';
+@import 'components/forms';
+@import 'components/cards';
+@import 'components/navigation';
+@import 'components/modals';
+@import 'components/notifications';
+
+// HTMX specific styles
+@import 'htmx/loading';
+@import 'htmx/transitions';
+
+// Development styles
+@import 'development/debug';
+@import 'development/hot-reload';
+
+// Hot reload indicator
+.hot-reload-indicator {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: #28a745;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  
+  &.active {
+    opacity: 1;
+  }
+}
+
+// CSS Grid layout for modern browsers
+@supports (display: grid) {
+  .recipe-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+}

@@ -1,0 +1,297 @@
+# Alchemorsel v3 Hot Reload Configuration
+# Advanced Air configuration for enterprise-grade development workflow
+
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+# API Service Build Configuration
+args_bin = []
+bin = "./tmp/main-api"
+cmd = "go build -gcflags='all=-N -l' -o ./tmp/main-api ./cmd/api/main.go"
+delay = 500  # Fast rebuild delay
+exclude_dir = [
+    "assets", 
+    "tmp", 
+    "vendor", 
+    "testdata", 
+    "docs", 
+    "node_modules",
+    "data",
+    "deployments",
+    "test",
+    "coverage",
+    "build",
+    ".git"
+]
+exclude_file = []
+exclude_regex = [
+    "_test\\.go$",
+    "\\.md$",
+    "\\.yml$",
+    "\\.yaml$",
+    "\\.json$"
+]
+exclude_unchanged = true  # Only rebuild on actual changes
+follow_symlink = false
+full_bin = ""
+include_dir = ["cmd", "internal", "pkg"]
+include_ext = ["go", "html", "css", "js", "sql"]
+kill_delay = "2s"  # Graceful shutdown timeout
+log = "tmp/build-errors.log"
+send_interrupt = true  # Send SIGINT for graceful shutdown
+stop_on_root = true    # Stop on root directory changes
+rerun = true           # Restart on crash
+rerun_delay = 500      # Delay before restart
+
+# Pre-build hooks
+pre_cmd = ["go mod tidy", "go generate ./..."]
+# Post-build hooks  
+post_cmd = ["echo 'API service rebuilt successfully'"]
+
+[build_web]
+# Web Service Build Configuration (secondary service)
+bin = "./tmp/main-web"
+cmd = "go build -gcflags='all=-N -l' -o ./tmp/main-web ./cmd/web/main.go"
+delay = 500
+exclude_dir = [
+    "assets", 
+    "tmp", 
+    "vendor", 
+    "testdata", 
+    "docs", 
+    "node_modules",
+    "data",
+    "deployments",
+    "test",
+    "coverage",
+    "build",
+    ".git"
+]
+include_dir = ["cmd/web", "internal", "pkg"]
+include_ext = ["go", "html", "css", "js"]
+kill_delay = "2s"
+log = "tmp/build-errors-web.log"
+send_interrupt = true
+stop_on_root = true
+rerun = true
+rerun_delay = 500
+
+post_cmd = ["echo 'Web service rebuilt successfully'"]
+
+[color]
+app = "magenta"
+build = "yellow"  
+main = "green"
+runner = "blue"
+watcher = "cyan"
+
+[log]
+main_only = false
+time = true
+level = "debug"
+
+[misc]
+clean_on_exit = true
+
+[screen]
+clear_on_rebuild = true
+keep_scroll = false
+
+# Proxy Configuration for Live Reload
+[proxy]
+enabled = true
+proxy_port = 8090
+app_port = 8080
+
+# File Watching Configuration
+[watch]
+# Database migrations
+[[watch.paths]]
+path = "internal/infrastructure/persistence/migrations/sql"
+cmd = "echo 'Migration files changed - consider running migrations'"
+
+# Templates  
+[[watch.paths]]
+path = "internal/infrastructure/http/server/templates"
+cmd = "echo 'Template files changed'"
+
+# Static assets
+[[watch.paths]]
+path = "internal/infrastructure/http/server/static"
+cmd = "echo 'Static files changed'"
+
+# Configuration files
+[[watch.paths]]
+path = "config"
+cmd = "echo 'Configuration changed - restart may be required'"
+
+# Hot Reload Settings
+[hotreload]
+enabled = true
+port = 35729  # Standard LiveReload port
+excludes = [".git", "tmp", "vendor", "node_modules"]
+includes = ["**/*.html", "**/*.css", "**/*.js"]
+
+# Development Tools Integration
+[tools]
+# Enable debugger support
+delve_enabled = true
+delve_port = 2345
+delve_headless = true
+
+# Enable profiling
+pprof_enabled = true  
+pprof_port = 6060
+
+# Enable metrics
+metrics_enabled = true
+metrics_port = 9090
+
+# Browser Integration
+[browser]
+auto_open = false  # Don't auto-open browser
+reload_js = '''
+(function() {
+    const ws = new WebSocket("ws://localhost:35729/livereload");
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.command === "reload") {
+            console.log("Hot reloading page...");
+            if (data.path && data.path.endsWith(".css")) {
+                // Smart CSS reload without full page refresh
+                const links = document.getElementsByTagName("link");
+                for (let i = 0; i < links.length; i++) {
+                    const link = links[i];
+                    if (link.rel === "stylesheet") {
+                        const href = link.href.split("?")[0];
+                        link.href = href + "?t=" + Date.now();
+                    }
+                }
+            } else {
+                window.location.reload();
+            }
+        }
+    };
+    ws.onopen = function() {
+        console.log("Connected to hot reload server");
+    };
+    ws.onerror = function() {
+        console.log("Hot reload connection failed");
+    };
+})();
+'''
+
+# Performance Optimization
+[optimization]
+# Enable build caching
+cache_enabled = true
+cache_dir = "tmp/.build-cache"
+
+# Parallel builds for multiple services
+parallel_builds = true
+max_parallel = 2
+
+# Smart rebuilds - only rebuild changed modules
+incremental_build = true
+build_tags = ["development", "hot_reload"]
+
+# Environment Variables for Development
+[env]
+CGO_ENABLED = "0"
+GOOS = "linux" 
+GOARCH = "amd64"
+GO111MODULE = "on"
+GOCACHE = "tmp/.gocache"
+GOMODCACHE = "tmp/.gomodcache"
+
+# Air configuration
+AIR_ENABLE_COLORS = "true"
+AIR_DEBUG = "true"
+
+# Application environment
+APP_ENVIRONMENT = "development"
+APP_DEBUG = "true"
+APP_LOG_LEVEL = "debug"
+HOT_RELOAD_ENABLED = "true"
+
+# Service ports
+API_PORT = "8080"
+WEB_PORT = "8081" 
+METRICS_PORT = "9090"
+HEALTH_PORT = "8090"
+
+# Database
+DATABASE_HOST = "localhost"
+DATABASE_PORT = "5432"
+DATABASE_NAME = "alchemorsel_dev"
+DATABASE_USER = "postgres" 
+DATABASE_PASSWORD = "postgres"
+
+# Redis
+REDIS_HOST = "localhost"
+REDIS_PORT = "6379"
+
+# Development features
+TEMPLATE_CACHE_DISABLED = "true"
+STATIC_CACHE_DISABLED = "true"
+SQL_DEBUG = "true"
+
+# Monitoring and Debugging
+[monitoring]
+enabled = true
+health_check_interval = "10s"
+metrics_interval = "5s"
+log_level = "debug"
+
+# File system events
+file_change_debounce = "100ms"
+build_debounce = "500ms"
+
+# Resource monitoring
+memory_limit = "512MB"
+cpu_limit = "50%"
+
+# Error Handling
+[error_handling]
+# Continue on build errors in development
+continue_on_error = true
+show_build_errors_in_browser = true
+error_template = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Build Error - Alchemorsel v3</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #ff6b6b; }
+        .error { background: #2a1a1a; padding: 15px; border-left: 4px solid #ff6b6b; margin: 10px 0; }
+        .file { color: #61dafb; }
+        .line { color: #ffd93d; }
+    </style>
+</head>
+<body>
+    <h1>🔨 Build Error</h1>
+    <div class="error">{{.Error}}</div>
+    <p>Fix the error and the application will automatically rebuild.</p>
+</body>
+</html>
+'''
+
+# Advanced Features
+[advanced]
+# Enable Go 1.23 features
+go_version = "1.23"
+enable_experiments = ["rangefunc", "arenas"]
+
+# Compiler optimizations for development
+gc_flags = ["all=-N", "all=-l"]  # Disable optimizations and inlining for debugging
+ld_flags = ["-X main.version=dev", "-X main.environment=development"]
+
+# Build constraints
+build_constraints = ["hot_reload", "development"]
+
+# Module replacement for local development
+# [[advanced.replace]]
+# module = "github.com/example/dependency"
+# path = "../local-dependency"

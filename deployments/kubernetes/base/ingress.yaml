@@ -1,0 +1,155 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alchemorsel-ingress
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel
+    app.kubernetes.io/version: v3
+  annotations:
+    # AWS Load Balancer Controller annotations
+    kubernetes.io/ingress.class: "alb"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
+    
+    # SSL/TLS Configuration
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:ACCOUNT:certificate/CERTIFICATE_ID"
+    
+    # Security headers
+    alb.ingress.kubernetes.io/response-headers: |
+      Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+      X-Frame-Options: DENY
+      X-Content-Type-Options: nosniff
+      X-XSS-Protection: 1; mode=block
+      Referrer-Policy: strict-origin-when-cross-origin
+      Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+    
+    # Performance and caching
+    alb.ingress.kubernetes.io/load-balancer-attributes: |
+      idle_timeout.timeout_seconds=60,
+      routing.http2.enabled=true,
+      access_logs.s3.enabled=true,
+      access_logs.s3.bucket=alchemorsel-alb-logs,
+      access_logs.s3.prefix=production-alb
+    
+    # WAF Association (if enabled)
+    alb.ingress.kubernetes.io/wafv2-acl-arn: "arn:aws:wafv2:us-east-1:ACCOUNT:regional/webacl/alchemorsel-production-waf/WAF_ID"
+    
+    # Rate limiting and connection limits
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/connection-proxy-header: "keep-alive"
+    
+    # Backend protocol
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/backend-protocol-version: HTTP1
+spec:
+  ingressClassName: alb
+  rules:
+    - host: alchemorsel.com
+      http:
+        paths:
+          # API routes
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: alchemorsel-api
+                port:
+                  number: 80
+          # Health check endpoint
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: alchemorsel-api
+                port:
+                  number: 80
+          # Metrics endpoint (restricted access)
+          - path: /metrics
+            pathType: Exact
+            backend:
+              service:
+                name: alchemorsel-api
+                port:
+                  number: 8080
+          # Frontend routes (catch-all)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: alchemorsel-web
+                port:
+                  number: 80
+    - host: www.alchemorsel.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: alchemorsel-web
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - alchemorsel.com
+        - www.alchemorsel.com
+      secretName: alchemorsel-tls
+---
+# Ingress for monitoring/admin interfaces (restricted access)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alchemorsel-admin-ingress
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-admin
+    app.kubernetes.io/version: v3
+  annotations:
+    kubernetes.io/ingress.class: "alb"
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:ACCOUNT:certificate/CERTIFICATE_ID"
+    
+    # IP allowlist for admin access
+    alb.ingress.kubernetes.io/inbound-cidrs: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+    
+    # Basic authentication
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: alchemorsel-admin-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Alchemorsel Admin"
+spec:
+  ingressClassName: alb
+  rules:
+    - host: admin.alchemorsel.com
+      http:
+        paths:
+          # Prometheus metrics
+          - path: /metrics
+            pathType: Prefix
+            backend:
+              service:
+                name: alchemorsel-api
+                port:
+                  number: 8080
+          # Application admin endpoints
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: alchemorsel-api
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - admin.alchemorsel.com
+      secretName: alchemorsel-admin-tls

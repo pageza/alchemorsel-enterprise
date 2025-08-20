@@ -1,0 +1,107 @@
+# Alchemorsel v3 .gitignore
+
+# Binaries and executables
+*.exe
+*.dll
+*.so
+*.dylib
+/bin/
+/api-pure
+/alchemorsel-enterprise
+/alchemorsel-fresh
+/web
+/test-server
+/test-api-server
+
+# Go specific
+*.test
+*.prof
+*.out
+vendor/
+.env
+
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.npm
+.yarn-integrity
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+alchemorsel_dev.db
+
+# Log files
+*.log
+logs/
+*.log.*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.vim/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Build artifacts
+dist/
+build/
+target/
+
+# Docker volumes and data
+postgres_data/
+redis_data/
+prometheus_data/
+grafana_data/
+
+# Secrets and sensitive files
+.env.local
+.env.production
+secrets/
+*.key
+*.pem
+*.crt
+
+# Development files
+.air.toml.tmp
+hot-reload-*
+*.pid
+
+# Test coverage
+coverage/
+*.coverage
+.nyc_output/
+
+# Backup files
+*.backup
+*.bak
+go.mod.backup
+go.mod.minimal
+
+# Session files and temporary data
+THIS_IS_MY_MAIN_SESSION.txt
+Alchemorsel-v3.txt
+
+# Runtime and cache files
+.cache/
+runtime/

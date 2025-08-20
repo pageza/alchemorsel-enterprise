@@ -8,6 +8,21 @@ on:
     workflows: ["Continuous Integration"]
     types: [completed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      force_deploy:
+        description: 'Force deployment (skip quality gates)'
+        required: false
+        default: false
+        type: boolean
 
 env:
   AWS_REGION: us-east-1

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .status-healthy { @apply bg-green-100 text-green-800; }
+        .status-unhealthy { @apply bg-red-100 text-red-800; }
+        .status-unknown { @apply bg-gray-100 text-gray-800; }
+        .status-restarting { @apply bg-yellow-100 text-yellow-800; }
+        
+        .service-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        
+        .service-card.healthy { border-left-color: #10b981; }
+        .service-card.unhealthy { border-left-color: #ef4444; }
+        .service-card.unknown { border-left-color: #6b7280; }
+        .service-card.restarting { border-left-color: #f59e0b; }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .log-entry {
+            transition: all 0.3s ease;
+        }
+        
+        .log-entry:hover {
+            background-color: #f9fafb;
+        }
+        
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .live-indicator {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="app" class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+                        <i class="fas fa-tachometer-alt mr-3 text-blue-600"></i>
+                        Alchemorsel v3 - Development Dashboard
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="live-indicator flex items-center">
+                        <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                        <span class="text-sm text-gray-600">Live</span>
+                    </div>
+                    <button id="refreshBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                    <button id="hotReloadBtn" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg">
+                        <i class="fas fa-fire mr-2"></i>Trigger Reload
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Row -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="metric-card text-white p-6 rounded-lg shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm">Total Requests</p>
+                        <p id="totalRequests" class="text-2xl font-bold"><%= state.metrics.totalRequests %></p>
+                    </div>
+                    <i class="fas fa-chart-line text-2xl text-white/60"></i>
+                </div>
+            </div>
+            
+            <div class="bg-green-600 text-white p-6 rounded-lg shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm">Error Rate</p>
+                        <p id="errorRate" class="text-2xl font-bold"><%= state.metrics.errorRate %>%</p>
+                    </div>
+                    <i class="fas fa-exclamation-triangle text-2xl text-white/60"></i>
+                </div>
+            </div>
+            
+            <div class="bg-purple-600 text-white p-6 rounded-lg shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm">Avg Response</p>
+                        <p id="avgResponse" class="text-2xl font-bold"><%= state.metrics.avgResponseTime %>ms</p>
+                    </div>
+                    <i class="fas fa-clock text-2xl text-white/60"></i>
+                </div>
+            </div>
+            
+            <div class="bg-indigo-600 text-white p-6 rounded-lg shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm">Hot Reloads</p>
+                        <p id="hotReloadCount" class="text-2xl font-bold"><%= state.hotReload.reloadCount %></p>
+                    </div>
+                    <i class="fas fa-sync text-2xl text-white/60"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Services Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <% Object.entries(state.services).forEach(([serviceName, service]) => { %>
+            <div class="service-card <%= service.status %> bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 capitalize">
+                        <i class="fas fa-<%= getServiceIcon(serviceName) %> mr-2"></i>
+                        <%= serviceName %>
+                    </h3>
+                    <span class="status-badge px-2 py-1 rounded text-xs font-medium status-<%= service.status %>">
+                        <%= service.status %>
+                    </span>
+                </div>
+                
+                <div class="space-y-2 text-sm text-gray-600">
+                    <div class="flex justify-between">
+                        <span>Last Check:</span>
+                        <span><%= service.lastCheck ? new Date(service.lastCheck).toLocaleTimeString() : 'Never' %></span>
+                    </div>
+                    
+                    <% if (service.error) { %>
+                    <div class="text-red-600 text-xs">
+                        <i class="fas fa-exclamation-circle mr-1"></i>
+                        <%= service.error %>
+                    </div>
+                    <% } %>
+                    
+                    <% if (service.stats) { %>
+                    <div class="mt-3 pt-3 border-t">
+                        <div class="text-xs text-gray-500">
+                            <% if (service.stats.requests) { %>
+                            <div>Requests: <%= service.stats.requests.total || 0 %></div>
+                            <% } %>
+                            <% if (service.stats.timing?.uptime) { %>
+                            <div>Uptime: <%= service.stats.timing.uptime %></div>
+                            <% } %>
+                        </div>
+                    </div>
+                    <% } %>
+                </div>
+                
+                <div class="mt-4 flex space-x-2">
+                    <button class="restart-service-btn flex-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs px-3 py-1 rounded" 
+                            data-service="<%= serviceName %>">
+                        <i class="fas fa-redo mr-1"></i>Restart
+                    </button>
+                    <button class="check-health-btn bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded"
+                            data-service="<%= serviceName %>">
+                        <i class="fas fa-heartbeat"></i>
+                    </button>
+                </div>
+            </div>
+            <% }) %>
+        </div>
+
+        <!-- Hot Reload Status -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-fire text-orange-600 mr-2"></i>
+                Hot Reload Status
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded">
+                    <span class="text-sm text-gray-600">Status:</span>
+                    <span class="font-medium <%= state.hotReload.enabled ? 'text-green-600' : 'text-red-600' %>">
+                        <%= state.hotReload.enabled ? 'Enabled' : 'Disabled' %>
+                    </span>
+                </div>
+                
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded">
+                    <span class="text-sm text-gray-600">Last Reload:</span>
+                    <span class="font-medium text-gray-900" id="lastReload">
+                        <%= state.hotReload.lastReload ? new Date(state.hotReload.lastReload).toLocaleTimeString() : 'Never' %>
+                    </span>
+                </div>
+                
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded">
+                    <span class="text-sm text-gray-600">Connected Clients:</span>
+                    <span class="font-medium text-blue-600" id="connectedClients">
+                        <%= state.hotReload.connectedClients %>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Section -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-900">
+                        <i class="fas fa-file-alt text-gray-600 mr-2"></i>
+                        System Logs
+                    </h3>
+                    <button id="clearLogsBtn" class="text-red-600 hover:text-red-700 text-sm">
+                        <i class="fas fa-trash mr-1"></i>Clear Logs
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6">
+                <div id="logContainer" class="space-y-2 max-h-96 overflow-y-auto">
+                    <% state.logs.slice(-20).forEach(log => { %>
+                    <div class="log-entry flex items-start space-x-3 py-2 px-3 rounded hover:bg-gray-50">
+                        <div class="flex-shrink-0 w-2 h-2 rounded-full mt-2 <%= log.level === 'error' ? 'bg-red-500' : log.level === 'warn' ? 'bg-yellow-500' : 'bg-blue-500' %>"></div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center space-x-2 text-xs text-gray-500">
+                                <span><%= new Date(log.timestamp).toLocaleTimeString() %></span>
+                                <span class="uppercase font-medium <%= log.level === 'error' ? 'text-red-600' : log.level === 'warn' ? 'text-yellow-600' : 'text-blue-600' %>">
+                                    <%= log.level %>
+                                </span>
+                            </div>
+                            <div class="text-sm text-gray-900 mt-1"><%= log.message %></div>
+                        </div>
+                    </div>
+                    <% }) %>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io();
+        
+        // DOM elements
+        const refreshBtn = document.getElementById('refreshBtn');
+        const hotReloadBtn = document.getElementById('hotReloadBtn');
+        const clearLogsBtn = document.getElementById('clearLogsBtn');
+        const logContainer = document.getElementById('logContainer');
+        
+        // Event listeners
+        refreshBtn.addEventListener('click', () => window.location.reload());
+        
+        hotReloadBtn.addEventListener('click', () => {
+            socket.emit('request-hot-reload');
+            hotReloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Triggering...';
+            hotReloadBtn.disabled = true;
+        });
+        
+        clearLogsBtn.addEventListener('click', () => {
+            logContainer.innerHTML = '<div class="text-gray-500 text-center py-4">Logs cleared</div>';
+        });
+        
+        // Service restart buttons
+        document.querySelectorAll('.restart-service-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const service = e.target.dataset.service;
+                socket.emit('request-service-restart', service);
+                e.target.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Restarting...';
+                e.target.disabled = true;
+            });
+        });
+        
+        // Health check buttons
+        document.querySelectorAll('.check-health-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const service = e.target.dataset.service;
+                fetch(`/api/services/${service}/health`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(`Health check for ${service}:`, data);
+                        // Refresh the page to show updated status
+                        window.location.reload();
+                    });
+            });
+        });
+        
+        // Socket event handlers
+        socket.on('dashboard-update', (data) => {
+            updateDashboard(data);
+        });
+        
+        socket.on('new-log', (logEntry) => {
+            addLogEntry(logEntry);
+        });
+        
+        socket.on('hot-reload-triggered', (data) => {
+            document.getElementById('lastReload').textContent = new Date(data.timestamp).toLocaleTimeString();
+            document.getElementById('hotReloadCount').textContent = data.count;
+            
+            // Reset button
+            hotReloadBtn.innerHTML = '<i class="fas fa-fire mr-2"></i>Trigger Reload';
+            hotReloadBtn.disabled = false;
+        });
+        
+        socket.on('hot-reload-result', (result) => {
+            hotReloadBtn.innerHTML = '<i class="fas fa-fire mr-2"></i>Trigger Reload';
+            hotReloadBtn.disabled = false;
+            
+            if (!result.success) {
+                console.error('Hot reload failed:', result.error);
+            }
+        });
+        
+        socket.on('service-restart-result', (result) => {
+            const btn = document.querySelector(`[data-service="${result.service}"]`);
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-redo mr-1"></i>Restart';
+                btn.disabled = false;
+            }
+            
+            if (!result.success) {
+                console.error('Service restart failed:', result.error);
+            }
+        });
+        
+        // Helper functions
+        function updateDashboard(data) {
+            // Update metrics
+            document.getElementById('totalRequests').textContent = data.metrics.totalRequests;
+            document.getElementById('errorRate').textContent = data.metrics.errorRate + '%';
+            document.getElementById('avgResponse').textContent = data.metrics.avgResponseTime + 'ms';
+            document.getElementById('hotReloadCount').textContent = data.hotReload.reloadCount;
+            
+            // Update service statuses
+            Object.entries(data.services).forEach(([serviceName, service]) => {
+                const card = document.querySelector(`[data-service="${serviceName}"]`)?.closest('.service-card');
+                if (card) {
+                    // Update status badge
+                    const badge = card.querySelector('.status-badge');
+                    if (badge) {
+                        badge.textContent = service.status;
+                        badge.className = `status-badge px-2 py-1 rounded text-xs font-medium status-${service.status}`;
+                    }
+                    
+                    // Update card border
+                    card.className = `service-card ${service.status} bg-white rounded-lg shadow p-6`;
+                }
+            });
+        }
+        
+        function addLogEntry(logEntry) {
+            const logElement = document.createElement('div');
+            logElement.className = 'log-entry flex items-start space-x-3 py-2 px-3 rounded hover:bg-gray-50';
+            
+            const levelColor = logEntry.level === 'error' ? 'bg-red-500' : 
+                             logEntry.level === 'warn' ? 'bg-yellow-500' : 'bg-blue-500';
+            const levelTextColor = logEntry.level === 'error' ? 'text-red-600' : 
+                                  logEntry.level === 'warn' ? 'text-yellow-600' : 'text-blue-600';
+            
+            logElement.innerHTML = `
+                <div class="flex-shrink-0 w-2 h-2 rounded-full mt-2 ${levelColor}"></div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center space-x-2 text-xs text-gray-500">
+                        <span>${new Date(logEntry.timestamp).toLocaleTimeString()}</span>
+                        <span class="uppercase font-medium ${levelTextColor}">
+                            ${logEntry.level}
+                        </span>
+                    </div>
+                    <div class="text-sm text-gray-900 mt-1">${logEntry.message}</div>
+                </div>
+            `;
+            
+            logContainer.insertBefore(logElement, logContainer.firstChild);
+            
+            // Keep only last 50 log entries
+            const logEntries = logContainer.querySelectorAll('.log-entry');
+            if (logEntries.length > 50) {
+                logEntries[logEntries.length - 1].remove();
+            }
+        }
+        
+        console.log('🚀 Alchemorsel v3 Development Dashboard initialized');
+    </script>
+</body>
+</html>
+
+<%
+function getServiceIcon(serviceName) {
+    const icons = {
+        api: 'server',
+        web: 'globe',
+        postgres: 'database',
+        redis: 'memory',
+        ollama: 'robot',
+        livereload: 'sync',
+        proxy: 'exchange-alt'
+    };
+    return icons[serviceName] || 'cog';
+}
+%>

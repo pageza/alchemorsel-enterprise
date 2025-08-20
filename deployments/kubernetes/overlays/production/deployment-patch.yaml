@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alchemorsel-api
+spec:
+  replicas: 6
+  template:
+    spec:
+      containers:
+        - name: api
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          env:
+            - name: GO_ENV
+              value: "production"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: RATE_LIMIT
+              value: "1000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alchemorsel-web
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+        - name: nginx
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alchemorsel-ollama
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: ollama
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "1000m"
+            limits:
+              memory: "16Gi"
+              cpu: "4000m"

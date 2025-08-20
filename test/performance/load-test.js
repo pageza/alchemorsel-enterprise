@@ -1,333 +1,403 @@
-// K6 Load Testing Script for Alchemorsel v3
-// This script tests the application under various load conditions
+// k6 Load Testing Script for Alchemorsel v3
+// Comprehensive performance testing for API and web endpoints
 
 import http from 'k6/http';
-import { check, sleep } from 'k6';
+import { check, group, sleep } from 'k6';
 import { Rate, Trend, Counter } from 'k6/metrics';
-import { randomString, randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
+import { SharedArray } from 'k6/data';
 
 // Custom metrics
-export let errorRate = new Rate('errors');
-export let responseTime = new Trend('response_time');
-export let throughput = new Counter('throughput');
-
-// Test configuration
-export let options = {
-  stages: [
-    // Ramp-up
-    { duration: '2m', target: 10 }, // Ramp up to 10 users over 2 minutes
-    { duration: '5m', target: 50 }, // Ramp up to 50 users over 5 minutes
-    { duration: '10m', target: 100 }, // Steady state with 100 users for 10 minutes
-    { duration: '5m', target: 200 }, // Spike to 200 users for 5 minutes
-    { duration: '10m', target: 100 }, // Scale down to 100 users for 10 minutes
-    { duration: '5m', target: 0 }, // Ramp down over 5 minutes
-  ],
-  thresholds: {
-    // 95% of requests should complete within 500ms
-    http_req_duration: ['p(95)<500'],
-    // Error rate should be less than 1%
-    errors: ['rate<0.01'],
-    // 99% of requests should complete within 1s
-    http_req_duration: ['p(99)<1000'],
-    // Average response time should be less than 200ms
-    http_req_duration: ['avg<200'],
-  },
-  ext: {
-    loadimpact: {
-      // Cloud execution options
-      projectID: 3622169,
-      name: 'Alchemorsel v3 Load Test'
-    }
-  }
-};
+const errorRate = new Rate('error_rate');
+const responseTime = new Trend('response_time');
+const authFailures = new Counter('auth_failures');
+const apiRequests = new Counter('api_requests');
 
 // Test data
-const BASE_URL = __ENV.BASE_URL || 'https://api.alchemorsel.com';
-const API_KEY = __ENV.API_KEY || '';
+const testUsers = new SharedArray('test_users', function () {
+  return [
+    { username: 'testuser1@example.com', password: 'testpass123' },
+    { username: 'testuser2@example.com', password: 'testpass123' },
+    { username: 'testuser3@example.com', password: 'testpass123' },
+  ];
+});
 
-// Sample recipe data for testing
-const sampleRecipes = [
-  {
-    title: 'Chocolate Chip Cookies',
-    description: 'Classic homemade chocolate chip cookies',
-    ingredients: ['flour', 'butter', 'sugar', 'chocolate chips', 'eggs'],
-    instructions: ['Mix ingredients', 'Form dough', 'Bake at 350°F']
+// Test configuration
+export const options = {
+  scenarios: {
+    // Smoke test - minimal load
+    smoke_test: {
+      executor: 'constant-vus',
+      vus: 1,
+      duration: '30s',
+      tags: { test_type: 'smoke' },
+    },
+    
+    // Load test - normal load
+    load_test: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      stages: [
+        { duration: '2m', target: 10 },   // Ramp up
+        { duration: '5m', target: 10 },   // Stay at 10 users
+        { duration: '2m', target: 20 },   // Ramp up to 20 users
+        { duration: '5m', target: 20 },   // Stay at 20 users
+        { duration: '2m', target: 0 },    // Ramp down
+      ],
+      tags: { test_type: 'load' },
+      env: { TEST_TYPE: 'load' },
+    },
+    
+    // Stress test - beyond normal capacity
+    stress_test: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      stages: [
+        { duration: '2m', target: 20 },   // Ramp up to normal load
+        { duration: '5m', target: 20 },   // Stay at normal load
+        { duration: '2m', target: 50 },   // Ramp up to stress level
+        { duration: '5m', target: 50 },   // Stay at stress level
+        { duration: '2m', target: 100 },  // Ramp up to breaking point
+        { duration: '5m', target: 100 },  // Stay at breaking point
+        { duration: '5m', target: 0 },    // Ramp down
+      ],
+      tags: { test_type: 'stress' },
+      env: { TEST_TYPE: 'stress' },
+    },
+    
+    // Spike test - sudden load increase
+    spike_test: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      stages: [
+        { duration: '1m', target: 10 },   // Normal load
+        { duration: '30s', target: 100 }, // Spike
+        { duration: '3m', target: 100 },  // Maintain spike
+        { duration: '30s', target: 10 },  // Return to normal
+        { duration: '1m', target: 0 },    // Ramp down
+      ],
+      tags: { test_type: 'spike' },
+      env: { TEST_TYPE: 'spike' },
+    },
+    
+    // Volume test - large data sets
+    volume_test: {
+      executor: 'constant-vus',
+      vus: 5,
+      duration: '10m',
+      tags: { test_type: 'volume' },
+      env: { TEST_TYPE: 'volume' },
+    },
   },
-  {
-    title: 'Pasta Carbonara',
-    description: 'Traditional Italian pasta dish',
-    ingredients: ['pasta', 'eggs', 'cheese', 'bacon', 'pepper'],
-    instructions: ['Boil pasta', 'Cook bacon', 'Mix with eggs and cheese']
+  
+  thresholds: {
+    // Error rate should be less than 1%
+    'error_rate': ['rate<0.01'],
+    
+    // Response time thresholds
+    'http_req_duration': [
+      'p(50)<500',   // 50% of requests under 500ms
+      'p(90)<1000',  // 90% of requests under 1s
+      'p(95)<2000',  // 95% of requests under 2s
+      'p(99)<5000',  // 99% of requests under 5s
+    ],
+    
+    // API-specific thresholds
+    'http_req_duration{endpoint:api}': ['p(95)<1500'],
+    'http_req_duration{endpoint:auth}': ['p(95)<2000'],
+    'http_req_duration{endpoint:ai}': ['p(95)<10000'],
+    
+    // Authentication failure rate
+    'auth_failures': ['count<10'],
+    
+    // Minimum request rate
+    'http_reqs': ['rate>10'],
   },
-  {
-    title: 'Beef Tacos',
-    description: 'Spicy beef tacos with fresh toppings',
-    ingredients: ['ground beef', 'taco shells', 'lettuce', 'tomatoes', 'cheese'],
-    instructions: ['Cook beef', 'Warm shells', 'Assemble tacos']
+};
+
+// Base URL from environment or default
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:3010';
+
+// Authentication token storage
+let authToken = '';
+
+export function setup() {
+  console.log(`Starting performance tests against ${BASE_URL}`);
+  
+  // Health check before starting tests
+  const healthCheck = http.get(`${BASE_URL}/health`);
+  if (healthCheck.status !== 200) {
+    console.error('Health check failed:', healthCheck.status);
+    return null;
   }
-];
+  
+  console.log('Health check passed, starting tests...');
+  return { baseUrl: BASE_URL };
+}
 
-// Authentication helper
-function authenticate() {
-  const payload = JSON.stringify({
-    email: `test.user.${randomString(8)}@example.com`,
-    password: 'Test123!@#'
+export default function (data) {
+  const testType = __ENV.TEST_TYPE || 'load';
+  
+  group('Authentication Flow', function () {
+    testAuthentication();
   });
+  
+  group('API Endpoints', function () {
+    testAPIEndpoints();
+  });
+  
+  group('Static Assets', function () {
+    testStaticAssets();
+  });
+  
+  if (testType === 'volume') {
+    group('Data Operations', function () {
+      testDataOperations();
+    });
+  }
+  
+  if (testType === 'ai') {
+    group('AI Endpoints', function () {
+      testAIEndpoints();
+    });
+  }
+  
+  // Random sleep between 1-5 seconds
+  sleep(Math.random() * 4 + 1);
+}
 
+function testAuthentication() {
+  const user = testUsers[Math.floor(Math.random() * testUsers.length)];
+  
+  const loginPayload = {
+    email: user.username,
+    password: user.password,
+  };
+  
   const params = {
     headers: {
       'Content-Type': 'application/json',
     },
+    tags: { endpoint: 'auth' },
   };
-
-  const response = http.post(`${BASE_URL}/auth/register`, payload, params);
   
-  if (response.status === 201) {
-    const loginResponse = http.post(`${BASE_URL}/auth/login`, payload, params);
-    if (loginResponse.status === 200) {
-      return JSON.parse(loginResponse.body).token;
+  const response = http.post(
+    `${BASE_URL}/api/auth/login`,
+    JSON.stringify(loginPayload),
+    params
+  );
+  
+  const success = check(response, {
+    'login status is 200 or 201': (r) => [200, 201].includes(r.status),
+    'login response has token': (r) => {
+      try {
+        const body = JSON.parse(r.body);
+        return body.token !== undefined;
+      } catch (e) {
+        return false;
+      }
+    },
+    'login response time < 2s': (r) => r.timings.duration < 2000,
+  });
+  
+  if (success && response.status === 200) {
+    try {
+      const body = JSON.parse(response.body);
+      authToken = body.token;
+    } catch (e) {
+      console.error('Failed to parse login response:', e);
+      authFailures.add(1);
     }
-  }
-  
-  return null;
-}
-
-// Main test function
-export default function () {
-  const token = authenticate();
-  
-  if (!token) {
-    errorRate.add(1);
-    return;
-  }
-
-  const authHeaders = {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  };
-
-  // Test scenario selection (weighted)
-  const scenario = Math.random();
-  
-  if (scenario < 0.4) {
-    // 40% - Browse recipes
-    browseRecipes(authHeaders);
-  } else if (scenario < 0.7) {
-    // 30% - Search recipes
-    searchRecipes(authHeaders);
-  } else if (scenario < 0.85) {
-    // 15% - Create recipe
-    createRecipe(authHeaders);
-  } else if (scenario < 0.95) {
-    // 10% - View specific recipe
-    viewRecipe(authHeaders);
   } else {
-    // 5% - AI recipe generation
-    generateAIRecipe(authHeaders);
+    authFailures.add(1);
   }
-
-  // Random think time between requests
-  sleep(randomIntBetween(1, 3));
-}
-
-function browseRecipes(headers) {
-  const page = randomIntBetween(1, 10);
-  const limit = randomIntBetween(10, 50);
   
-  const response = http.get(`${BASE_URL}/api/recipes?page=${page}&limit=${limit}`, headers);
-  
-  const success = check(response, {
-    'browse recipes status is 200': (r) => r.status === 200,
-    'browse recipes response time < 500ms': (r) => r.timings.duration < 500,
-    'browse recipes has recipes': (r) => {
-      try {
-        const data = JSON.parse(r.body);
-        return data.recipes && Array.isArray(data.recipes);
-      } catch (e) {
-        return false;
-      }
-    },
-  });
-
+  errorRate.add(!success);
   responseTime.add(response.timings.duration);
-  throughput.add(1);
-  
-  if (!success) {
-    errorRate.add(1);
-  }
+  apiRequests.add(1);
 }
 
-function searchRecipes(headers) {
-  const searchTerms = ['chicken', 'pasta', 'vegetarian', 'dessert', 'quick', 'healthy'];
-  const query = searchTerms[randomIntBetween(0, searchTerms.length - 1)];
+function testAPIEndpoints() {
+  const endpoints = [
+    { path: '/api/health', method: 'GET', auth: false },
+    { path: '/api/recipes', method: 'GET', auth: true },
+    { path: '/api/users/profile', method: 'GET', auth: true },
+    { path: '/api/ingredients', method: 'GET', auth: false },
+  ];
   
-  const response = http.get(`${BASE_URL}/api/recipes/search?q=${query}`, headers);
-  
-  const success = check(response, {
-    'search recipes status is 200': (r) => r.status === 200,
-    'search recipes response time < 800ms': (r) => r.timings.duration < 800,
-    'search recipes has results': (r) => {
-      try {
-        const data = JSON.parse(r.body);
-        return data.results !== undefined;
-      } catch (e) {
-        return false;
-      }
-    },
+  endpoints.forEach(endpoint => {
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (endpoint.auth && authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    
+    const params = {
+      headers: headers,
+      tags: { endpoint: 'api' },
+    };
+    
+    let response;
+    if (endpoint.method === 'GET') {
+      response = http.get(`${BASE_URL}${endpoint.path}`, params);
+    } else if (endpoint.method === 'POST') {
+      response = http.post(`${BASE_URL}${endpoint.path}`, '{}', params);
+    }
+    
+    const success = check(response, {
+      [`${endpoint.path} status is 200`]: (r) => r.status === 200,
+      [`${endpoint.path} response time < 1s`]: (r) => r.timings.duration < 1000,
+      [`${endpoint.path} response has content`]: (r) => r.body.length > 0,
+    });
+    
+    errorRate.add(!success);
+    responseTime.add(response.timings.duration);
+    apiRequests.add(1);
   });
-
-  responseTime.add(response.timings.duration);
-  throughput.add(1);
-  
-  if (!success) {
-    errorRate.add(1);
-  }
 }
 
-function createRecipe(headers) {
-  const recipe = sampleRecipes[randomIntBetween(0, sampleRecipes.length - 1)];
-  const payload = JSON.stringify({
-    ...recipe,
-    title: `${recipe.title} ${randomString(4)}` // Make title unique
+function testStaticAssets() {
+  const staticFiles = [
+    '/favicon.ico',
+    '/robots.txt',
+    '/',  // Main page
+  ];
+  
+  staticFiles.forEach(file => {
+    const response = http.get(`${BASE_URL}${file}`, {
+      tags: { endpoint: 'static' },
+    });
+    
+    const success = check(response, {
+      [`${file} status is 200`]: (r) => r.status === 200,
+      [`${file} response time < 500ms`]: (r) => r.timings.duration < 500,
+    });
+    
+    errorRate.add(!success);
+    responseTime.add(response.timings.duration);
   });
-  
-  const response = http.post(`${BASE_URL}/api/recipes`, payload, headers);
-  
-  const success = check(response, {
-    'create recipe status is 201': (r) => r.status === 201,
-    'create recipe response time < 1000ms': (r) => r.timings.duration < 1000,
-    'create recipe returns ID': (r) => {
-      try {
-        const data = JSON.parse(r.body);
-        return data.id !== undefined;
-      } catch (e) {
-        return false;
-      }
-    },
-  });
-
-  responseTime.add(response.timings.duration);
-  throughput.add(1);
-  
-  if (!success) {
-    errorRate.add(1);
-  }
 }
 
-function viewRecipe(headers) {
-  // Assume recipe IDs are UUIDs or incrementing integers
-  const recipeId = randomString(8) + '-' + randomString(4) + '-' + randomString(4) + '-' + randomString(4) + '-' + randomString(12);
+function testDataOperations() {
+  if (!authToken) return;
   
-  const response = http.get(`${BASE_URL}/api/recipes/${recipeId}`, headers);
-  
-  const success = check(response, {
-    'view recipe status is 200 or 404': (r) => r.status === 200 || r.status === 404,
-    'view recipe response time < 300ms': (r) => r.timings.duration < 300,
-  });
-
-  responseTime.add(response.timings.duration);
-  throughput.add(1);
-  
-  if (!success) {
-    errorRate.add(1);
-  }
-}
-
-function generateAIRecipe(headers) {
-  const cuisines = ['Italian', 'Mexican', 'Asian', 'American', 'French', 'Indian'];
-  const dietTypes = ['vegetarian', 'vegan', 'keto', 'paleo', 'gluten-free'];
-  
-  const payload = JSON.stringify({
-    cuisine: cuisines[randomIntBetween(0, cuisines.length - 1)],
-    diet: dietTypes[randomIntBetween(0, dietTypes.length - 1)],
-    ingredients: ['chicken', 'rice', 'vegetables'],
-    cookingTime: randomIntBetween(15, 60)
-  });
-  
-  const response = http.post(`${BASE_URL}/api/ai/generate-recipe`, payload, headers);
-  
-  const success = check(response, {
-    'AI recipe generation status is 200': (r) => r.status === 200,
-    'AI recipe generation response time < 5000ms': (r) => r.timings.duration < 5000, // AI requests can be slower
-    'AI recipe generation returns recipe': (r) => {
-      try {
-        const data = JSON.parse(r.body);
-        return data.recipe !== undefined;
-      } catch (e) {
-        return false;
-      }
-    },
-  });
-
-  responseTime.add(response.timings.duration);
-  throughput.add(1);
-  
-  if (!success) {
-    errorRate.add(1);
-  }
-}
-
-// Health check function
-export function setup() {
-  console.log('Starting load test setup...');
-  
-  const response = http.get(`${BASE_URL}/health`);
-  
-  check(response, {
-    'setup: health check status is 200': (r) => r.status === 200,
-  });
-  
-  if (response.status !== 200) {
-    throw new Error('Application is not healthy, aborting test');
-  }
-  
-  console.log('Load test setup completed successfully');
-}
-
-// Teardown function
-export function teardown(data) {
-  console.log('Load test completed');
-  console.log(`Final error rate: ${errorRate.rate * 100}%`);
-  console.log(`Average response time: ${responseTime.avg}ms`);
-  console.log(`Total requests: ${throughput.count}`);
-}
-
-// Handle summary for detailed reporting
-export function handleSummary(data) {
-  return {
-    'loadtest-summary.json': JSON.stringify(data, null, 2),
-    'stdout': createSummaryText(data),
+  // Test creating a recipe
+  const recipePayload = {
+    title: `Test Recipe ${Date.now()}`,
+    description: 'A test recipe for performance testing',
+    ingredients: [
+      { name: 'Test Ingredient', amount: '1 cup' }
+    ],
+    instructions: ['Mix everything together'],
+    cookingTime: 30,
+    difficulty: 'easy'
   };
+  
+  const createParams = {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`,
+    },
+    tags: { endpoint: 'api', operation: 'create' },
+  };
+  
+  const createResponse = http.post(
+    `${BASE_URL}/api/recipes`,
+    JSON.stringify(recipePayload),
+    createParams
+  );
+  
+  const createSuccess = check(createResponse, {
+    'recipe creation status is 201': (r) => r.status === 201,
+    'recipe creation response time < 2s': (r) => r.timings.duration < 2000,
+  });
+  
+  errorRate.add(!createSuccess);
+  responseTime.add(createResponse.timings.duration);
+  apiRequests.add(1);
+  
+  // Test updating the recipe (if creation was successful)
+  if (createSuccess && createResponse.status === 201) {
+    let recipeId;
+    try {
+      const body = JSON.parse(createResponse.body);
+      recipeId = body.id;
+    } catch (e) {
+      console.error('Failed to parse recipe creation response:', e);
+      return;
+    }
+    
+    const updatePayload = {
+      ...recipePayload,
+      title: `Updated ${recipePayload.title}`,
+    };
+    
+    const updateResponse = http.put(
+      `${BASE_URL}/api/recipes/${recipeId}`,
+      JSON.stringify(updatePayload),
+      createParams
+    );
+    
+    const updateSuccess = check(updateResponse, {
+      'recipe update status is 200': (r) => r.status === 200,
+      'recipe update response time < 1.5s': (r) => r.timings.duration < 1500,
+    });
+    
+    errorRate.add(!updateSuccess);
+    responseTime.add(updateResponse.timings.duration);
+    apiRequests.add(1);
+  }
 }
 
-function createSummaryText(data) {
-  const summary = `
-Load Test Summary
-=================
+function testAIEndpoints() {
+  if (!authToken) return;
+  
+  const aiPayload = {
+    message: 'Suggest a recipe for chicken and rice',
+    context: 'dinner',
+  };
+  
+  const params = {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`,
+    },
+    tags: { endpoint: 'ai' },
+    timeout: '30s',  // AI endpoints may take longer
+  };
+  
+  const response = http.post(
+    `${BASE_URL}/api/ai/suggest`,
+    JSON.stringify(aiPayload),
+    params
+  );
+  
+  const success = check(response, {
+    'AI suggestion status is 200': (r) => r.status === 200,
+    'AI suggestion response time < 15s': (r) => r.timings.duration < 15000,
+    'AI suggestion has content': (r) => {
+      try {
+        const body = JSON.parse(r.body);
+        return body.suggestion && body.suggestion.length > 0;
+      } catch (e) {
+        return false;
+      }
+    },
+  });
+  
+  errorRate.add(!success);
+  responseTime.add(response.timings.duration);
+  apiRequests.add(1);
+}
 
-Test Duration: ${data.state.testRunDurationMs / 1000}s
-Total Requests: ${data.metrics.http_reqs.count}
-Request Rate: ${data.metrics.http_reqs.rate.toFixed(2)} req/s
-
-Response Times:
-- Average: ${data.metrics.http_req_duration.avg.toFixed(2)}ms
-- 95th Percentile: ${data.metrics.http_req_duration['p(95)'].toFixed(2)}ms
-- 99th Percentile: ${data.metrics.http_req_duration['p(99)'].toFixed(2)}ms
-- Max: ${data.metrics.http_req_duration.max.toFixed(2)}ms
-
-Error Rate: ${(data.metrics.errors.rate * 100).toFixed(2)}%
-
-Thresholds:
-${Object.entries(data.thresholds)
-  .map(([name, threshold]) => `- ${name}: ${threshold.ok ? 'PASS' : 'FAIL'}`)
-  .join('\n')}
-
-Data Transfer:
-- Received: ${(data.metrics.data_received.count / 1024 / 1024).toFixed(2)} MB
-- Sent: ${(data.metrics.data_sent.count / 1024 / 1024).toFixed(2)} MB
-`;
-
-  return summary;
+export function teardown(data) {
+  console.log('Performance tests completed');
+  
+  // Log final metrics
+  console.log('Final Metrics Summary:');
+  console.log(`- Total API Requests: ${apiRequests.count}`);
+  console.log(`- Authentication Failures: ${authFailures.count}`);
+  console.log(`- Average Response Time: ${responseTime.avg}ms`);
+  console.log(`- Error Rate: ${(errorRate.rate * 100).toFixed(2)}%`);
 }

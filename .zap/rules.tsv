@@ -1,0 +1,116 @@
+# ZAP Scanning Rules for Alchemorsel v3
+# This file configures OWASP ZAP security scanning rules
+
+# Rule ID	Rule Name	Threshold	Strength
+10003	Vulnerable JS Library	MEDIUM	MEDIUM
+10009	In Page Banner Information Leak	INFO	MEDIUM
+10010	Cookie No HttpOnly Flag	LOW	MEDIUM
+10011	Cookie Without Secure Flag	LOW	MEDIUM
+10015	Incomplete or No Cache-control and Pragma HTTP Header Set	INFO	MEDIUM
+10016	Web Browser XSS Protection Not Enabled	INFO	MEDIUM
+10017	Cross-Domain JavaScript Source File Inclusion	INFO	MEDIUM
+10019	Content-Type Header Missing	INFO	MEDIUM
+10020	X-Frame-Options Header Scanner	MEDIUM	MEDIUM
+10021	X-Content-Type-Options Header Missing	LOW	MEDIUM
+10023	Information Disclosure - Debug Error Messages	LOW	MEDIUM
+10024	Information Disclosure - Sensitive Information in URL	MEDIUM	MEDIUM
+10025	Information Disclosure - Sensitive Information in HTTP Referrer Header	INFO	MEDIUM
+10026	HTTP Parameter Override	MEDIUM	MEDIUM
+10027	Information Disclosure - Suspicious Comments	INFO	MEDIUM
+10028	Open Redirect	HIGH	MEDIUM
+10029	Cookie Poisoning	MEDIUM	MEDIUM
+10030	User Controllable Charset	MEDIUM	MEDIUM
+10031	User Controllable HTML Element Attribute (Potential XSS)	INFO	MEDIUM
+10032	Viewstate Scanner	MEDIUM	MEDIUM
+10033	Directory Browsing	MEDIUM	MEDIUM
+10034	Heartbleed OpenSSL Vulnerability (Indicative)	HIGH	MEDIUM
+10035	Strict-Transport-Security Header Scanner	LOW	MEDIUM
+10036	HTTP Server Response Header Scanner	INFO	MEDIUM
+10037	Server Leaks Information via "X-Powered-By" HTTP Response Header Field(s)	LOW	MEDIUM
+10038	Content Security Policy (CSP) Header Not Set	MEDIUM	MEDIUM
+10040	Secure Pages Include Mixed Content	MEDIUM	MEDIUM
+10041	HTTP to HTTPS Insecure Transition in Form Post	MEDIUM	MEDIUM
+10042	HTTPS to HTTP Insecure Transition in Form Post	MEDIUM	MEDIUM
+10043	User Controllable JavaScript Event (XSS)	HIGH	MEDIUM
+10044	Big Redirect Detected (Potential Sensitive Information Leak)	INFO	MEDIUM
+10045	Source Code Disclosure - /WEB-INF folder	HIGH	MEDIUM
+10047	HTTPS Content Available via HTTP	MEDIUM	MEDIUM
+10048	Remote Code Execution - Shell Shock	HIGH	MEDIUM
+10049	Content Cacheability	INFO	MEDIUM
+10050	Retrieved from Cache	INFO	MEDIUM
+10051	Relative Path Confusion	MEDIUM	MEDIUM
+10052	X-ChromeLogger-Data (XCOLD) Header Information Leak	MEDIUM	MEDIUM
+10054	Cookie Without SameSite Attribute	LOW	MEDIUM
+10055	CSP Scanner	MEDIUM	MEDIUM
+10056	X-Debug-Token Information Leak	MEDIUM	MEDIUM
+10057	Username Hash Found	INFO	MEDIUM
+10061	X-AspNet-Version Response Header Scanner	INFO	MEDIUM
+10062	PII Disclosure	HIGH	MEDIUM
+10063	Feature Policy Header Not Set	INFO	MEDIUM
+10096	Timestamp Disclosure	LOW	MEDIUM
+10097	Hash Disclosure	INFO	MEDIUM
+10098	Cross-Domain Misconfiguration	MEDIUM	MEDIUM
+10104	User Agent Fuzzer	INFO	MEDIUM
+10105	Weak Authentication Method	MEDIUM	MEDIUM
+10106	HTTP Only Site	MEDIUM	MEDIUM
+10107	Httpoxy - Proxy Header Misuse	MEDIUM	MEDIUM
+10108	Reverse Tabnabbing	MEDIUM	MEDIUM
+10109	Modern Web Application	INFO	MEDIUM
+10110	Dangerous JS Functions	LOW	MEDIUM
+10202	Absence of Anti-CSRF Tokens	MEDIUM	MEDIUM
+
+# Authentication and Session Management Rules
+40003	CRLF Injection	HIGH	MEDIUM
+40008	Parameter Tampering	MEDIUM	MEDIUM
+40009	Server Side Include	HIGH	MEDIUM
+40012	Cross Site Scripting (Reflected)	HIGH	MEDIUM
+40013	Session Fixation	MEDIUM	MEDIUM
+40014	Cross Site Scripting (Persistent)	HIGH	MEDIUM
+40016	Cross Site Scripting (Persistent) - Prime	HIGH	MEDIUM
+40017	Cross Site Scripting (Persistent) - Spider	HIGH	MEDIUM
+40018	SQL Injection	HIGH	MEDIUM
+40019	SQL Injection - MySQL	HIGH	MEDIUM
+40020	SQL Injection - Hypersonic SQL	HIGH	MEDIUM
+40021	SQL Injection - Oracle	HIGH	MEDIUM
+40022	SQL Injection - PostgreSQL	HIGH	MEDIUM
+40023	Possible Username Enumeration	INFO	MEDIUM
+40024	SQL Injection - SQLite	HIGH	MEDIUM
+40025	Proxy Disclosure	MEDIUM	MEDIUM
+40026	Cross Site Scripting (DOM Based)	HIGH	MEDIUM
+40027	SQL Injection - MsSQL	HIGH	MEDIUM
+40028	LDAP Injection	HIGH	MEDIUM
+40029	XPATH Injection	HIGH	MEDIUM
+
+# Input Validation Rules
+90001	Insecure JSF ViewState	MEDIUM	MEDIUM
+90011	Charset Mismatch	LOW	MEDIUM
+90017	XSLT Injection	MEDIUM	MEDIUM
+90018	SQL Injection - Blind	HIGH	MEDIUM
+90019	Code Injection	HIGH	MEDIUM
+90020	Command Injection	HIGH	MEDIUM
+90021	XPath Injection	HIGH	MEDIUM
+90022	Application Error Disclosure	MEDIUM	MEDIUM
+90023	XML External Entity Attack	HIGH	MEDIUM
+90024	Generic Padding Oracle	MEDIUM	MEDIUM
+90025	Expression Language Injection	HIGH	MEDIUM
+90026	SOAP Action Spoofing	MEDIUM	MEDIUM
+90027	Cookie Slack Detector	INFO	MEDIUM
+90028	Insecure HTTP Method	MEDIUM	MEDIUM
+90029	LDAP Injection	HIGH	MEDIUM
+90030	WSDL File Detection	INFO	MEDIUM
+
+# Custom rules for API endpoints
+# Exclude health check endpoints from certain tests
+IGNORE	/health	ALL
+IGNORE	/metrics	ALL
+IGNORE	/ready	ALL
+
+# API rate limiting tests
+INCLUDE	/api/	40012
+INCLUDE	/api/	40018
+INCLUDE	/api/	90018
+
+# Authentication endpoint specific tests
+INCLUDE	/api/auth/	40013
+INCLUDE	/api/auth/	40023
+INCLUDE	/api/auth/	10202

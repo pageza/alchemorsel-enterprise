@@ -167,6 +167,27 @@ func (c *APIClient) VerifyToken(ctx context.Context, token string) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
+// VerifyConnection checks if the API backend is reachable
+func (c *APIClient) VerifyConnection(ctx context.Context) bool {
+	// Call health endpoint to verify connection
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/health", nil)
+	if err != nil {
+		c.logger.Debug("Connection verification request creation failed", zap.Error(err))
+		return false
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		c.logger.Debug("Connection verification failed", zap.Error(err))
+		return false
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode < 500
+}
+
 // GetProfile gets the current user's profile
 func (c *APIClient) GetProfile(ctx context.Context, token string) (*UserResponse, error) {
 	var resp struct {

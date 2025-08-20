@@ -1,0 +1,567 @@
+version: '3.8'
+
+# Production Monitoring Stack for Alchemorsel v3
+# Includes Prometheus, Grafana, AlertManager, ELK Stack, Jaeger, and supporting services
+
+services:
+  # === Core Application Services ===
+  
+  # Alchemorsel API with enhanced monitoring
+  api:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    container_name: alchemorsel-api-prod
+    environment:
+      ALCHEMORSEL_APP_ENVIRONMENT: production
+      ALCHEMORSEL_DATABASE_HOST: postgres
+      ALCHEMORSEL_DATABASE_PORT: 5432
+      ALCHEMORSEL_DATABASE_DATABASE: alchemorsel_prod
+      ALCHEMORSEL_DATABASE_USERNAME: postgres
+      ALCHEMORSEL_DATABASE_PASSWORD_FILE: /run/secrets/postgres_password
+      ALCHEMORSEL_REDIS_HOST: redis
+      ALCHEMORSEL_REDIS_PORT: 6379
+      ALCHEMORSEL_KAFKA_BROKERS: kafka:9092
+      ALCHEMORSEL_MONITORING_PROMETHEUS_ENABLED: "true"
+      ALCHEMORSEL_MONITORING_PROMETHEUS_PORT: 9090
+      ALCHEMORSEL_MONITORING_JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+      ALCHEMORSEL_MONITORING_OTEL_ENDPOINT: http://otel-collector:4317
+      ALCHEMORSEL_LOGGING_LEVEL: info
+      ALCHEMORSEL_LOGGING_FORMAT: json
+    ports:
+      - "8080:8080"
+      - "9090:9090"  # Metrics endpoint
+    volumes:
+      - api_logs:/app/logs
+    secrets:
+      - postgres_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9090"
+      - "prometheus.io/path=/metrics"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - monitoring
+      - app
+
+  # === Database Services ===
+  
+  postgres:
+    image: postgres:15-alpine
+    container_name: alchemorsel-postgres-prod
+    environment:
+      POSTGRES_DB: alchemorsel_prod
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - postgres_logs:/var/log/postgresql
+    secrets:
+      - postgres_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app
+
+  # PostgreSQL Exporter for metrics
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:@postgres:5432/alchemorsel_prod?sslmode=disable
+      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/postgres_exporter/queries.yaml
+    volumes:
+      - ./postgres/queries.yaml:/etc/postgres_exporter/queries.yaml
+    secrets:
+      - postgres_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - monitoring
+      - app
+
+  redis:
+    image: redis:7-alpine
+    container_name: alchemorsel-redis-prod
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+      - redis_logs:/var/log/redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app
+
+  # Redis Exporter for metrics
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis-exporter
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - monitoring
+      - app
+
+  # === Monitoring Services ===
+  
+  # Prometheus - Metrics collection and storage
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: alchemorsel-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=50GB'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus-production.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # AlertManager - Alert routing and notification
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alchemorsel-alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://alertmanager.alchemorsel.com'
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/templates:/etc/alertmanager/templates:ro
+      - alertmanager_data:/alertmanager
+    secrets:
+      - smtp_password
+      - slack_webhook
+      - pagerduty_routing_key
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9093/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana - Metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: alchemorsel-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD_FILE: /run/secrets/grafana_admin_password
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+      GF_SECURITY_SECRET_KEY_FILE: /run/secrets/grafana_secret_key
+      GF_DATABASE_TYPE: postgres
+      GF_DATABASE_HOST: postgres:5432
+      GF_DATABASE_NAME: grafana
+      GF_DATABASE_USER: grafana
+      GF_DATABASE_PASSWORD_FILE: /run/secrets/grafana_db_password
+      GF_SESSION_PROVIDER: postgres
+      GF_SESSION_PROVIDER_CONFIG: user=grafana password=grafana_session host=postgres port=5432 dbname=grafana sslmode=disable
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_LOG_LEVEL: info
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - grafana_data:/var/lib/grafana
+    secrets:
+      - grafana_admin_password
+      - grafana_secret_key
+      - grafana_db_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+    networks:
+      - monitoring
+      - app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # === Distributed Tracing ===
+  
+  # Jaeger - Distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: alchemorsel-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+      SPAN_STORAGE_TYPE: elasticsearch
+      ES_SERVER_URLS: http://elasticsearch:9200
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14250:14250"  # gRPC
+      - "14268:14268"  # HTTP
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - monitoring
+      - tracing
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:16686/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: alchemorsel-otel-collector
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes:
+      - ./otel/otel-collector-config.yml:/etc/otel-collector-config.yml:ro
+    ports:
+      - "4317:4317"    # OTLP gRPC receiver
+      - "4318:4318"    # OTLP HTTP receiver
+      - "8889:8889"    # Prometheus metrics
+    depends_on:
+      jaeger:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+    networks:
+      - monitoring
+      - tracing
+
+  # === Logging Stack (ELK) ===
+  
+  # Elasticsearch - Log storage and search
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
+    container_name: alchemorsel-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - cluster.name=alchemorsel-logs-prod
+      - node.name=elasticsearch-1
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms4g -Xmx4g"
+      - xpack.security.enabled=true
+      - xpack.security.authc.anonymous.roles=superuser
+      - xpack.security.transport.ssl.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.monitoring.collection.enabled=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+      - elasticsearch_logs:/usr/share/elasticsearch/logs
+    ports:
+      - "9200:9200"
+    networks:
+      - logging
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Logstash - Log processing
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.3
+    container_name: alchemorsel-logstash
+    environment:
+      - "LS_JAVA_OPTS=-Xms2g -Xmx2g"
+      - MONITORING_ENABLED=false
+    volumes:
+      - ./elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./elk/logstash/patterns:/usr/share/logstash/patterns:ro
+      - ./elk/logstash/templates:/usr/share/logstash/templates:ro
+    ports:
+      - "5044:5044"    # Beats input
+      - "5000:5000"    # TCP input
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - logging
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9600 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Kibana - Log visualization
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.3
+    container_name: alchemorsel-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=kibana.alchemorsel.com
+      - XPACK_MONITORING_ENABLED=true
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY_FILE=/run/secrets/kibana_encryption_key
+    ports:
+      - "5601:5601"
+    volumes:
+      - ./elk/kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+      - kibana_data:/usr/share/kibana/data
+    secrets:
+      - kibana_encryption_key
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - logging
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Filebeat - Log collection
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.11.3
+    container_name: alchemorsel-filebeat
+    user: root
+    volumes:
+      - ./elk/filebeat/config/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - filebeat_data:/usr/share/filebeat/data
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - api_logs:/var/log/api:ro
+      - postgres_logs:/var/log/postgres:ro
+      - redis_logs:/var/log/redis:ro
+      - nginx_logs:/var/log/nginx:ro
+    depends_on:
+      logstash:
+        condition: service_healthy
+    networks:
+      - logging
+
+  # === System Monitoring ===
+  
+  # Node Exporter - System metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring
+
+  # cAdvisor - Container metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - monitoring
+
+  # === Load Balancer & Proxy ===
+  
+  # Nginx - Load balancer and reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: alchemorsel-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - api
+    networks:
+      - app
+      - monitoring
+
+  # Nginx Exporter - Nginx metrics
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx-exporter
+    command:
+      - '--nginx.scrape-uri=http://nginx/nginx_status'
+    depends_on:
+      - nginx
+    networks:
+      - monitoring
+
+  # === External Service Monitoring ===
+  
+  # Blackbox Exporter - External endpoint monitoring
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: blackbox-exporter
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    ports:
+      - "9115:9115"
+    networks:
+      - monitoring
+
+  # === Backup and Maintenance ===
+  
+  # Prometheus backup
+  prometheus-backup:
+    image: prom/prometheus:latest
+    container_name: prometheus-backup
+    command:
+      - 'sh'
+      - '-c'
+      - |
+        while true; do
+          sleep 21600  # 6 hours
+          promtool tsdb create-blocks-from-directories /prometheus /backup/prometheus-$(date +%Y%m%d-%H%M%S)
+        done
+    volumes:
+      - prometheus_data:/prometheus:ro
+      - backup_data:/backup
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+  # Elasticsearch curator - Index lifecycle management
+  curator:
+    image: untergeek/curator:8.0.9
+    container_name: elasticsearch-curator
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+    volumes:
+      - ./elk/curator/config:/usr/share/curator/config:ro
+      - ./elk/curator/actions:/usr/share/curator/actions:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - logging
+    command: >
+      sh -c "
+        echo '0 2 * * * curator --config /usr/share/curator/config/curator.yml /usr/share/curator/actions/cleanup.yml' | crontab -
+        && crond -f
+      "
+
+# Volumes
+volumes:
+  # Application data
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  
+  # Monitoring data
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  alertmanager_data:
+    driver: local
+  
+  # Logging data
+  elasticsearch_data:
+    driver: local
+  kibana_data:
+    driver: local
+  filebeat_data:
+    driver: local
+  
+  # Log files
+  api_logs:
+    driver: local
+  postgres_logs:
+    driver: local
+  redis_logs:
+    driver: local
+  nginx_logs:
+    driver: local
+  elasticsearch_logs:
+    driver: local
+  
+  # Backup data
+  backup_data:
+    driver: local
+
+# Networks
+networks:
+  app:
+    driver: bridge
+  monitoring:
+    driver: bridge
+  logging:
+    driver: bridge
+  tracing:
+    driver: bridge
+
+# Secrets
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password
+  grafana_secret_key:
+    file: ./secrets/grafana_secret_key
+  grafana_db_password:
+    file: ./secrets/grafana_db_password
+  smtp_password:
+    file: ./secrets/smtp_password
+  slack_webhook:
+    file: ./secrets/slack_webhook
+  pagerduty_routing_key:
+    file: ./secrets/pagerduty_routing_key
+  kibana_encryption_key:
+    file: ./secrets/kibana_encryption_key

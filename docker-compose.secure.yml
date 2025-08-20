@@ -1,0 +1,693 @@
+version: '3.8'
+
+# Security-hardened Docker Compose configuration
+# Addresses all critical security vulnerabilities:
+# - Removes hardcoded secrets
+# - Adds proper security contexts
+# - Implements least-privilege access
+# - Enables comprehensive audit logging
+# - Secure secret injection
+
+services:
+  # PostgreSQL Database with Security Hardening
+  postgres:
+    image: postgres:15-alpine
+    container_name: alchemorsel-postgres-secure
+    restart: unless-stopped
+    
+    # Security Context - Non-root user, read-only filesystem
+    user: "999:999"  # postgres user
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    
+    # Security Options
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:unconfined  # Required for PostgreSQL
+    
+    # Resource Limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Environment - NO HARDCODED SECRETS
+    environment:
+      POSTGRES_DB: ${ALCHEMORSEL_DATABASE_DATABASE:-alchemorsel_dev}
+      POSTGRES_USER: ${ALCHEMORSEL_DATABASE_USERNAME:-postgres}
+      # Secret loaded from environment or secret manager
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    
+    # Secrets from external sources
+    secrets:
+      - source: db_password
+        target: /run/secrets/db_password
+        mode: 0400
+    
+    ports:
+      - "5432:5432"
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db-secure.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ALCHEMORSEL_DATABASE_USERNAME:-postgres} -d ${ALCHEMORSEL_DATABASE_DATABASE:-alchemorsel_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+        labels: "service=postgres,security=enabled"
+    
+    networks:
+      - alchemorsel-secure-network
+
+  # Redis Cache with Security Hardening
+  redis:
+    image: redis:7-alpine
+    container_name: alchemorsel-redis-secure
+    restart: unless-stopped
+    
+    # Security Context
+    user: "999:999"  # redis user
+    read_only: true
+    tmpfs:
+      - /tmp
+    
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:unconfined
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.2'
+          memory: 128M
+    
+    # Secure Redis configuration
+    command: [
+      "redis-server",
+      "/etc/redis/redis.conf",
+      "--requirepass-file", "/run/secrets/redis_password",
+      "--protected-mode", "yes",
+      "--bind", "0.0.0.0",
+      "--port", "6379"
+    ]
+    
+    secrets:
+      - source: redis_password
+        target: /run/secrets/redis_password
+        mode: 0400
+    
+    ports:
+      - "6379:6379"
+    
+    volumes:
+      - redis_data:/data
+      - ./config/redis.conf:/etc/redis/redis.conf:ro
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "--pass", "$(cat /run/secrets/redis_password)", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+        labels: "service=redis,security=enabled"
+    
+    networks:
+      - alchemorsel-secure-network
+
+  # Apache Kafka with SASL/SCRAM Authentication
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: alchemorsel-kafka-secure
+    restart: unless-stopped
+    
+    # Security Context
+    user: "1001:1001"  # appuser
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/lib/kafka/data
+    
+    security_opt:
+      - no-new-privileges:true
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: SASL_PLAINTEXT://kafka:9092,SASL_PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_PLAINTEXT_HOST:SASL_PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_PLAINTEXT
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-512
+      KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-512
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
+    
+    secrets:
+      - source: kafka_keystore_password
+        target: /run/secrets/kafka_keystore_password
+        mode: 0400
+      - source: kafka_truststore_password
+        target: /run/secrets/kafka_truststore_password
+        mode: 0400
+    
+    ports:
+      - "29092:29092"
+    
+    volumes:
+      - ./config/kafka/kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf:ro
+      - ./config/kafka/server.properties:/etc/kafka/server.properties:ro
+    
+    depends_on:
+      - zookeeper
+    
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+        labels: "service=kafka,security=enabled"
+    
+    networks:
+      - alchemorsel-secure-network
+
+  # Zookeeper with Security
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: alchemorsel-zookeeper-secure
+    restart: unless-stopped
+    
+    user: "1001:1001"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/lib/zookeeper/log
+      - /var/lib/zookeeper/data
+    
+    security_opt:
+      - no-new-privileges:true
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.2'
+          memory: 256M
+    
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_AUTH_PROVIDER_SASL: org.apache.zookeeper.server.auth.SASLAuthenticationProvider
+    
+    ports:
+      - "2181:2181"
+    
+    volumes:
+      - ./config/zookeeper/zookeeper_jaas.conf:/etc/kafka/zookeeper_jaas.conf:ro
+    
+    healthcheck:
+      test: ["CMD", "echo", "ruok", "|", "nc", "localhost", "2181"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+        labels: "service=zookeeper,security=enabled"
+    
+    networks:
+      - alchemorsel-secure-network
+
+  # Jaeger with Security
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: alchemorsel-jaeger-secure
+    restart: unless-stopped
+    
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    
+    security_opt:
+      - no-new-privileges:true
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.2'
+          memory: 256M
+    
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      SPAN_STORAGE_TYPE: memory
+      JAEGER_DISABLED: "false"
+    
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14250:14250"  # gRPC
+      - "14268:14268"  # HTTP
+    
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:16686/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+        labels: "service=jaeger,security=enabled"
+    
+    networks:
+      - alchemorsel-secure-network
+
+  # Alchemorsel API Application with Security Hardening
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.secure
+      args:
+        USER_ID: 10000
+        GROUP_ID: 10000
+    container_name: alchemorsel-api-secure
+    restart: unless-stopped
+    
+    # Security Context - Non-root user
+    user: "10000:10000"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/uploads
+    
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:unconfined
+    
+    # Capabilities - Drop all, add only necessary ones
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE  # For binding to port 8080
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Environment - NO HARDCODED SECRETS
+    environment:
+      ALCHEMORSEL_APP_ENVIRONMENT: ${ENVIRONMENT:-production}
+      ALCHEMORSEL_APP_DEBUG: "false"
+      ALCHEMORSEL_APP_LOG_LEVEL: ${LOG_LEVEL:-info}
+      
+      # Database connection
+      ALCHEMORSEL_DATABASE_HOST: postgres
+      ALCHEMORSEL_DATABASE_PORT: 5432
+      ALCHEMORSEL_DATABASE_DATABASE: ${ALCHEMORSEL_DATABASE_DATABASE:-alchemorsel_dev}
+      ALCHEMORSEL_DATABASE_USERNAME: ${ALCHEMORSEL_DATABASE_USERNAME:-postgres}
+      
+      # Redis connection
+      ALCHEMORSEL_REDIS_HOST: redis
+      ALCHEMORSEL_REDIS_PORT: 6379
+      
+      # Kafka connection
+      ALCHEMORSEL_KAFKA_BROKERS: kafka:9092
+      ALCHEMORSEL_KAFKA_ENABLE_SASL: "true"
+      ALCHEMORSEL_KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME}
+      
+      # Monitoring
+      ALCHEMORSEL_MONITORING_JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+      ALCHEMORSEL_MONITORING_ENABLE_METRICS: "true"
+      
+      # Security settings
+      ALCHEMORSEL_SECURITY_ENABLE_AUDIT_LOGGING: "true"
+      ALCHEMORSEL_SECURITY_AUDIT_LOG_FILE: "/var/log/alchemorsel/audit.log"
+      ALCHEMORSEL_SECURITY_ENABLE_SECRET_MANAGER: "true"
+      
+      # Storage
+      ALCHEMORSEL_STORAGE_PROVIDER: "s3"
+      ALCHEMORSEL_AWS_ENDPOINT: http://minio:9000
+      ALCHEMORSEL_AWS_S3_BUCKET: ${S3_BUCKET:-alchemorsel-secure}
+    
+    # Secrets mounted securely
+    secrets:
+      - source: jwt_secret
+        target: /run/secrets/jwt_secret
+        mode: 0400
+      - source: session_secret
+        target: /run/secrets/session_secret
+        mode: 0400
+      - source: db_password
+        target: /run/secrets/db_password
+        mode: 0400
+      - source: redis_password
+        target: /run/secrets/redis_password
+        mode: 0400
+      - source: kafka_sasl_password
+        target: /run/secrets/kafka_sasl_password
+        mode: 0400
+      - source: aws_secret_access_key
+        target: /run/secrets/aws_secret_access_key
+        mode: 0400
+      - source: openai_api_key
+        target: /run/secrets/openai_api_key
+        mode: 0400
+    
+    ports:
+      - "8080:8080"
+    
+    volumes:
+      # Logs directory (writable)
+      - audit_logs:/var/log/alchemorsel
+      # Configuration (read-only)
+      - ./config:/app/config:ro
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service=api,security=enabled,audit=enabled"
+    
+    networks:
+      - alchemorsel-secure-network
+
+  # Background Worker with Security
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.secure
+      args:
+        USER_ID: 10001
+        GROUP_ID: 10001
+    container_name: alchemorsel-worker-secure
+    restart: unless-stopped
+    
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    
+    security_opt:
+      - no-new-privileges:true
+    
+    cap_drop:
+      - ALL
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.2'
+          memory: 256M
+    
+    command: ["./worker"]
+    
+    environment:
+      ALCHEMORSEL_APP_ENVIRONMENT: ${ENVIRONMENT:-production}
+      ALCHEMORSEL_APP_DEBUG: "false"
+      ALCHEMORSEL_DATABASE_HOST: postgres
+      ALCHEMORSEL_DATABASE_PORT: 5432
+      ALCHEMORSEL_DATABASE_DATABASE: ${ALCHEMORSEL_DATABASE_DATABASE:-alchemorsel_dev}
+      ALCHEMORSEL_DATABASE_USERNAME: ${ALCHEMORSEL_DATABASE_USERNAME:-postgres}
+      ALCHEMORSEL_REDIS_HOST: redis
+      ALCHEMORSEL_REDIS_PORT: 6379
+      ALCHEMORSEL_KAFKA_BROKERS: kafka:9092
+      ALCHEMORSEL_KAFKA_ENABLE_SASL: "true"
+      ALCHEMORSEL_KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME}
+    
+    secrets:
+      - source: db_password
+        target: /run/secrets/db_password
+        mode: 0400
+      - source: redis_password
+        target: /run/secrets/redis_password
+        mode: 0400
+      - source: kafka_sasl_password
+        target: /run/secrets/kafka_sasl_password
+        mode: 0400
+    
+    volumes:
+      - audit_logs:/var/log/alchemorsel
+      - ./config:/app/config:ro
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "worker"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+        labels: "service=worker,security=enabled"
+    
+    networks:
+      - alchemorsel-secure-network
+
+  # MinIO with Security (S3-compatible storage)
+  minio:
+    image: minio/minio:latest
+    container_name: alchemorsel-minio-secure
+    restart: unless-stopped
+    
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    
+    security_opt:
+      - no-new-privileges:true
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.2'
+          memory: 256M
+    
+    command: server /data --console-address ":9001"
+    
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
+    
+    secrets:
+      - source: minio_root_user
+        target: /run/secrets/minio_root_user
+        mode: 0400
+      - source: minio_root_password
+        target: /run/secrets/minio_root_password
+        mode: 0400
+    
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    
+    volumes:
+      - minio_data:/data
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+        labels: "service=minio,security=enabled"
+    
+    networks:
+      - alchemorsel-secure-network
+
+# Secure External Secrets Configuration
+secrets:
+  # JWT Secret for authentication
+  jwt_secret:
+    external: true
+    name: alchemorsel_jwt_secret
+  
+  # Session secret for sessions
+  session_secret:
+    external: true
+    name: alchemorsel_session_secret
+  
+  # Database password
+  db_password:
+    external: true
+    name: alchemorsel_db_password
+  
+  # Redis password
+  redis_password:
+    external: true
+    name: alchemorsel_redis_password
+  
+  # Kafka SASL password
+  kafka_sasl_password:
+    external: true
+    name: alchemorsel_kafka_sasl_password
+  
+  # Kafka keystore password
+  kafka_keystore_password:
+    external: true
+    name: alchemorsel_kafka_keystore_password
+  
+  # Kafka truststore password
+  kafka_truststore_password:
+    external: true
+    name: alchemorsel_kafka_truststore_password
+  
+  # AWS secret access key
+  aws_secret_access_key:
+    external: true
+    name: alchemorsel_aws_secret_access_key
+  
+  # OpenAI API key
+  openai_api_key:
+    external: true
+    name: alchemorsel_openai_api_key
+  
+  # MinIO credentials
+  minio_root_user:
+    external: true
+    name: alchemorsel_minio_root_user
+  
+  minio_root_password:
+    external: true
+    name: alchemorsel_minio_root_password
+
+# Secure Volumes with proper permissions
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/postgres
+  
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/redis
+  
+  minio_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/minio
+  
+  audit_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./logs
+
+# Secure Network with custom bridge
+networks:
+  alchemorsel-secure-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    labels:
+      - "security.enabled=true"
+      - "environment=${ENVIRONMENT:-production}"

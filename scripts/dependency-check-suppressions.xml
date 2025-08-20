@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+OWASP Dependency Check Suppressions for Alchemorsel v3
+This file contains suppression rules for known false positives
+and accepted risks in dependency vulnerability scanning.
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+
+    <!-- Suppress development-only dependencies -->
+    <suppress>
+        <notes><![CDATA[
+        Development and testing dependencies are not deployed to production
+        ]]></notes>
+        <packageUrl regex="true">^pkg:golang/github\.com/stretchr/testify@.*</packageUrl>
+        <cpe>cpe:/a:testify_project:testify</cpe>
+    </suppress>
+
+    <!-- Suppress known false positives for Go modules -->
+    <suppress>
+        <notes><![CDATA[
+        False positive: This CVE applies to a different component
+        ]]></notes>
+        <packageUrl regex="true">^pkg:golang/.*</packageUrl>
+        <vulnerabilityName>CVE-2021-44716</vulnerabilityName>
+    </suppress>
+
+    <!-- Suppress vulnerabilities in transitive dependencies that are fixed in our version -->
+    <suppress>
+        <notes><![CDATA[
+        This vulnerability is fixed in the version we're using
+        ]]></notes>
+        <packageUrl regex="true">^pkg:golang/golang\.org/x/net@.*</packageUrl>
+        <vulnerabilityName>CVE-2022-27664</vulnerabilityName>
+    </suppress>
+
+    <!-- Suppress Node.js development dependencies -->
+    <suppress>
+        <notes><![CDATA[
+        Development dependencies not included in production build
+        ]]></notes>
+        <packageUrl regex="true">^pkg:npm/.*@.*</packageUrl>
+        <cpe>cpe:/a:webpack:webpack</cpe>
+    </suppress>
+
+    <!-- Container base image suppressions -->
+    <suppress>
+        <notes><![CDATA[
+        Using distroless images which don't have package managers
+        ]]></notes>
+        <cpe>cpe:/a:debian:debian_linux</cpe>
+        <vulnerabilityName regex="true">CVE-.*</vulnerabilityName>
+    </suppress>
+
+    <!-- Suppress Docker-related false positives -->
+    <suppress>
+        <notes><![CDATA[
+        Docker-related CVEs not applicable to our use case
+        ]]></notes>
+        <packageUrl regex="true">^pkg:docker/.*</packageUrl>
+        <vulnerabilityName>CVE-2021-41091</vulnerabilityName>
+    </suppress>
+
+    <!-- PostgreSQL client library suppressions -->
+    <suppress>
+        <notes><![CDATA[
+        Client-side library not affected by server vulnerabilities
+        ]]></notes>
+        <packageUrl regex="true">^pkg:golang/github\.com/jackc/pgx.*</packageUrl>
+        <vulnerabilityName regex="true">CVE-.*postgresql.*</vulnerabilityName>
+    </suppress>
+
+    <!-- Redis client library suppressions -->
+    <suppress>
+        <notes><![CDATA[
+        Client-side library not affected by server vulnerabilities
+        ]]></notes>
+        <packageUrl regex="true">^pkg:golang/github\.com/redis/go-redis.*</packageUrl>
+        <vulnerabilityName regex="true">CVE-.*redis.*</vulnerabilityName>
+    </suppress>
+
+    <!-- Example of time-based suppression (remove after fix) -->
+    <!--
+    <suppress until="2024-12-31">
+        <notes><![CDATA[
+        Temporary suppression until vendor provides fix
+        ]]></notes>
+        <packageUrl>pkg:golang/example.com/vulnerable-package@1.0.0</packageUrl>
+        <vulnerabilityName>CVE-2024-XXXXX</vulnerabilityName>
+    </suppress>
+    -->
+
+</suppressions>

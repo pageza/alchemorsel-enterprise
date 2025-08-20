@@ -1,0 +1,136 @@
+# Blue-Green Deployment Services for Production
+# These services enable zero-downtime deployments
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: alchemorsel-api-blue
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-api
+    app.kubernetes.io/version: v3
+    app.kubernetes.io/component: api
+    deployment-slot: blue
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: alchemorsel-api
+    deployment-slot: blue
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alchemorsel-api-green
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-api
+    app.kubernetes.io/version: v3
+    app.kubernetes.io/component: api
+    deployment-slot: green
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: alchemorsel-api
+    deployment-slot: green
+---
+# Active service that points to either blue or green
+apiVersion: v1
+kind: Service
+metadata:
+  name: alchemorsel-api-active
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-api
+    app.kubernetes.io/version: v3
+    app.kubernetes.io/component: api
+    deployment-slot: active
+  annotations:
+    # This service will be updated by the deployment pipeline
+    # to point to either blue or green service
+    deployment.kubernetes.io/active-slot: "blue"
+spec:
+  type: ExternalName
+  externalName: alchemorsel-api-blue.alchemorsel.svc.cluster.local
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+---
+# Web services for blue-green deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: alchemorsel-web-blue
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-web
+    app.kubernetes.io/version: v3
+    app.kubernetes.io/component: web
+    deployment-slot: blue
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: alchemorsel-web
+    deployment-slot: blue
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alchemorsel-web-green
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-web
+    app.kubernetes.io/version: v3
+    app.kubernetes.io/component: web
+    deployment-slot: green
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: alchemorsel-web
+    deployment-slot: green
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alchemorsel-web-active
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-web
+    app.kubernetes.io/version: v3
+    app.kubernetes.io/component: web
+    deployment-slot: active
+  annotations:
+    deployment.kubernetes.io/active-slot: "blue"
+spec:
+  type: ExternalName
+  externalName: alchemorsel-web-blue.alchemorsel.svc.cluster.local
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP

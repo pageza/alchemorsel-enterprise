@@ -1,0 +1,662 @@
+name: Performance Monitoring and Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run performance tests daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of performance test to run'
+        required: true
+        default: 'load'
+        type: choice
+        options:
+          - smoke
+          - load
+          - stress
+          - spike
+          - volume
+          - ai
+          - lighthouse
+          - all
+      target_url:
+        description: 'Target URL for testing'
+        required: false
+        default: 'https://staging.alchemorsel.com'
+        type: string
+
+env:
+  NODE_VERSION: "20"
+  GO_VERSION: "1.23"
+
+jobs:
+  # Setup and validation
+  setup-performance-testing:
+    name: Setup Performance Testing
+    runs-on: ubuntu-latest
+    outputs:
+      test-types: ${{ steps.determine-tests.outputs.test-types }}
+      target-url: ${{ steps.determine-url.outputs.target-url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine test types to run
+        id: determine-tests
+        run: |
+          if [ "${{ github.event.inputs.test_type }}" == "all" ] || [ "${{ github.event.inputs.test_type }}" == "" ]; then
+            echo 'test-types=["smoke", "load", "lighthouse"]' >> $GITHUB_OUTPUT
+          else
+            echo 'test-types=["${{ github.event.inputs.test_type }}"]' >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine target URL
+        id: determine-url
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "target-url=http://localhost:3010" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "target-url=https://staging.alchemorsel.com" >> $GITHUB_OUTPUT
+          else
+            echo "target-url=${{ github.event.inputs.target_url || 'https://staging.alchemorsel.com' }}" >> $GITHUB_OUTPUT
+          fi
+
+  # Application Performance Tests with k6
+  k6-performance-tests:
+    name: K6 Performance Tests
+    runs-on: ubuntu-latest
+    needs: setup-performance-testing
+    if: contains(fromJson(needs.setup-performance-testing.outputs.test-types), 'smoke') || contains(fromJson(needs.setup-performance-testing.outputs.test-types), 'load') || contains(fromJson(needs.setup-performance-testing.outputs.test-types), 'stress') || contains(fromJson(needs.setup-performance-testing.outputs.test-types), 'spike') || contains(fromJson(needs.setup-performance-testing.outputs.test-types), 'volume') || contains(fromJson(needs.setup-performance-testing.outputs.test-types), 'ai')
+    strategy:
+      matrix:
+        test-type: ${{ fromJson(needs.setup-performance-testing.outputs.test-types) }}
+      fail-fast: false
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: alchemorsel_perf
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        if: needs.setup-performance-testing.outputs.target-url == 'http://localhost:3010'
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Start local application
+        if: needs.setup-performance-testing.outputs.target-url == 'http://localhost:3010'
+        run: |
+          export DATABASE_URL="postgres://postgres:postgres@localhost:5432/alchemorsel_perf?sslmode=disable"
+          export REDIS_URL="redis://localhost:6379"
+          export GO_ENV="test"
+          export JWT_SECRET="test-secret-for-performance-testing"
+          
+          # Download dependencies
+          go mod download
+          
+          # Run migrations
+          go run cmd/migrate/main.go up
+          
+          # Start application in background
+          go run cmd/api/main.go &
+          APP_PID=$!
+          echo $APP_PID > app.pid
+          
+          # Wait for application to start
+          timeout 120 bash -c 'until curl -f http://localhost:3010/health; do sleep 2; done'
+          echo "Application started successfully"
+
+      - name: Install performance test dependencies
+        run: |
+          cd test/performance
+          npm ci
+
+      - name: Download baseline performance data
+        run: |
+          # Download baseline from previous successful runs
+          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -o test/performance/baseline.json \
+            "https://api.github.com/repos/${{ github.repository }}/contents/test/performance/baseline.json" \
+            || echo '{"summary": {"responseTime": {"p50": 500, "p90": 1000, "p95": 2000, "p99": 5000}, "errorRate": 0, "throughput": 100}}' > test/performance/baseline.json
+
+      - name: Run k6 performance tests
+        env:
+          BASE_URL: ${{ needs.setup-performance-testing.outputs.target-url }}
+          TEST_TYPE: ${{ matrix.test-type }}
+        run: |
+          cd test/performance
+          
+          case "${{ matrix.test-type }}" in
+            "smoke")
+              k6 run --env TEST_TYPE=smoke --out json=results-smoke.json load-test.js
+              ;;
+            "load")
+              k6 run --env TEST_TYPE=load --out json=results-load.json load-test.js
+              ;;
+            "stress")
+              k6 run --env TEST_TYPE=stress --out json=results-stress.json load-test.js
+              ;;
+            "spike")
+              k6 run --env TEST_TYPE=spike --out json=results-spike.json load-test.js
+              ;;
+            "volume")
+              k6 run --env TEST_TYPE=volume --out json=results-volume.json load-test.js
+              ;;
+            "ai")
+              k6 run --env TEST_TYPE=ai --out json=results-ai.json load-test.js
+              ;;
+          esac
+
+      - name: Process performance results
+        run: |
+          cd test/performance
+          
+          # Process k6 results and generate summary
+          node -e "
+            const fs = require('fs');
+            const testType = '${{ matrix.test-type }}';
+            const rawResults = fs.readFileSync(\`results-\${testType}.json\`, 'utf8');
+            const lines = rawResults.trim().split('\n');
+            
+            let httpReqDuration = [];
+            let httpReqs = 0;
+            let httpReqFailed = 0;
+            
+            lines.forEach(line => {
+              try {
+                const data = JSON.parse(line);
+                if (data.type === 'Point' && data.metric === 'http_req_duration') {
+                  httpReqDuration.push(data.data.value);
+                }
+                if (data.type === 'Point' && data.metric === 'http_reqs') {
+                  httpReqs += data.data.value;
+                }
+                if (data.type === 'Point' && data.metric === 'http_req_failed') {
+                  httpReqFailed += data.data.value;
+                }
+              } catch (e) {
+                // Skip invalid JSON lines
+              }
+            });
+            
+            httpReqDuration.sort((a, b) => a - b);
+            const count = httpReqDuration.length;
+            
+            const summary = {
+              timestamp: new Date().toISOString(),
+              testType: testType,
+              summary: {
+                responseTime: {
+                  p50: count > 0 ? httpReqDuration[Math.floor(count * 0.5)] : 0,
+                  p90: count > 0 ? httpReqDuration[Math.floor(count * 0.9)] : 0,
+                  p95: count > 0 ? httpReqDuration[Math.floor(count * 0.95)] : 0,
+                  p99: count > 0 ? httpReqDuration[Math.floor(count * 0.99)] : 0,
+                  avg: count > 0 ? httpReqDuration.reduce((a, b) => a + b, 0) / count : 0
+                },
+                errorRate: httpReqs > 0 ? (httpReqFailed / httpReqs) * 100 : 0,
+                throughput: httpReqs,
+                totalRequests: httpReqs
+              }
+            };
+            
+            fs.writeFileSync(\`summary-\${testType}.json\`, JSON.stringify(summary, null, 2));
+            console.log('Performance summary generated:', JSON.stringify(summary.summary, null, 2));
+          "
+
+      - name: Performance regression analysis
+        if: matrix.test-type == 'load'
+        run: |
+          cd test/performance
+          node performance-comparison.js \
+            --current summary-load.json \
+            --baseline baseline.json \
+            --output comparison-report.json \
+            --threshold 15
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-results-${{ matrix.test-type }}
+          path: |
+            test/performance/results-*.json
+            test/performance/summary-*.json
+            test/performance/comparison-report.*
+
+      - name: Update performance dashboard
+        run: |
+          # Send metrics to monitoring system
+          curl -X POST "https://api.datadoghq.com/api/v1/series" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+            -d "$(cat test/performance/summary-${{ matrix.test-type }}.json | jq '{
+              series: [
+                {
+                  metric: "alchemorsel.performance.response_time.p95",
+                  points: [[now, .summary.responseTime.p95]],
+                  tags: ["test_type:${{ matrix.test-type }}", "environment:ci"]
+                },
+                {
+                  metric: "alchemorsel.performance.error_rate",
+                  points: [[now, .summary.errorRate]],
+                  tags: ["test_type:${{ matrix.test-type }}", "environment:ci"]
+                },
+                {
+                  metric: "alchemorsel.performance.throughput",
+                  points: [[now, .summary.throughput]],
+                  tags: ["test_type:${{ matrix.test-type }}", "environment:ci"]
+                }
+              ]
+            }')" || true
+
+      - name: Cleanup
+        if: always() && needs.setup-performance-testing.outputs.target-url == 'http://localhost:3010'
+        run: |
+          if [ -f app.pid ]; then
+            kill $(cat app.pid) || true
+          fi
+
+  # Frontend Performance Tests with Lighthouse
+  lighthouse-performance:
+    name: Lighthouse Performance Audit
+    runs-on: ubuntu-latest
+    needs: setup-performance-testing
+    if: contains(fromJson(needs.setup-performance-testing.outputs.test-types), 'lighthouse')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Lighthouse CI
+        run: |
+          npm install -g @lhci/cli@^0.12.0
+          npm install -g lighthouse@^11.0.0
+
+      - name: Create Lighthouse CI config
+        run: |
+          cat > lighthouserc.js << 'EOF'
+          module.exports = {
+            ci: {
+              collect: {
+                numberOfRuns: 3,
+                settings: {
+                  chromeFlags: ['--no-sandbox', '--headless'],
+                  preset: 'desktop',
+                  throttling: {
+                    rttMs: 40,
+                    throughputKbps: 10240,
+                    cpuSlowdownMultiplier: 1,
+                    requestLatencyMs: 0,
+                    downloadThroughputKbps: 0,
+                    uploadThroughputKbps: 0
+                  }
+                }
+              },
+              assert: {
+                assertions: {
+                  'categories:performance': ['error', {minScore: 0.8}],
+                  'categories:accessibility': ['error', {minScore: 0.9}],
+                  'categories:best-practices': ['error', {minScore: 0.9}],
+                  'categories:seo': ['error', {minScore: 0.8}],
+                  'first-contentful-paint': ['error', {maxNumericValue: 2000}],
+                  'largest-contentful-paint': ['error', {maxNumericValue: 4000}],
+                  'cumulative-layout-shift': ['error', {maxNumericValue: 0.1}],
+                  'total-blocking-time': ['error', {maxNumericValue: 300}]
+                }
+              },
+              upload: {
+                target: 'temporary-public-storage'
+              }
+            }
+          };
+          EOF
+
+      - name: Wait for application readiness
+        if: needs.setup-performance-testing.outputs.target-url != 'http://localhost:3010'
+        run: |
+          timeout 300 bash -c 'until curl -f ${{ needs.setup-performance-testing.outputs.target-url }}/health; do sleep 10; done'
+
+      - name: Run Lighthouse CI
+        run: |
+          lhci autorun --collect.url=${{ needs.setup-performance-testing.outputs.target-url }}
+
+      - name: Parse Lighthouse results
+        run: |
+          # Extract key metrics from Lighthouse results
+          if [ -d ".lighthouseci" ]; then
+            node -e "
+              const fs = require('fs');
+              const glob = require('glob');
+              
+              const reportFiles = glob.sync('.lighthouseci/*.json');
+              if (reportFiles.length === 0) {
+                console.log('No Lighthouse reports found');
+                process.exit(0);
+              }
+              
+              const reports = reportFiles.map(file => JSON.parse(fs.readFileSync(file, 'utf8')));
+              const latestReport = reports[reports.length - 1];
+              
+              const metrics = {
+                timestamp: new Date().toISOString(),
+                performance: {
+                  score: latestReport.categories.performance.score * 100,
+                  fcp: latestReport.audits['first-contentful-paint'].numericValue,
+                  lcp: latestReport.audits['largest-contentful-paint'].numericValue,
+                  cls: latestReport.audits['cumulative-layout-shift'].numericValue,
+                  tbt: latestReport.audits['total-blocking-time'].numericValue,
+                  si: latestReport.audits['speed-index'].numericValue
+                },
+                accessibility: {
+                  score: latestReport.categories.accessibility.score * 100
+                },
+                bestPractices: {
+                  score: latestReport.categories['best-practices'].score * 100
+                },
+                seo: {
+                  score: latestReport.categories.seo.score * 100
+                }
+              };
+              
+              fs.writeFileSync('lighthouse-metrics.json', JSON.stringify(metrics, null, 2));
+              console.log('Lighthouse metrics:', JSON.stringify(metrics, null, 2));
+            " || echo '{"performance": {"score": 0}}' > lighthouse-metrics.json
+          fi
+
+      - name: Upload Lighthouse results
+        uses: actions/upload-artifact@v3
+        with:
+          name: lighthouse-results
+          path: |
+            .lighthouseci/
+            lighthouse-metrics.json
+
+      - name: Update Web Vitals dashboard
+        run: |
+          # Send Core Web Vitals to monitoring
+          curl -X POST "https://api.datadoghq.com/api/v1/series" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+            -d "$(cat lighthouse-metrics.json | jq '{
+              series: [
+                {
+                  metric: "alchemorsel.web_vitals.performance_score",
+                  points: [[now, .performance.score]],
+                  tags: ["environment:ci", "audit_type:lighthouse"]
+                },
+                {
+                  metric: "alchemorsel.web_vitals.fcp",
+                  points: [[now, .performance.fcp]],
+                  tags: ["environment:ci", "audit_type:lighthouse"]
+                },
+                {
+                  metric: "alchemorsel.web_vitals.lcp", 
+                  points: [[now, .performance.lcp]],
+                  tags: ["environment:ci", "audit_type:lighthouse"]
+                },
+                {
+                  metric: "alchemorsel.web_vitals.cls",
+                  points: [[now, .performance.cls]],
+                  tags: ["environment:ci", "audit_type:lighthouse"]
+                }
+              ]
+            }')" || true
+
+  # Database Performance Tests
+  database-performance:
+    name: Database Performance Tests
+    runs-on: ubuntu-latest
+    needs: setup-performance-testing
+    if: contains(fromJson(needs.setup-performance-testing.outputs.test-types), 'load') || contains(fromJson(needs.setup-performance-testing.outputs.test-types), 'stress')
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: alchemorsel_db_perf
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run database performance tests
+        env:
+          DATABASE_URL: "postgres://postgres:postgres@localhost:5432/alchemorsel_db_perf?sslmode=disable"
+        run: |
+          # Run migrations
+          go run cmd/migrate/main.go up
+          
+          # Run database performance benchmarks
+          go test -bench=BenchmarkDatabase -run=^$ ./internal/database/... -benchmem -benchtime=30s
+
+      - name: Upload database performance results
+        uses: actions/upload-artifact@v3
+        with:
+          name: database-performance-results
+          path: |
+            database-benchmark.txt
+
+  # Performance Report Generation
+  performance-report:
+    name: Generate Performance Report
+    runs-on: ubuntu-latest
+    needs: [k6-performance-tests, lighthouse-performance, database-performance]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all performance artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Generate comprehensive performance report
+        run: |
+          cat > performance-report.md << 'EOF'
+          # Performance Test Report
+          
+          **Generated:** $(date -u)
+          **Commit:** ${{ github.sha }}
+          **Branch:** ${{ github.ref_name }}
+          **Target URL:** ${{ needs.setup-performance-testing.outputs.target-url }}
+          
+          ## Summary
+          
+          ### Load Test Results
+          EOF
+          
+          # Add k6 results if available
+          if [ -d "performance-results-load" ]; then
+            echo "
+          #### API Performance
+          " >> performance-report.md
+            
+            if [ -f "performance-results-load/summary-load.json" ]; then
+              node -e "
+                const data = JSON.parse(require('fs').readFileSync('performance-results-load/summary-load.json', 'utf8'));
+                console.log('| Metric | Value |');
+                console.log('|--------|-------|');
+                console.log(\`| Response Time P50 | \${data.summary.responseTime.p50.toFixed(2)}ms |\`);
+                console.log(\`| Response Time P95 | \${data.summary.responseTime.p95.toFixed(2)}ms |\`);
+                console.log(\`| Error Rate | \${data.summary.errorRate.toFixed(2)}% |\`);
+                console.log(\`| Throughput | \${data.summary.throughput} req/s |\`);
+              " >> performance-report.md
+            fi
+          fi
+          
+          # Add Lighthouse results if available
+          if [ -d "lighthouse-results" ]; then
+            echo "
+          #### Frontend Performance (Lighthouse)
+          " >> performance-report.md
+            
+            if [ -f "lighthouse-results/lighthouse-metrics.json" ]; then
+              node -e "
+                const data = JSON.parse(require('fs').readFileSync('lighthouse-results/lighthouse-metrics.json', 'utf8'));
+                console.log('| Metric | Score/Value |');
+                console.log('|--------|-------------|');
+                console.log(\`| Performance Score | \${data.performance.score}/100 |\`);
+                console.log(\`| First Contentful Paint | \${data.performance.fcp}ms |\`);
+                console.log(\`| Largest Contentful Paint | \${data.performance.lcp}ms |\`);
+                console.log(\`| Cumulative Layout Shift | \${data.performance.cls} |\`);
+                console.log(\`| Accessibility Score | \${data.accessibility.score}/100 |\`);
+              " >> performance-report.md
+            fi
+          fi
+          
+          echo "
+          ## Recommendations
+          
+          Based on the performance test results:
+          
+          1. **Response Time**: Ensure API endpoints respond within 500ms for P95
+          2. **Error Rate**: Maintain error rate below 1%
+          3. **Web Vitals**: Keep LCP under 2.5s and CLS under 0.1
+          4. **Accessibility**: Maintain accessibility score above 90%
+          
+          ## Next Steps
+          
+          - Monitor performance trends over time
+          - Set up alerts for performance regressions
+          - Optimize identified bottlenecks
+          - Review and update performance budgets
+          " >> performance-report.md
+
+      - name: Upload performance report
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-report
+          path: performance-report.md
+
+      - name: Comment performance results on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let comment = '## 🚀 Performance Test Results\n\n';
+            
+            // Add load test results
+            try {
+              const loadData = JSON.parse(fs.readFileSync('performance-results-load/summary-load.json', 'utf8'));
+              comment += '### API Performance\n\n';
+              comment += '| Metric | Value | Threshold | Status |\n';
+              comment += '|--------|-------|-----------|--------|\n';
+              
+              const p95 = loadData.summary.responseTime.p95;
+              const p95Status = p95 < 1000 ? '✅' : '❌';
+              comment += `| Response Time P95 | ${p95.toFixed(2)}ms | <1000ms | ${p95Status} |\n`;
+              
+              const errorRate = loadData.summary.errorRate;
+              const errorStatus = errorRate < 1 ? '✅' : '❌';
+              comment += `| Error Rate | ${errorRate.toFixed(2)}% | <1% | ${errorStatus} |\n`;
+              
+            } catch (e) {
+              comment += 'Load test results not available\n\n';
+            }
+            
+            // Add Lighthouse results
+            try {
+              const lighthouseData = JSON.parse(fs.readFileSync('lighthouse-results/lighthouse-metrics.json', 'utf8'));
+              comment += '### Frontend Performance (Lighthouse)\n\n';
+              comment += '| Metric | Score/Value | Threshold | Status |\n';
+              comment += '|--------|-------------|-----------|--------|\n';
+              
+              const perfScore = lighthouseData.performance.score;
+              const perfStatus = perfScore >= 80 ? '✅' : '❌';
+              comment += `| Performance Score | ${perfScore}/100 | ≥80 | ${perfStatus} |\n`;
+              
+              const lcp = lighthouseData.performance.lcp;
+              const lcpStatus = lcp < 2500 ? '✅' : '❌';
+              comment += `| Largest Contentful Paint | ${lcp}ms | <2500ms | ${lcpStatus} |\n`;
+              
+            } catch (e) {
+              comment += 'Lighthouse results not available\n\n';
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Performance test summary
+        run: |
+          echo "## Performance Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "performance-results-load/summary-load.json" ]; then
+            echo "### Load Test Results" >> $GITHUB_STEP_SUMMARY
+            node -e "
+              const data = JSON.parse(require('fs').readFileSync('performance-results-load/summary-load.json', 'utf8'));
+              console.log('- Response Time P95:', data.summary.responseTime.p95.toFixed(2) + 'ms');
+              console.log('- Error Rate:', data.summary.errorRate.toFixed(2) + '%');
+              console.log('- Throughput:', data.summary.throughput, 'req/s');
+            " >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f "lighthouse-results/lighthouse-metrics.json" ]; then
+            echo "### Lighthouse Results" >> $GITHUB_STEP_SUMMARY
+            node -e "
+              const data = JSON.parse(require('fs').readFileSync('lighthouse-results/lighthouse-metrics.json', 'utf8'));
+              console.log('- Performance Score:', data.performance.score + '/100');
+              console.log('- LCP:', data.performance.lcp + 'ms');
+              console.log('- CLS:', data.performance.cls);
+            " >> $GITHUB_STEP_SUMMARY
+          fi

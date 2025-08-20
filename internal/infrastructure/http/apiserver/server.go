@@ -3,6 +3,7 @@ package apiserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/alchemorsel/v3/internal/infrastructure/security"
 	"github.com/alchemorsel/v3/internal/ports/inbound"
 	"github.com/alchemorsel/v3/internal/ports/outbound"
+	"github.com/alchemorsel/v3/pkg/healthcheck"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
@@ -29,6 +31,7 @@ type PureAPIServer struct {
 	userService   *user.UserService
 	authService   *security.AuthService
 	aiService     outbound.AIService
+	healthCheck   *healthcheck.EnterpriseHealthCheck
 	openAPIHandler *OpenAPIHandler
 }
 
@@ -40,6 +43,7 @@ func NewPureAPIServer(
 	userService *user.UserService,
 	authService *security.AuthService,
 	aiService outbound.AIService,
+	healthCheck *healthcheck.EnterpriseHealthCheck,
 ) *PureAPIServer {
 	server := &PureAPIServer{
 		config:        cfg,
@@ -48,6 +52,7 @@ func NewPureAPIServer(
 		userService:   userService,
 		authService:   authService,
 		aiService:     aiService,
+		healthCheck:   healthCheck,
 		openAPIHandler: NewOpenAPIHandler(log),
 	}
 
@@ -80,8 +85,10 @@ func (s *PureAPIServer) setupRoutes() *chi.Mux {
 	r.Use(chimiddleware.Compress(5))
 	r.Use(middleware.JSONOnly()) // Force JSON responses only
 
-	// Health check endpoint
+	// Health check endpoints
 	r.Get("/health", s.handleHealthCheck)
+	r.Get("/ready", s.handleReadinessCheck)
+	r.Get("/live", s.handleLivenessCheck)
 
 	// OpenAPI Documentation endpoints
 	r.Get("/api/v1/openapi.yaml", s.openAPIHandler.ServeOpenAPISpec)
@@ -176,23 +183,78 @@ func (s *PureAPIServer) Shutdown(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
-// handleHealthCheck provides health check endpoint
+// handleHealthCheck provides enterprise health check endpoint
 func (s *PureAPIServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
-	response := map[string]interface{}{
-		"status":    "healthy",
-		"service":   "alchemorsel-api",
-		"version":   "3.0.0",
-		"timestamp": time.Now().Unix(),
-		"mode":      "pure-api",
+	ctx := r.Context()
+	
+	// Determine check mode from query parameter
+	mode := healthcheck.ModeStandard
+	if modeParam := r.URL.Query().Get("mode"); modeParam != "" {
+		switch modeParam {
+		case "quick":
+			mode = healthcheck.ModeQuick
+		case "deep":
+			mode = healthcheck.ModeDeep
+		case "maintenance":
+			mode = healthcheck.ModeMaintenance
+		}
 	}
+	
+	// Perform enterprise health check
+	response := s.healthCheck.CheckWithMode(ctx, mode)
+	
+	// Determine HTTP status code
+	statusCode := http.StatusOK
+	if response.Status == healthcheck.StatusUnhealthy {
+		statusCode = http.StatusServiceUnavailable
+	} else if response.Status == healthcheck.StatusDegraded {
+		statusCode = http.StatusPartialContent
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	
+	// Use JSON encoding for enterprise response
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		s.logger.Error("Failed to encode health check response", zap.Error(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}
 
+// handleReadinessCheck provides readiness check endpoint
+func (s *PureAPIServer) handleReadinessCheck(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	response := s.healthCheck.CheckWithMode(ctx, healthcheck.ModeStandard)
+	
+	// Service is ready only if all checks pass
+	if response.Status != healthcheck.StatusHealthy {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "not_ready",
+			"reason": "Health checks failed",
+			"checks": response.Checks,
+		})
+		return
+	}
+	
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	
-	// Simple JSON encoding for health check
-	fmt.Fprintf(w, `{"status":"%s","service":"%s","version":"%s","timestamp":%d,"mode":"%s"}`,
-		response["status"], response["service"], response["version"], 
-		response["timestamp"], response["mode"])
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ready",
+		"timestamp": time.Now(),
+	})
+}
+
+// handleLivenessCheck provides liveness check endpoint
+func (s *PureAPIServer) handleLivenessCheck(w http.ResponseWriter, r *http.Request) {
+	// Simple liveness check - if the handler responds, the service is alive
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "alive",
+		"timestamp": time.Now(),
+	})
 }
 
 // Deprecated: Use OpenAPI documentation endpoints instead

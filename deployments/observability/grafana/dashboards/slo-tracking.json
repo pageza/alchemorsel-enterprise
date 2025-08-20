@@ -1,0 +1,271 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "SLA/SLO Tracking Dashboard",
+    "tags": ["alchemorsel", "slo", "sla", "production"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "1m",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "SLO Status Overview",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "slo:api_availability_5m",
+            "legendFormat": "API Availability",
+            "refId": "A"
+          },
+          {
+            "expr": "100 - (slo:api_latency_p95 > 500)",
+            "legendFormat": "Latency SLO",
+            "refId": "B"
+          },
+          {
+            "expr": "100 - (slo:api_error_rate > 0.1)",
+            "legendFormat": "Error Rate SLO",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 99},
+                {"color": "green", "value": 99.9}
+              ]
+            },
+            "unit": "percent",
+            "max": 100,
+            "min": 98
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Error Budget Remaining",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "slo:api_error_budget_remaining",
+            "legendFormat": "API Error Budget",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 0.05},
+                {"color": "green", "value": 0.08}
+              ]
+            },
+            "unit": "percent",
+            "max": 0.1,
+            "min": 0
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 3,
+        "title": "Error Budget Burn Rate",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "slo:api_error_budget_burn_rate",
+            "legendFormat": "Burn Rate",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 2},
+                {"color": "red", "value": 10}
+              ]
+            },
+            "unit": "none"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Availability SLO Trend (24h)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "slo:api_availability_5m",
+            "legendFormat": "Current Availability",
+            "refId": "A"
+          },
+          {
+            "expr": "99.9",
+            "legendFormat": "SLO Target (99.9%)",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "percent",
+            "max": 100,
+            "min": 99
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+      },
+      {
+        "id": 5,
+        "title": "Latency SLO Compliance",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "slo:api_latency_p95",
+            "legendFormat": "P95 Latency",
+            "refId": "A"
+          },
+          {
+            "expr": "500",
+            "legendFormat": "SLO Target (500ms)",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "ms"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+      },
+      {
+        "id": 6,
+        "title": "Error Rate SLO Compliance",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "slo:api_error_rate",
+            "legendFormat": "Error Rate",
+            "refId": "A"
+          },
+          {
+            "expr": "0.1",
+            "legendFormat": "SLO Target (0.1%)",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+      },
+      {
+        "id": 7,
+        "title": "Monthly SLA Report",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "slo:api_availability_monthly",
+            "legendFormat": "Monthly Availability",
+            "refId": "A"
+          },
+          {
+            "expr": "slo:api_latency_p95_monthly",
+            "legendFormat": "Monthly P95 Latency",
+            "refId": "B"
+          },
+          {
+            "expr": "slo:api_error_budget_monthly_consumed",
+            "legendFormat": "Monthly Error Budget Used",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 99},
+                {"color": "red", "value": 98}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32}
+      },
+      {
+        "id": 8,
+        "title": "SLO Violations (Last 7 Days)",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "ALERTS{alertname=~\".*SLO.*\", alertstate=\"firing\"}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 40}
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "service",
+          "type": "query",
+          "query": "label_values(up, service)",
+          "current": {
+            "value": "alchemorsel-api",
+            "text": "alchemorsel-api"
+          },
+          "options": [],
+          "refresh": 1
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "SLO Breaches",
+          "datasource": "Prometheus",
+          "expr": "ALERTS{alertname=~\".*SLO.*\", alertstate=\"firing\"}",
+          "titleFormat": "SLO Breach: {{alertname}}",
+          "textFormat": "{{description}}"
+        }
+      ]
+    },
+    "schemaVersion": 37,
+    "version": 1
+  }
+}

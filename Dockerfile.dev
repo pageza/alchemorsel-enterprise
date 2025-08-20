@@ -1,0 +1,243 @@
+# Alchemorsel v3 Development Dockerfile
+# Optimized for hot reload development workflow with comprehensive tooling
+
+FROM golang:1.23-alpine AS dev-base
+
+# Install system dependencies and development tools
+RUN apk add --no-cache \
+    git \
+    ca-certificates \
+    tzdata \
+    curl \
+    wget \
+    bash \
+    make \
+    gcc \
+    musl-dev \
+    sqlite \
+    postgresql-client \
+    redis \
+    inotify-tools \
+    nodejs \
+    npm
+
+# Install Go development tools
+RUN go install github.com/cosmtrek/air@latest && \
+    go install github.com/go-delve/delve/cmd/dlv@latest && \
+    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
+    go install golang.org/x/tools/cmd/goimports@latest && \
+    go install github.com/swaggo/swag/cmd/swag@latest && \
+    go install golang.org/x/vuln/cmd/govulncheck@latest && \
+    go install golang.org/x/perf/cmd/benchstat@latest && \
+    go install github.com/rakyll/hey@latest
+
+# Set working directory
+WORKDIR /app
+
+# Create development user (non-root for security)
+RUN addgroup -g 1000 developer && \
+    adduser -D -s /bin/bash -u 1000 -G developer developer && \
+    chown -R developer:developer /app
+
+# Create necessary directories with proper permissions
+RUN mkdir -p tmp logs uploads data coverage .build-cache .gocache .gomodcache && \
+    chown -R developer:developer /app
+
+# Multi-stage cache optimization
+# Cache layer for Go modules
+FROM dev-base AS deps
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+
+# Cache layer for Node.js dependencies
+FROM dev-base AS node-deps
+COPY package.json package-lock.json* ./
+RUN npm ci --only=development 2>/dev/null || echo "No package.json found"
+
+# Development runtime image
+FROM dev-base AS development
+
+# Copy cached Go modules
+COPY --from=deps /go/pkg/mod /go/pkg/mod
+
+# Copy cached Node modules if they exist
+COPY --from=node-deps /app/node_modules ./node_modules 2>/dev/null || true
+
+# Copy Air configuration
+COPY .air.toml .
+
+# Copy source code (this layer changes frequently, so it's last)
+COPY --chown=developer:developer . .
+
+# Switch to development user
+USER developer
+
+# Set environment variables for development
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
+ENV GO111MODULE=on
+ENV GOCACHE=/app/.gocache
+ENV GOMODCACHE=/app/.gomodcache
+ENV GOPATH=/go
+
+# Air environment variables
+ENV AIR_ENABLE_COLORS=true
+ENV AIR_DEBUG=true
+
+# Application environment
+ENV APP_ENVIRONMENT=development
+ENV APP_DEBUG=true
+ENV APP_LOG_LEVEL=debug
+ENV HOT_RELOAD_ENABLED=true
+
+# Service configuration
+ENV API_PORT=8080
+ENV WEB_PORT=8081
+ENV METRICS_PORT=9090
+ENV HEALTH_PORT=8090
+ENV LIVE_RELOAD_PORT=35729
+ENV DEBUGGER_PORT=2345
+ENV PPROF_PORT=6060
+
+# Database configuration (development defaults)
+ENV DATABASE_HOST=postgres
+ENV DATABASE_PORT=5432
+ENV DATABASE_NAME=alchemorsel_dev
+ENV DATABASE_USER=alchemorsel
+ENV DATABASE_PASSWORD=alchemorsel_dev_password
+
+# Redis configuration
+ENV REDIS_HOST=redis
+ENV REDIS_PORT=6379
+
+# Development features
+ENV TEMPLATE_CACHE_DISABLED=true
+ENV STATIC_CACHE_DISABLED=true
+ENV SQL_DEBUG=true
+
+# Expose all development ports
+EXPOSE 8080 8081 9090 2345 6060 35729
+
+# Health check for development
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Create development scripts
+RUN echo '#!/bin/bash\n\
+echo "🚀 Starting Alchemorsel v3 Development Environment"\n\
+echo "📡 API Service: http://localhost:8080"\n\
+echo "🌐 Web Service: http://localhost:8081"\n\
+echo "📊 Metrics: http://localhost:9090"\n\
+echo "🔧 Debugger: localhost:2345"\n\
+echo "🔄 Live Reload: localhost:35729"\n\
+echo ""\n\
+# Ensure directories exist\n\
+mkdir -p tmp logs uploads\n\
+# Start Air with hot reload\n\
+exec air -c .air.toml\n\
+' > /app/start-dev.sh && chmod +x /app/start-dev.sh
+
+RUN echo '#!/bin/bash\n\
+echo "🧪 Running development tests with coverage"\n\
+go test -v -race -cover -coverprofile=coverage/coverage.out ./...\n\
+go tool cover -html=coverage/coverage.out -o coverage/coverage.html\n\
+echo "📊 Coverage report generated: coverage/coverage.html"\n\
+' > /app/test-dev.sh && chmod +x /app/test-dev.sh
+
+RUN echo '#!/bin/bash\n\
+echo "🔍 Running development quality checks"\n\
+echo "🧹 Formatting code..."\n\
+goimports -w .\n\
+go fmt ./...\n\
+echo "🔎 Running linter..."\n\
+golangci-lint run ./...\n\
+echo "🛡️ Running security scan..."\n\
+govulncheck ./...\n\
+echo "✅ Quality checks complete"\n\
+' > /app/quality-dev.sh && chmod +x /app/quality-dev.sh
+
+RUN echo '#!/bin/bash\n\
+echo "📚 Generating development documentation"\n\
+swag init -g cmd/api/main.go -o api/openapi\n\
+echo "📖 Documentation available at: http://localhost:8080/swagger/index.html"\n\
+' > /app/docs-dev.sh && chmod +x /app/docs-dev.sh
+
+RUN echo '#!/bin/bash\n\
+echo "🔧 Starting development debugger"\n\
+echo "🎯 Attach your IDE to localhost:2345"\n\
+dlv debug ./cmd/api/main.go --headless --listen=:2345 --api-version=2 --accept-multiclient\n\
+' > /app/debug-dev.sh && chmod +x /app/debug-dev.sh
+
+# Web service variant
+RUN echo '#!/bin/bash\n\
+echo "🌐 Starting Web Service with Hot Reload"\n\
+echo "📡 Web Service: http://localhost:8081"\n\
+echo "🔄 Live Reload: localhost:35729"\n\
+export AIR_CMD="go build -gcflags='\''all=-N -l'\'' -o ./tmp/main-web ./cmd/web/main.go"\n\
+export AIR_BIN="./tmp/main-web"\n\
+export PORT=8081\n\
+exec air -c .air.toml\n\
+' > /app/start-web-dev.sh && chmod +x /app/start-web-dev.sh
+
+# Multi-service development script
+RUN echo '#!/bin/bash\n\
+echo "🏗️ Starting Multi-Service Development Environment"\n\
+echo "📡 API Service: http://localhost:8080"\n\
+echo "🌐 Web Service: http://localhost:8081"\n\
+echo "📊 Metrics: http://localhost:9090"\n\
+echo "🔄 Live Reload: localhost:35729"\n\
+echo ""\n\
+\n\
+# Function to handle cleanup\n\
+cleanup() {\n\
+    echo "🛑 Stopping all services..."\n\
+    jobs -p | xargs -r kill\n\
+    wait\n\
+    echo "✅ All services stopped"\n\
+}\n\
+\n\
+# Trap cleanup function on script exit\n\
+trap cleanup EXIT\n\
+\n\
+# Start API service in background\n\
+echo "🚀 Starting API service..."\n\
+AIR_CMD="go build -gcflags='\''all=-N -l'\'' -o ./tmp/main-api ./cmd/api/main.go" \\\n\
+AIR_BIN="./tmp/main-api" \\\n\
+PORT=8080 \\\n\
+air -c .air.toml &\n\
+\n\
+# Wait a moment for API to start\n\
+sleep 3\n\
+\n\
+# Start Web service in background\n\
+echo "🌐 Starting Web service..."\n\
+AIR_CMD="go build -gcflags='\''all=-N -l'\'' -o ./tmp/main-web ./cmd/web/main.go" \\\n\
+AIR_BIN="./tmp/main-web" \\\n\
+PORT=8081 \\\n\
+API_URL="http://localhost:8080" \\\n\
+air -c .air.toml &\n\
+\n\
+# Wait for all background jobs\n\
+echo "⏳ Services starting... Press Ctrl+C to stop all services"\n\
+wait\n\
+' > /app/start-multi-dev.sh && chmod +x /app/start-multi-dev.sh
+
+# Default command runs the main development script
+CMD ["/app/start-dev.sh"]
+
+# Development image variant for CI/testing
+FROM development AS testing
+
+# Override for testing environment
+ENV APP_ENVIRONMENT=testing
+ENV DATABASE_NAME=alchemorsel_test
+
+# Run tests by default in testing variant
+CMD ["/app/test-dev.sh"]
+
+# Debugging variant with delve ready
+FROM development AS debugging
+
+# Override default command for debugging
+CMD ["/app/debug-dev.sh"]

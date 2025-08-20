@@ -1,0 +1,44 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: alchemorsel-api-pdb
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-api
+    app.kubernetes.io/version: v3
+    app.kubernetes.io/component: api
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alchemorsel-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: alchemorsel-web-pdb
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-web
+    app.kubernetes.io/version: v3
+    app.kubernetes.io/component: web
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alchemorsel-web
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: alchemorsel-ollama-pdb
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-ollama
+    app.kubernetes.io/version: v3
+    app.kubernetes.io/component: ai
+spec:
+  minAvailable: 0  # Ollama can tolerate complete shutdown
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alchemorsel-ollama

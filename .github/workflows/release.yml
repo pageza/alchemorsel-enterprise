@@ -1,0 +1,608 @@
+name: Release Management
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Type of release'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+          - prerelease
+      prerelease_type:
+        description: 'Prerelease identifier'
+        required: false
+        default: 'beta'
+        type: choice
+        options:
+          - alpha
+          - beta
+          - rc
+      force_release:
+        description: 'Force release creation'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: "20"
+  GO_VERSION: "1.23"
+
+jobs:
+  # Analyze commits and determine release type
+  analyze-commits:
+    name: Analyze Commits
+    runs-on: ubuntu-latest
+    outputs:
+      should-release: ${{ steps.analyze.outputs.should-release }}
+      release-type: ${{ steps.analyze.outputs.release-type }}
+      version: ${{ steps.analyze.outputs.version }}
+      changelog: ${{ steps.analyze.outputs.changelog }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install semantic-release dependencies
+        run: |
+          npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
+
+      - name: Get current version
+        id: current-version
+        run: |
+          # Get the latest tag or default to v0.0.0
+          CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "current-version=${CURRENT_VERSION#v}" >> $GITHUB_OUTPUT
+
+      - name: Analyze commits since last release
+        id: analyze
+        run: |
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"%s" HEAD)
+          else
+            COMMITS=$(git log --pretty=format:"%s" ${LAST_TAG}..HEAD)
+          fi
+          
+          echo "Analyzing commits since $LAST_TAG"
+          echo "$COMMITS"
+          
+          # Determine release type based on conventional commits
+          RELEASE_TYPE="patch"
+          SHOULD_RELEASE="false"
+          
+          # Check for breaking changes
+          if echo "$COMMITS" | grep -qE "^(feat|fix|perf|refactor)(\(.+\))?!:"; then
+            RELEASE_TYPE="major"
+            SHOULD_RELEASE="true"
+          # Check for BREAKING CHANGE in commit body
+          elif git log --pretty=format:"%B" ${LAST_TAG}..HEAD | grep -q "BREAKING CHANGE:"; then
+            RELEASE_TYPE="major"
+            SHOULD_RELEASE="true"
+          # Check for features
+          elif echo "$COMMITS" | grep -qE "^feat(\(.+\))?:"; then
+            RELEASE_TYPE="minor"
+            SHOULD_RELEASE="true"
+          # Check for fixes, performance improvements, etc.
+          elif echo "$COMMITS" | grep -qE "^(fix|perf)(\(.+\))?:"; then
+            RELEASE_TYPE="patch"
+            SHOULD_RELEASE="true"
+          fi
+          
+          # Manual override from workflow dispatch
+          if [ "${{ github.event.inputs.release_type }}" != "" ]; then
+            RELEASE_TYPE="${{ github.event.inputs.release_type }}"
+            SHOULD_RELEASE="true"
+          fi
+          
+          # Force release if requested
+          if [ "${{ github.event.inputs.force_release }}" == "true" ]; then
+            SHOULD_RELEASE="true"
+          fi
+          
+          echo "should-release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
+          echo "release-type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
+          
+          # Calculate next version
+          CURRENT_VERSION="${{ steps.current-version.outputs.current-version }}"
+          if [ "$CURRENT_VERSION" == "0.0.0" ]; then
+            NEXT_VERSION="1.0.0"
+          else
+            # Use semver to calculate next version
+            node -e "
+              const semver = require('semver');
+              const current = '$CURRENT_VERSION';
+              const type = '$RELEASE_TYPE';
+              const preId = '${{ github.event.inputs.prerelease_type }}';
+              
+              let next;
+              if (type === 'prerelease') {
+                next = semver.inc(current, 'prerelease', preId);
+              } else {
+                next = semver.inc(current, type);
+              }
+              console.log(next);
+            " > next_version.txt
+            NEXT_VERSION=$(cat next_version.txt)
+          fi
+          
+          echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+          echo "Next version: $NEXT_VERSION"
+          echo "Release type: $RELEASE_TYPE"
+          echo "Should release: $SHOULD_RELEASE"
+
+      - name: Generate changelog
+        id: changelog
+        if: steps.analyze.outputs.should-release == 'true'
+        run: |
+          # Generate changelog using conventional commits
+          node -e "
+            const { execSync } = require('child_process');
+            const fs = require('fs');
+            
+            // Get commits since last tag
+            const lastTag = '${{ steps.current-version.outputs.current-version }}';
+            const range = lastTag === '0.0.0' ? 'HEAD' : \`v\${lastTag}..HEAD\`;
+            
+            try {
+              const commits = execSync(\`git log --pretty=format:'%h|%s|%b|%an|%ad' --date=short \${range}\`, { encoding: 'utf8' });
+              const lines = commits.trim().split('\n').filter(Boolean);
+              
+              const categories = {
+                '✨ Features': [],
+                '🐛 Bug Fixes': [],
+                '⚡ Performance': [],
+                '🔧 Maintenance': [],
+                '📚 Documentation': [],
+                '🧪 Testing': [],
+                '🔒 Security': [],
+                '💥 Breaking Changes': []
+              };
+              
+              lines.forEach(line => {
+                const [hash, subject, body, author, date] = line.split('|');
+                const isBreaking = subject.includes('!:') || body.includes('BREAKING CHANGE:');
+                
+                let category = '🔧 Maintenance';
+                if (subject.startsWith('feat')) category = '✨ Features';
+                else if (subject.startsWith('fix')) category = '🐛 Bug Fixes';
+                else if (subject.startsWith('perf')) category = '⚡ Performance';
+                else if (subject.startsWith('docs')) category = '📚 Documentation';
+                else if (subject.startsWith('test')) category = '🧪 Testing';
+                else if (subject.startsWith('security')) category = '🔒 Security';
+                
+                if (isBreaking) category = '💥 Breaking Changes';
+                
+                const cleanSubject = subject.replace(/^(feat|fix|docs|style|refactor|perf|test|chore|security)(\(.+\))?!?:\s*/, '');
+                categories[category].push(\`- \${cleanSubject} (\${hash})\`);
+              });
+              
+              let changelog = '';
+              Object.entries(categories).forEach(([category, items]) => {
+                if (items.length > 0) {
+                  changelog += \`\\n### \${category}\\n\\n\`;
+                  changelog += items.join('\\n') + '\\n';
+                }
+              });
+              
+              if (changelog.trim() === '') {
+                changelog = '\\n### 🔧 Maintenance\\n\\n- Internal improvements and updates\\n';
+              }
+              
+              fs.writeFileSync('changelog.md', changelog);
+              console.log('Generated changelog:', changelog);
+            } catch (error) {
+              console.error('Error generating changelog:', error);
+              fs.writeFileSync('changelog.md', '\\n### 🔧 Maintenance\\n\\n- Internal improvements and updates\\n');
+            }
+          "
+          
+          CHANGELOG=$(cat changelog.md)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  # Build and test before release
+  pre-release-validation:
+    name: Pre-Release Validation
+    runs-on: ubuntu-latest
+    needs: analyze-commits
+    if: needs.analyze-commits.outputs.should-release == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run comprehensive tests
+        run: |
+          # Run Go tests
+          go mod download
+          go test -v -race -coverprofile=coverage.out ./...
+          
+          # Run frontend tests
+          npm ci
+          npm run test:ci
+
+      - name: Build release artifacts
+        env:
+          VERSION: ${{ needs.analyze-commits.outputs.version }}
+        run: |
+          # Build Go binary
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            -ldflags="-s -w -X main.Version=${VERSION} -X main.Commit=${{ github.sha }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o alchemorsel-linux-amd64 \
+            cmd/api/main.go
+          
+          # Build for other platforms
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build \
+            -ldflags="-s -w -X main.Version=${VERSION} -X main.Commit=${{ github.sha }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o alchemorsel-darwin-amd64 \
+            cmd/api/main.go
+          
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
+            -ldflags="-s -w -X main.Version=${VERSION} -X main.Commit=${{ github.sha }} -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o alchemorsel-windows-amd64.exe \
+            cmd/api/main.go
+          
+          # Build frontend assets
+          npm run build:production
+          
+          # Create release archive
+          tar -czf alchemorsel-v${VERSION}-linux-amd64.tar.gz alchemorsel-linux-amd64 README.md LICENSE
+          tar -czf alchemorsel-v${VERSION}-darwin-amd64.tar.gz alchemorsel-darwin-amd64 README.md LICENSE
+          zip alchemorsel-v${VERSION}-windows-amd64.zip alchemorsel-windows-amd64.exe README.md LICENSE
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-artifacts
+          path: |
+            alchemorsel-v*.tar.gz
+            alchemorsel-v*.zip
+            coverage.out
+
+  # Security scan for release
+  release-security-scan:
+    name: Release Security Scan
+    runs-on: ubuntu-latest
+    needs: analyze-commits
+    if: needs.analyze-commits.outputs.should-release == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run security scan
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: '-fmt json -out gosec-report.json ./...'
+
+      - name: Check for high/critical vulnerabilities
+        run: |
+          if [ -f "gosec-report.json" ]; then
+            HIGH_CRITICAL=$(jq '[.Issues[] | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' gosec-report.json)
+            if [ "$HIGH_CRITICAL" -gt 0 ]; then
+              echo "❌ Found $HIGH_CRITICAL high/critical security issues"
+              echo "Cannot proceed with release"
+              exit 1
+            else
+              echo "✅ No high/critical security issues found"
+            fi
+          fi
+
+  # Create release
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [analyze-commits, pre-release-validation, release-security-scan]
+    if: needs.analyze-commits.outputs.should-release == 'true'
+    outputs:
+      release-id: ${{ steps.create-release.outputs.id }}
+      release-tag: ${{ steps.create-release.outputs.tag_name }}
+      release-url: ${{ steps.create-release.outputs.html_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: release-artifacts
+
+      - name: Update version in files
+        env:
+          VERSION: ${{ needs.analyze-commits.outputs.version }}
+        run: |
+          # Update version in package.json
+          if [ -f "package.json" ]; then
+            node -e "
+              const pkg = JSON.parse(require('fs').readFileSync('package.json', 'utf8'));
+              pkg.version = '$VERSION';
+              require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+            "
+          fi
+          
+          # Update version in go.mod or version file
+          echo "$VERSION" > VERSION
+          
+          # Commit version changes
+          git add package.json VERSION
+          git commit -m "chore(release): bump version to v$VERSION [skip ci]" || true
+
+      - name: Create and push tag
+        env:
+          VERSION: ${{ needs.analyze-commits.outputs.version }}
+        run: |
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin "v$VERSION"
+
+      - name: Create GitHub release
+        id: create-release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.analyze-commits.outputs.version }}
+          release_name: Release v${{ needs.analyze-commits.outputs.version }}
+          body: |
+            # 🚀 Alchemorsel v${{ needs.analyze-commits.outputs.version }}
+            
+            ## What's Changed
+            ${{ needs.analyze-commits.outputs.changelog }}
+            
+            ## 📦 Installation
+            
+            ### Docker
+            ```bash
+            docker pull ghcr.io/alchemorsel/v3:v${{ needs.analyze-commits.outputs.version }}
+            ```
+            
+            ### Binary Download
+            Download the appropriate binary for your platform from the assets below.
+            
+            ### From Source
+            ```bash
+            git clone https://github.com/alchemorsel/v3.git
+            cd v3
+            git checkout v${{ needs.analyze-commits.outputs.version }}
+            go build ./cmd/api
+            ```
+            
+            ## 🔗 Links
+            
+            - [Documentation](https://docs.alchemorsel.com)
+            - [Docker Images](https://github.com/alchemorsel/v3/pkgs/container/v3)
+            - [Full Changelog](https://github.com/alchemorsel/v3/compare/${{ steps.previous-tag.outputs.tag }}...v${{ needs.analyze-commits.outputs.version }})
+            
+            ## 🛡️ Security
+            
+            This release has been scanned for vulnerabilities and passed all security checks.
+            
+            ---
+            
+            **Full Changelog**: https://github.com/alchemorsel/v3/compare/${{ steps.previous-tag.outputs.tag }}...v${{ needs.analyze-commits.outputs.version }}
+          draft: false
+          prerelease: ${{ contains(needs.analyze-commits.outputs.version, '-') }}
+
+      - name: Upload release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.create-release.outputs.id }}
+        run: |
+          # Upload binary archives
+          for file in alchemorsel-v*.tar.gz alchemorsel-v*.zip; do
+            if [ -f "$file" ]; then
+              echo "Uploading $file"
+              curl -X POST \
+                -H "Authorization: token $GITHUB_TOKEN" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary @"$file" \
+                "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=$file"
+            fi
+          done
+
+      - name: Update CHANGELOG.md
+        env:
+          VERSION: ${{ needs.analyze-commits.outputs.version }}
+          CHANGELOG: ${{ needs.analyze-commits.outputs.changelog }}
+        run: |
+          # Create or update CHANGELOG.md
+          if [ ! -f "CHANGELOG.md" ]; then
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "All notable changes to this project will be documented in this file." >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+          fi
+          
+          # Prepare new changelog entry
+          cat > new_entry.md << EOF
+          ## [v$VERSION] - $(date +%Y-%m-%d)
+          $CHANGELOG
+          
+          EOF
+          
+          # Insert new entry after the header
+          sed -i '/^All notable changes/r new_entry.md' CHANGELOG.md
+          rm new_entry.md
+          
+          # Commit changelog
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG.md for v$VERSION [skip ci]" || true
+          git push origin main
+
+  # Build and push Docker images
+  release-docker:
+    name: Build and Push Release Images
+    runs-on: ubuntu-latest
+    needs: [create-release]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}},value=v${{ needs.create-release.outputs.release-tag }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ needs.create-release.outputs.release-tag }}
+            type=semver,pattern={{major}},value=v${{ needs.create-release.outputs.release-tag }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./deployments/docker/Dockerfile.production
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ needs.create-release.outputs.release-tag }}
+            COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ steps.meta.outputs.json.buildTime }}
+
+  # Deploy to staging for testing
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [create-release, release-docker]
+    environment:
+      name: staging
+      url: https://staging.alchemorsel.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update staging deployment
+        run: |
+          # Update Kubernetes deployment with new image tag
+          kubectl set image deployment/alchemorsel-api \
+            alchemorsel-api=ghcr.io/${{ github.repository }}:${{ needs.create-release.outputs.release-tag }} \
+            -n alchemorsel-staging
+          
+          # Wait for rollout to complete
+          kubectl rollout status deployment/alchemorsel-api -n alchemorsel-staging --timeout=300s
+
+      - name: Run staging smoke tests
+        run: |
+          # Wait for deployment to be ready
+          sleep 60
+          
+          # Run basic health checks
+          curl -f https://staging.alchemorsel.com/health
+          curl -f https://staging.alchemorsel.com/api/health
+
+  # Notification and cleanup
+  release-notification:
+    name: Release Notification
+    runs-on: ubuntu-latest
+    needs: [create-release, release-docker, deploy-staging]
+    if: always()
+    steps:
+      - name: Notify team of successful release
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#releases'
+          text: |
+            🎉 **New Release Published!**
+            
+            **Version:** ${{ needs.create-release.outputs.release-tag }}
+            **Release URL:** ${{ needs.create-release.outputs.release-url }}
+            **Docker Image:** `ghcr.io/${{ github.repository }}:${{ needs.create-release.outputs.release-tag }}`
+            
+            The release has been deployed to staging and is ready for testing.
+            
+            🚀 **Next Steps:**
+            1. Test the staging deployment
+            2. Review the release notes
+            3. Approve production deployment when ready
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify team of release failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#releases'
+          text: |
+            ❌ **Release Failed**
+            
+            **Branch:** ${{ github.ref }}
+            **Commit:** ${{ github.sha }}
+            
+            The release process encountered an error. Please check the workflow logs.
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Update release dashboard
+        run: |
+          # Update release metrics
+          curl -X POST "https://api.datadoghq.com/api/v1/series" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+            -d '{
+              "series": [
+                {
+                  "metric": "alchemorsel.releases.count",
+                  "points": [['$(date +%s)', 1]],
+                  "tags": ["status:${{ job.status }}", "version:${{ needs.create-release.outputs.release-tag }}"]
+                }
+              ]
+            }' || true

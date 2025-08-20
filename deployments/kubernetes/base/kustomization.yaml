@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secrets.yaml
+  - rbac.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - network-policy.yaml
+  - service-monitor.yaml
+
+commonLabels:
+  app.kubernetes.io/name: alchemorsel
+  app.kubernetes.io/version: v3
+  app.kubernetes.io/component: api
+  app.kubernetes.io/part-of: alchemorsel-platform
+
+images:
+  - name: ghcr.io/alchemorsel/v3
+    newTag: latest

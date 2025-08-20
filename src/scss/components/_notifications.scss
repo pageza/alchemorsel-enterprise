@@ -1,0 +1,9 @@
+// Notification styles
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: $spacing-md;
+  border-radius: $border-radius-md;
+  z-index: 9999;
+}

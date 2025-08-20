@@ -1,0 +1,41 @@
+{
+  "name": "alchemorsel-performance-tests",
+  "version": "1.0.0",
+  "description": "Performance testing suite for Alchemorsel v3",
+  "main": "load-test.js",
+  "scripts": {
+    "test:performance": "k6 run load-test.js",
+    "test:smoke": "k6 run --env TEST_TYPE=smoke load-test.js",
+    "test:load": "k6 run --env TEST_TYPE=load load-test.js",
+    "test:stress": "k6 run --env TEST_TYPE=stress load-test.js",
+    "test:spike": "k6 run --env TEST_TYPE=spike load-test.js",
+    "test:volume": "k6 run --env TEST_TYPE=volume load-test.js",
+    "test:ai": "k6 run --env TEST_TYPE=ai load-test.js",
+    "test:baseline": "npm run test:load && cp results.json baseline.json",
+    "test:compare": "node performance-comparison.js",
+    "test:ci": "npm run test:smoke && npm run test:compare",
+    "test:staging": "BASE_URL=https://staging.alchemorsel.com npm run test:load",
+    "test:production": "BASE_URL=https://alchemorsel.com npm run test:smoke",
+    "lighthouse:audit": "lighthouse --output=json --output-path=lighthouse-report.json --chrome-flags='--headless' http://localhost:3011",
+    "lighthouse:ci": "lhci autorun",
+    "generate:report": "node generate-performance-report.js",
+    "monitor:start": "node performance-monitor.js",
+    "install:k6": "echo 'Please install k6 from https://k6.io/docs/getting-started/installation/'",
+    "install:lighthouse": "npm install -g @lhci/cli lighthouse"
+  },
+  "devDependencies": {
+    "@lhci/cli": "^0.12.0",
+    "lighthouse": "^11.0.0",
+    "autocannon": "^7.12.0",
+    "clinic": "^13.0.0"
+  },
+  "keywords": [
+    "performance",
+    "testing",
+    "k6",
+    "lighthouse",
+    "load-testing"
+  ],
+  "author": "Alchemorsel Team",
+  "license": "MIT"
+}

@@ -1,0 +1,305 @@
+# Critical Alert Rules for Alchemorsel v3
+# High-severity alerts that require immediate attention
+
+groups:
+  - name: critical.availability
+    rules:
+      # === Service Down Alerts ===
+      
+      - alert: APIServiceDown
+        expr: up{service="alchemorsel-api"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: alchemorsel-api
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/api-service-down"
+        annotations:
+          summary: "Alchemorsel API service is down"
+          description: "The Alchemorsel API service has been down for more than 30 seconds. This affects all user functionality."
+          impact: "Complete service outage - users cannot access the application"
+          action: "Check service logs and restart if necessary. Escalate to on-call engineer immediately."
+
+      - alert: DatabaseDown
+        expr: up{service="postgresql"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgresql
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/database-down"
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "The PostgreSQL database has been unreachable for more than 1 minute."
+          impact: "Complete data layer failure - application cannot function"
+          action: "Check database server status and network connectivity. Initiate database recovery procedures."
+
+      - alert: CacheDown
+        expr: up{service="redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: redis
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/redis-down"
+        annotations:
+          summary: "Redis cache service is down"
+          description: "Redis cache has been down for more than 2 minutes."
+          impact: "Degraded performance - application will be slower but functional"
+          action: "Restart Redis service and verify data persistence settings."
+
+      # === SLO Breach Alerts ===
+      
+      - alert: APIAvailabilitySLOBreach
+        expr: slo:api_availability_5m < 99.9
+        for: 5m
+        labels:
+          severity: critical
+          service: alchemorsel-api
+          slo_type: availability
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/slo-availability-breach"
+        annotations:
+          summary: "API availability SLO breach"
+          description: "API availability ({{ $value }}%) is below the 99.9% SLO target for the last 5 minutes."
+          impact: "SLA breach in progress - potential customer impact and financial implications"
+          action: "Investigate error sources immediately. Check for increased error rates or performance issues."
+
+      - alert: HighErrorRate
+        expr: slo:api_error_rate > 1.0
+        for: 2m
+        labels:
+          severity: critical
+          service: alchemorsel-api
+          slo_type: error_rate
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/high-error-rate"
+        annotations:
+          summary: "High API error rate detected"
+          description: "API error rate is {{ $value }}%, which is above the 1% critical threshold."
+          impact: "Users experiencing failures - potential data loss or corruption"
+          action: "Check application logs for error patterns. Verify database and external service health."
+
+      - alert: ExtremelyHighLatency
+        expr: slo:api_latency_p95 > 2000
+        for: 5m
+        labels:
+          severity: critical
+          service: alchemorsel-api
+          slo_type: latency
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/high-latency"
+        annotations:
+          summary: "Extremely high API latency"
+          description: "API P95 latency is {{ $value }}ms, which is above the 2000ms critical threshold."
+          impact: "Severe user experience degradation - application may appear unresponsive"
+          action: "Check for database slowdowns, memory pressure, or external service delays."
+
+  - name: critical.infrastructure
+    rules:
+      # === Resource Exhaustion Alerts ===
+      
+      - alert: HighCPUUsage
+        expr: slo:cpu_utilization > 90
+        for: 10m
+        labels:
+          severity: critical
+          component: system
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/high-cpu"
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.instance }}"
+          description: "CPU usage has been above 90% for more than 10 minutes on {{ $labels.instance }}."
+          impact: "System instability - potential service degradation or crashes"
+          action: "Check for runaway processes. Consider scaling up resources or load balancing."
+
+      - alert: HighMemoryUsage
+        expr: slo:memory_utilization > 95
+        for: 5m
+        labels:
+          severity: critical
+          component: system
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/high-memory"
+        annotations:
+          summary: "Critical memory usage on {{ $labels.instance }}"
+          description: "Memory usage has been above 95% for more than 5 minutes on {{ $labels.instance }}."
+          impact: "Risk of OOM kills - services may crash unexpectedly"
+          action: "Identify memory-intensive processes. Restart services or increase memory allocation."
+
+      - alert: DiskSpaceCriticallyLow
+        expr: |
+          (
+            (node_filesystem_size_bytes{fstype!~"tmpfs|fuse.lxcfs"} - node_filesystem_free_bytes{fstype!~"tmpfs|fuse.lxcfs"}) / 
+            node_filesystem_size_bytes{fstype!~"tmpfs|fuse.lxcfs"}
+          ) * 100 > 95
+        for: 1m
+        labels:
+          severity: critical
+          component: system
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/disk-space"
+        annotations:
+          summary: "Critical disk space low on {{ $labels.instance }}"
+          description: "Disk usage is above 95% on {{ $labels.device }} ({{ $labels.mountpoint }})."
+          impact: "Risk of service failure - applications may crash when unable to write data"
+          action: "Clean up logs and temporary files. Expand disk space or move data to other volumes."
+
+      - alert: DatabaseConnectionsExhausted
+        expr: slo:db_connection_utilization > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: postgresql
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/db-connections"
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "Database connection pool is {{ $value }}% full, approaching the limit."
+          impact: "New requests may be rejected - application performance severely impacted"
+          action: "Check for connection leaks. Consider increasing pool size or optimizing query performance."
+
+  - name: critical.security
+    rules:
+      # === Security Alerts ===
+      
+      - alert: SecurityThreatDetected
+        expr: increase(security_events_total{severity="critical"}[5m]) > 0
+        for: 0s
+        labels:
+          severity: critical
+          team: security
+          runbook: "https://runbooks.alchemorsel.com/security-threat"
+        annotations:
+          summary: "Critical security threat detected"
+          description: "{{ $value }} critical security events detected in the last 5 minutes."
+          impact: "Potential security breach in progress - immediate investigation required"
+          action: "Activate incident response procedure. Check logs for attack patterns and block malicious IPs."
+
+      - alert: MultipleFailedLogins
+        expr: increase(http_requests_total{path="/auth/login",status_code="401"}[5m]) > 50
+        for: 1m
+        labels:
+          severity: critical
+          service: alchemorsel-api
+          team: security
+          runbook: "https://runbooks.alchemorsel.com/brute-force"
+        annotations:
+          summary: "Potential brute force attack detected"
+          description: "{{ $value }} failed login attempts in the last 5 minutes."
+          impact: "Possible credential stuffing or brute force attack"
+          action: "Check source IPs and implement rate limiting. Monitor for successful breaches."
+
+      - alert: UnauthorizedAPIAccess
+        expr: increase(http_requests_total{status_code="403"}[5m]) > 20
+        for: 2m
+        labels:
+          severity: critical
+          service: alchemorsel-api
+          team: security
+          runbook: "https://runbooks.alchemorsel.com/unauthorized-access"
+        annotations:
+          summary: "High number of unauthorized API access attempts"
+          description: "{{ $value }} unauthorized access attempts (403 errors) in the last 5 minutes."
+          impact: "Potential security probe or misconfigured client"
+          action: "Analyze request patterns and source IPs. Verify authentication mechanisms."
+
+  - name: critical.business
+    rules:
+      # === Business Impact Alerts ===
+      
+      - alert: AIServiceCompleteFailure
+        expr: slo:ai_request_success_rate < 50
+        for: 5m
+        labels:
+          severity: critical
+          service: ollama
+          team: ai
+          runbook: "https://runbooks.alchemorsel.com/ai-service-failure"
+        annotations:
+          summary: "AI service experiencing massive failures"
+          description: "AI service success rate is only {{ $value }}%, indicating major issues."
+          impact: "Core AI functionality degraded - recipe generation and optimization affected"
+          action: "Check Ollama service health, model availability, and resource utilization."
+
+      - alert: ZeroBusinessActivity
+        expr: |
+          (
+            rate(recipes_created_total[10m]) == 0 and
+            rate(users_registered_total[10m]) == 0 and
+            rate(recipes_viewed_total[10m]) == 0
+          )
+        for: 10m
+        labels:
+          severity: critical
+          service: alchemorsel-api
+          team: product
+          runbook: "https://runbooks.alchemorsel.com/no-business-activity"
+        annotations:
+          summary: "No business activity detected"
+          description: "No recipes created, users registered, or recipes viewed for 10 minutes."
+          impact: "Potential complete service outage or major functionality failure"
+          action: "Check if users can access the application and perform key functions."
+
+      - alert: DataCorruptionSuspected
+        expr: |
+          (
+            increase(db_query_duration_seconds_count{operation="SELECT"}[5m]) == 0 or
+            increase(recipes_created_total[1h]) / increase(recipes_created_total[1h] offset 1h) < 0.1
+          )
+        for: 5m
+        labels:
+          severity: critical
+          service: postgresql
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/data-corruption"
+        annotations:
+          summary: "Potential data corruption detected"
+          description: "Unusual patterns in data access or creation rates suggest potential corruption."
+          impact: "Risk of data loss or inconsistency - immediate backup and verification required"
+          action: "Stop write operations. Verify database integrity and restore from backup if necessary."
+
+  - name: critical.monitoring
+    rules:
+      # === Monitoring System Alerts ===
+      
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: prometheus
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/prometheus-down"
+        annotations:
+          summary: "Prometheus monitoring system is down"
+          description: "Prometheus has been down for more than 1 minute."
+          impact: "Loss of monitoring and alerting capability - blind to system health"
+          action: "Restart Prometheus immediately. Check configuration and storage issues."
+
+      - alert: AlertManagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: alertmanager
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/alertmanager-down"
+        annotations:
+          summary: "AlertManager is down"
+          description: "AlertManager has been down for more than 2 minutes."
+          impact: "Alerts not being sent - critical issues may go unnoticed"
+          action: "Restart AlertManager and verify notification channels."
+
+      - alert: TooManyAlerts
+        expr: count(ALERTS{alertstate="firing"}) > 20
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/alert-storm"
+        annotations:
+          summary: "Alert storm detected"
+          description: "{{ $value }} alerts are currently firing, indicating a potential system-wide issue."
+          impact: "Possible cascading failure - difficulty identifying root cause"
+          action: "Focus on infrastructure alerts first. Check for common root causes affecting multiple services."

@@ -1,11 +1,11 @@
 {
   "dashboard": {
     "id": null,
-    "title": "Alchemorsel v3 - Business Metrics Dashboard",
-    "tags": ["alchemorsel", "business", "kpi"],
+    "title": "Alchemorsel Business Metrics",
+    "tags": ["alchemorsel", "business", "kpi", "product"],
     "style": "dark",
     "timezone": "browser",
-    "refresh": "1m",
+    "refresh": "5m",
     "time": {
       "from": "now-24h",
       "to": "now"
@@ -13,374 +13,301 @@
     "panels": [
       {
         "id": 1,
-        "title": "Active Users (24h)",
+        "title": "Key Business Metrics",
         "type": "stat",
         "targets": [
           {
-            "expr": "count(count by (user_id) (http_requests_total{job=\"alchemorsel-api\", path!~\"/health|/metrics\"}[24h]))",
-            "legendFormat": "Active Users"
+            "expr": "increase(recipes_created_total[1h])",
+            "legendFormat": "Recipes Created (1h)",
+            "refId": "A"
+          },
+          {
+            "expr": "increase(users_registered_total[1h])",
+            "legendFormat": "New Users (1h)",
+            "refId": "B"
+          },
+          {
+            "expr": "increase(recipes_viewed_total[1h])",
+            "legendFormat": "Recipe Views (1h)",
+            "refId": "C"
+          },
+          {
+            "expr": "increase(ai_requests_total[1h])",
+            "legendFormat": "AI Requests (1h)",
+            "refId": "D"
           }
         ],
         "fieldConfig": {
           "defaults": {
-            "unit": "short",
             "color": {
-              "mode": "thresholds"
+              "mode": "palette-classic"
             },
-            "thresholds": {
-              "steps": [
-                {"color": "red", "value": 0},
-                {"color": "yellow", "value": 100},
-                {"color": "green", "value": 500}
-              ]
-            }
+            "unit": "short"
           }
         },
-        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
       },
       {
         "id": 2,
-        "title": "Recipe Creation Rate",
-        "type": "stat",
+        "title": "Recipe Creation Trend",
+        "type": "timeseries",
         "targets": [
           {
-            "expr": "rate(recipes_created_total{job=\"alchemorsel-api\"}[1h]) * 3600",
-            "legendFormat": "Recipes/hour"
+            "expr": "rate(recipes_created_total[5m]) * 3600",
+            "legendFormat": "Recipes/hour",
+            "refId": "A"
           }
         ],
         "fieldConfig": {
           "defaults": {
-            "unit": "rph",
-            "decimals": 1
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
           }
         },
-        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
       },
       {
         "id": 3,
-        "title": "User Registration Rate",
-        "type": "stat",
+        "title": "User Registration Trend",
+        "type": "timeseries",
         "targets": [
           {
-            "expr": "rate(users_registered_total{job=\"alchemorsel-api\"}[1h]) * 3600",
-            "legendFormat": "Registrations/hour"
+            "expr": "rate(users_registered_total[5m]) * 3600",
+            "legendFormat": "Users/hour",
+            "refId": "A"
           }
         ],
         "fieldConfig": {
           "defaults": {
-            "unit": "rph",
-            "decimals": 1
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
           }
         },
-        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
       },
       {
         "id": 4,
-        "title": "Revenue (Daily)",
-        "type": "stat",
+        "title": "AI Service Usage",
+        "type": "timeseries",
         "targets": [
           {
-            "expr": "increase(revenue_total{job=\"alchemorsel-api\"}[1d])",
-            "legendFormat": "Daily Revenue"
+            "expr": "sum(rate(ai_requests_total[5m])) by (provider, model)",
+            "legendFormat": "{{provider}}/{{model}}",
+            "refId": "A"
           }
         ],
         "fieldConfig": {
           "defaults": {
-            "unit": "currencyUSD",
-            "decimals": 2
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "reqps"
           }
         },
-        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
       },
       {
         "id": 5,
-        "title": "Recipe Views Over Time",
-        "type": "graph",
+        "title": "AI Request Success Rate",
+        "type": "timeseries",
         "targets": [
           {
-            "expr": "rate(recipes_viewed_total{job=\"alchemorsel-api\"}[5m]) * 60",
-            "legendFormat": "Views per minute"
-          }
-        ],
-        "yAxes": [
+            "expr": "slo:ai_request_success_rate",
+            "legendFormat": "Success Rate",
+            "refId": "A"
+          },
           {
-            "label": "Views/min",
-            "min": 0
+            "expr": "95",
+            "legendFormat": "Target (95%)",
+            "refId": "B"
           }
         ],
-        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 8}
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "percent",
+            "max": 100,
+            "min": 90
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
       },
       {
         "id": 6,
-        "title": "User Engagement Metrics",
-        "type": "graph",
+        "title": "Recipe View to Creation Ratio",
+        "type": "stat",
         "targets": [
           {
-            "expr": "rate(user_actions_total{job=\"alchemorsel-api\", action=\"like\"}[5m]) * 60",
-            "legendFormat": "Likes/min"
-          },
-          {
-            "expr": "rate(user_actions_total{job=\"alchemorsel-api\", action=\"comment\"}[5m]) * 60",
-            "legendFormat": "Comments/min"
-          },
-          {
-            "expr": "rate(user_actions_total{job=\"alchemorsel-api\", action=\"share\"}[5m]) * 60",
-            "legendFormat": "Shares/min"
+            "expr": "(increase(recipes_created_total[1h]) / increase(recipes_viewed_total[1h])) * 100",
+            "legendFormat": "Conversion Rate",
+            "refId": "A"
           }
         ],
-        "yAxes": [
-          {
-            "label": "Actions/min",
-            "min": 0
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 5},
+                {"color": "green", "value": 10}
+              ]
+            },
+            "unit": "percent"
           }
-        ],
-        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 8}
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
       },
       {
         "id": 7,
-        "title": "AI Recipe Generation Usage",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "rate(ai_requests_total{job=\"alchemorsel-api\", operation=\"generate_recipe\"}[5m]) * 60",
-            "legendFormat": "AI Requests/min"
-          },
-          {
-            "expr": "rate(ai_requests_total{job=\"alchemorsel-api\", operation=\"generate_recipe\", status=\"success\"}[5m]) * 60",
-            "legendFormat": "Successful Requests/min"
-          }
-        ],
-        "yAxes": [
-          {
-            "label": "Requests/min",
-            "min": 0
-          }
-        ],
-        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 17}
-      },
-      {
-        "id": 8,
-        "title": "Search Activity",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "rate(search_requests_total{job=\"alchemorsel-api\"}[5m]) * 60",
-            "legendFormat": "Search Requests/min"
-          },
-          {
-            "expr": "rate(search_requests_total{job=\"alchemorsel-api\", results=\">0\"}[5m]) * 60",
-            "legendFormat": "Searches with Results/min"
-          }
-        ],
-        "yAxes": [
-          {
-            "label": "Searches/min",
-            "min": 0
-          }
-        ],
-        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 17}
-      },
-      {
-        "id": 9,
-        "title": "Top Recipe Categories",
+        "title": "User Engagement by Feature",
         "type": "piechart",
         "targets": [
           {
-            "expr": "topk(10, sum by (category) (rate(recipes_created_total{job=\"alchemorsel-api\"}[24h])))",
-            "legendFormat": "{{category}}"
+            "expr": "sum(increase(http_requests_total{path=~\".*/recipes.*\"}[1h]))",
+            "legendFormat": "Recipe Management",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(increase(http_requests_total{path=~\".*/search.*\"}[1h]))",
+            "legendFormat": "Search",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(increase(http_requests_total{path=~\".*/ai.*\"}[1h]))",
+            "legendFormat": "AI Features",
+            "refId": "C"
+          },
+          {
+            "expr": "sum(increase(http_requests_total{path=~\".*/profile.*\"}[1h]))",
+            "legendFormat": "Profile Management",
+            "refId": "D"
           }
         ],
-        "gridPos": {"h": 9, "w": 8, "x": 0, "y": 26}
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32}
+      },
+      {
+        "id": 8,
+        "title": "Business Success Rates",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "slo:recipe_creation_success_rate",
+            "legendFormat": "Recipe Creation",
+            "refId": "A"
+          },
+          {
+            "expr": "slo:user_registration_success_rate",
+            "legendFormat": "User Registration",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "percent",
+            "max": 100,
+            "min": 90
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32}
+      },
+      {
+        "id": 9,
+        "title": "Daily Active Users (Estimate)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "count by ()(group by (remote_addr)(http_requests_total{service=\"alchemorsel-api\"}))",
+            "legendFormat": "Unique IPs",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 40}
       },
       {
         "id": 10,
-        "title": "User Retention (7-day)",
-        "type": "stat",
+        "title": "AI Cost Tracking",
+        "type": "timeseries",
         "targets": [
           {
-            "expr": "(\n  count(count by (user_id) (http_requests_total{job=\"alchemorsel-api\"}[7d]))\n  /\n  count(count by (user_id) (users_registered_total{job=\"alchemorsel-api\"}[7d] offset 7d))\n) * 100",
-            "legendFormat": "7-day Retention %"
+            "expr": "increase(ai_request_cost_total[1h])",
+            "legendFormat": "Hourly AI Cost",
+            "refId": "A"
           }
         ],
         "fieldConfig": {
           "defaults": {
-            "unit": "percent",
-            "decimals": 1,
             "color": {
-              "mode": "thresholds"
+              "mode": "palette-classic"
             },
-            "thresholds": {
-              "steps": [
-                {"color": "red", "value": 0},
-                {"color": "yellow", "value": 20},
-                {"color": "green", "value": 40}
-              ]
-            }
+            "unit": "currencyUSD"
           }
         },
-        "gridPos": {"h": 9, "w": 8, "x": 8, "y": 26}
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 48}
       },
       {
         "id": 11,
-        "title": "Premium Conversion Rate",
-        "type": "stat",
+        "title": "Feature Adoption Rate",
+        "type": "bargauge",
         "targets": [
           {
-            "expr": "(\n  rate(premium_subscriptions_total{job=\"alchemorsel-api\", status=\"active\"}[24h])\n  /\n  rate(users_registered_total{job=\"alchemorsel-api\"}[24h])\n) * 100",
-            "legendFormat": "Conversion Rate %"
+            "expr": "(increase(ai_requests_total[24h]) / increase(users_registered_total[24h])) * 100",
+            "legendFormat": "AI Feature Adoption",
+            "refId": "A"
+          },
+          {
+            "expr": "(increase(recipes_created_total[24h]) / increase(users_registered_total[24h])) * 100",
+            "legendFormat": "Recipe Creation Rate",
+            "refId": "B"
           }
         ],
         "fieldConfig": {
           "defaults": {
-            "unit": "percent",
-            "decimals": 2,
             "color": {
-              "mode": "thresholds"
+              "mode": "palette-classic"
             },
-            "thresholds": {
-              "steps": [
-                {"color": "red", "value": 0},
-                {"color": "yellow", "value": 2},
-                {"color": "green", "value": 5}
-              ]
-            }
+            "unit": "percent"
           }
         },
-        "gridPos": {"h": 9, "w": 8, "x": 16, "y": 26}
-      },
-      {
-        "id": 12,
-        "title": "Monthly Recurring Revenue (MRR)",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "sum(rate(subscription_revenue_total{job=\"alchemorsel-api\", type=\"monthly\"}[1d]) * 86400 * 30)",
-            "legendFormat": "Monthly MRR"
-          },
-          {
-            "expr": "sum(rate(subscription_revenue_total{job=\"alchemorsel-api\", type=\"annual\"}[1d]) * 86400 * 30 / 12)",
-            "legendFormat": "Annual MRR"
-          }
-        ],
-        "yAxes": [
-          {
-            "label": "Revenue ($)",
-            "min": 0
-          }
-        ],
-        "gridPos": {"h": 9, "w": 24, "x": 0, "y": 35}
-      },
-      {
-        "id": 13,
-        "title": "Feature Usage",
-        "type": "table",
-        "targets": [
-          {
-            "expr": "sum by (feature) (rate(feature_usage_total{job=\"alchemorsel-api\"}[24h]) * 86400)",
-            "format": "table",
-            "instant": true
-          }
-        ],
-        "transformations": [
-          {
-            "id": "organize",
-            "options": {
-              "excludeByName": {
-                "Time": true
-              },
-              "renameByName": {
-                "feature": "Feature",
-                "Value": "Daily Usage"
-              }
-            }
-          }
-        ],
-        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 44}
-      },
-      {
-        "id": 14,
-        "title": "Error Rates by Endpoint",
-        "type": "table",
-        "targets": [
-          {
-            "expr": "(\n  sum by (path) (rate(http_requests_total{job=\"alchemorsel-api\", code=~\"5..\"}[1h]))\n  /\n  sum by (path) (rate(http_requests_total{job=\"alchemorsel-api\"}[1h]))\n) * 100",
-            "format": "table",
-            "instant": true
-          }
-        ],
-        "transformations": [
-          {
-            "id": "organize",
-            "options": {
-              "excludeByName": {
-                "Time": true
-              },
-              "renameByName": {
-                "path": "Endpoint",
-                "Value": "Error Rate %"
-              }
-            }
-          }
-        ],
-        "fieldConfig": {
-          "overrides": [
-            {
-              "matcher": {"id": "byName", "options": "Error Rate %"},
-              "properties": [
-                {
-                  "id": "unit",
-                  "value": "percent"
-                },
-                {
-                  "id": "custom.cellOptions",
-                  "value": {
-                    "type": "color-background",
-                    "mode": "gradient"
-                  }
-                },
-                {
-                  "id": "color",
-                  "value": {
-                    "mode": "thresholds"
-                  }
-                },
-                {
-                  "id": "thresholds",
-                  "value": {
-                    "steps": [
-                      {"color": "green", "value": 0},
-                      {"color": "yellow", "value": 1},
-                      {"color": "red", "value": 5}
-                    ]
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 44}
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 48}
       }
     ],
     "templating": {
       "list": [
         {
-          "name": "environment",
-          "type": "query",
-          "query": "label_values(http_requests_total, environment)",
-          "current": {
-            "text": "production",
-            "value": "production"
-          },
-          "options": [],
-          "refresh": 1
-        },
-        {
           "name": "time_range",
           "type": "interval",
-          "query": "1m,5m,15m,1h,6h,24h",
+          "query": "1h,6h,12h,24h,7d,30d",
           "current": {
-            "text": "5m",
-            "value": "5m"
+            "value": "24h",
+            "text": "24h"
           }
         }
       ]
@@ -390,20 +317,13 @@
         {
           "name": "Deployments",
           "datasource": "Prometheus",
-          "expr": "changes(process_start_time_seconds{job=\"alchemorsel-api\"}[5m]) > 0",
+          "expr": "increase(deployment_events_total[1m])",
           "titleFormat": "Deployment",
-          "textFormat": "New deployment detected",
-          "iconColor": "blue"
-        },
-        {
-          "name": "Incidents",
-          "datasource": "Prometheus",
-          "expr": "ALERTS{alertname=~\".*Critical.*\"}",
-          "titleFormat": "{{alertname}}",
-          "textFormat": "Critical alert fired",
-          "iconColor": "red"
+          "textFormat": "New version deployed"
         }
       ]
-    }
+    },
+    "schemaVersion": 37,
+    "version": 1
   }
 }

@@ -7,9 +7,12 @@ on:
     branches: [ main ]
 
 env:
-  GO_VERSION: "1.22"
+  GO_VERSION: "1.23"
+  NODE_VERSION: "20"
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
   # Code quality checks
@@ -338,6 +341,9 @@ jobs:
             VERSION=${{ github.sha }}
             COMMIT=${{ github.sha }}
             BUILD_TIME=${{ steps.meta.outputs.json.buildTime }}
+            GO_VERSION=${{ env.GO_VERSION }}
+          provenance: true
+          sbom: true
 
       - name: Output image
         id: image

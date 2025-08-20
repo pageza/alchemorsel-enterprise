@@ -6,55 +6,128 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/alchemorsel/v3/internal/domain/ai"
 	"github.com/alchemorsel/v3/internal/domain/recipe"
+	"github.com/alchemorsel/v3/internal/infrastructure/ai/ollama"
+	"github.com/alchemorsel/v3/internal/infrastructure/ai/openai"
 	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
-// AIService implements AI operations
+// AIService implements AI operations with multiple AI provider support
 type AIService struct {
-	provider string
-	logger   *zap.Logger
+	provider     string
+	client       outbound.AIService
+	ollamaClient *ollama.Client
+	openaiClient *openai.Client
+	logger       *zap.Logger
 }
 
-// NewAIService creates a new AI service
+// NewAIService creates a new AI service with intelligent provider selection
 func NewAIService(provider string, logger *zap.Logger) outbound.AIService {
+	namedLogger := logger.Named("ai-service")
+	
+	// Create clients for all supported providers
+	ollamaClient := ollama.NewClient(namedLogger)
+	openaiClient := openai.NewClient(namedLogger)
+	
+	// Determine the active provider
+	if provider == "" {
+		provider = os.Getenv("ALCHEMORSEL_AI_PROVIDER")
+		if provider == "" {
+			provider = "ollama" // Default to Ollama for containerized setup
+		}
+	}
+	
+	// Select primary client based on provider
+	var activeClient outbound.AIService
+	switch provider {
+	case "ollama":
+		activeClient = ollamaClient
+	case "openai":
+		activeClient = openaiClient
+	default:
+		namedLogger.Warn("Unknown AI provider, defaulting to Ollama", zap.String("provider", provider))
+		activeClient = ollamaClient
+		provider = "ollama"
+	}
+	
+	namedLogger.Info("AI service initialized", 
+		zap.String("primary_provider", provider),
+		zap.String("fallback_providers", "ollama,openai"))
+	
 	return &AIService{
-		provider: provider,
-		logger:   logger.Named("ai-service"),
+		provider:     provider,
+		client:       activeClient,
+		ollamaClient: ollamaClient,
+		openaiClient: openaiClient,
+		logger:       namedLogger,
 	}
 }
 
-// GenerateRecipe generates a recipe using AI
+// GenerateRecipe generates a recipe using AI with fallback support
 func (s *AIService) GenerateRecipe(ctx context.Context, prompt string, constraints outbound.AIConstraints) (*outbound.AIRecipeResponse, error) {
 	s.logger.Info("Generating recipe with AI",
 		zap.String("prompt", prompt),
-		zap.String("provider", s.provider),
+		zap.String("primary_provider", s.provider),
 	)
 
-	// For demo purposes, use a mock implementation
-	// In production, this would call actual AI services like OpenAI or Anthropic
-	if s.provider == "mock" {
+	// Try primary provider
+	response, err := s.client.GenerateRecipe(ctx, prompt, constraints)
+	if err != nil {
+		s.logger.Warn("Primary AI provider failed, trying fallback",
+			zap.String("primary_provider", s.provider),
+			zap.Error(err))
+		
+		// Try fallback providers
+		if s.provider != "ollama" && s.ollamaClient != nil {
+			s.logger.Info("Trying Ollama as fallback")
+			if fallbackResponse, fallbackErr := s.ollamaClient.GenerateRecipe(ctx, prompt, constraints); fallbackErr == nil {
+				s.logger.Info("Fallback Ollama provider succeeded")
+				return fallbackResponse, nil
+			}
+		}
+		
+		if s.provider != "openai" && s.openaiClient != nil {
+			s.logger.Info("Trying OpenAI as fallback")
+			if fallbackResponse, fallbackErr := s.openaiClient.GenerateRecipe(ctx, prompt, constraints); fallbackErr == nil {
+				s.logger.Info("Fallback OpenAI provider succeeded")
+				return fallbackResponse, nil
+			}
+		}
+		
+		// Final fallback to mock
+		s.logger.Warn("All AI providers failed, using mock fallback")
 		return s.generateMockRecipe(prompt, constraints)
 	}
 
-	// TODO: Implement actual AI providers
-	return nil, fmt.Errorf("AI provider %s not implemented", s.provider)
+	s.logger.Info("AI recipe generation successful",
+		zap.String("provider", s.provider),
+		zap.String("title", response.Title))
+
+	return response, nil
 }
 
-// SuggestIngredients suggests ingredients based on partial input
+// SuggestIngredients suggests ingredients based on partial input with AI fallback
 func (s *AIService) SuggestIngredients(ctx context.Context, partial []string) ([]string, error) {
 	s.logger.Info("Suggesting ingredients", zap.Strings("partial", partial))
 
-	// Mock implementation - suggest complementary ingredients
-	suggestions := []string{
-		"onion", "garlic", "olive oil", "salt", "pepper",
-		"tomatoes", "herbs", "lemon", "cheese", "butter",
+	// Try primary provider
+	suggestions, err := s.client.SuggestIngredients(ctx, partial)
+	if err != nil {
+		s.logger.Warn("Primary AI provider failed for ingredients, using fallback",
+			zap.Error(err))
+		
+		// Mock fallback implementation
+		suggestions = []string{
+			"onion", "garlic", "olive oil", "salt", "pepper",
+			"tomatoes", "herbs", "lemon", "cheese", "butter",
+		}
 	}
 
 	// Filter out already included ingredients
@@ -80,83 +153,110 @@ func (s *AIService) SuggestIngredients(ctx context.Context, partial []string) ([
 	return result, nil
 }
 
-// AnalyzeNutrition analyzes nutrition content of ingredients
+// AnalyzeNutrition analyzes nutrition content of ingredients with AI fallback
 func (s *AIService) AnalyzeNutrition(ctx context.Context, ingredients []string) (*outbound.NutritionInfo, error) {
 	s.logger.Info("Analyzing nutrition", zap.Strings("ingredients", ingredients))
 
-	// Mock nutrition analysis based on ingredient count and type
-	calories := len(ingredients) * 50 // Base calories per ingredient
-	protein := float64(len(ingredients)) * 2.5
-	carbs := float64(len(ingredients)) * 8.0
-	fat := float64(len(ingredients)) * 1.5
+	// Try primary provider
+	nutrition, err := s.client.AnalyzeNutrition(ctx, ingredients)
+	if err != nil {
+		s.logger.Warn("Primary AI provider failed for nutrition analysis, using fallback",
+			zap.Error(err))
+		
+		// Mock nutrition analysis based on ingredient count and type
+		calories := len(ingredients) * 50 // Base calories per ingredient
+		protein := float64(len(ingredients)) * 2.5
+		carbs := float64(len(ingredients)) * 8.0
+		fat := float64(len(ingredients)) * 1.5
 
-	// Adjust based on ingredient types (simplified logic)
-	for _, ingredient := range ingredients {
-		lower := strings.ToLower(ingredient)
-		switch {
-		case strings.Contains(lower, "meat") || strings.Contains(lower, "chicken") || strings.Contains(lower, "beef"):
-			protein += 20
-			calories += 100
-		case strings.Contains(lower, "oil") || strings.Contains(lower, "butter") || strings.Contains(lower, "cheese"):
-			fat += 10
-			calories += 80
-		case strings.Contains(lower, "rice") || strings.Contains(lower, "pasta") || strings.Contains(lower, "bread"):
-			carbs += 30
-			calories += 120
-		case strings.Contains(lower, "vegetable") || strings.Contains(lower, "fruit"):
-			fiber := 2.0
-			_ = fiber // Will be added to struct if needed
+		// Adjust based on ingredient types (simplified logic)
+		for _, ingredient := range ingredients {
+			lower := strings.ToLower(ingredient)
+			switch {
+			case strings.Contains(lower, "meat") || strings.Contains(lower, "chicken") || strings.Contains(lower, "beef"):
+				protein += 20
+				calories += 100
+			case strings.Contains(lower, "oil") || strings.Contains(lower, "butter") || strings.Contains(lower, "cheese"):
+				fat += 10
+				calories += 80
+			case strings.Contains(lower, "rice") || strings.Contains(lower, "pasta") || strings.Contains(lower, "bread"):
+				carbs += 30
+				calories += 120
+			case strings.Contains(lower, "vegetable") || strings.Contains(lower, "fruit"):
+				fiber := 2.0
+				_ = fiber // Will be added to struct if needed
+			}
+		}
+
+		nutrition = &outbound.NutritionInfo{
+			Calories: calories,
+			Protein:  protein,
+			Carbs:    carbs,
+			Fat:      fat,
+			Fiber:    5.0,
+			Sugar:    10.0,
+			Sodium:   500.0,
 		}
 	}
 
-	return &outbound.NutritionInfo{
-		Calories: calories,
-		Protein:  protein,
-		Carbs:    carbs,
-		Fat:      fat,
-		Fiber:    5.0,
-		Sugar:    10.0,
-		Sodium:   500.0,
-	}, nil
+	return nutrition, nil
 }
 
-// GenerateDescription generates a description for a recipe
+// GenerateDescription generates a description for a recipe with AI fallback
 func (s *AIService) GenerateDescription(ctx context.Context, rec *recipe.Recipe) (string, error) {
 	s.logger.Info("Generating recipe description")
 
-	// Mock description generation
-	descriptions := []string{
-		"A delicious and flavorful dish that combines traditional techniques with modern flavors.",
-		"This recipe brings together the perfect balance of taste and nutrition for any occasion.",
-		"A crowd-pleasing meal that's both easy to prepare and satisfying to eat.",
-		"Experience the rich flavors and aromas of this carefully crafted recipe.",
-		"A wholesome dish that celebrates fresh ingredients and bold seasonings.",
+	// Try primary provider
+	description, err := s.client.GenerateDescription(ctx, rec)
+	if err != nil {
+		s.logger.Warn("Primary AI provider failed for description, using fallback",
+			zap.Error(err))
+		
+		// Mock description generation
+		descriptions := []string{
+			"A delicious and flavorful dish that combines traditional techniques with modern flavors.",
+			"This recipe brings together the perfect balance of taste and nutrition for any occasion.",
+			"A crowd-pleasing meal that's both easy to prepare and satisfying to eat.",
+			"Experience the rich flavors and aromas of this carefully crafted recipe.",
+			"A wholesome dish that celebrates fresh ingredients and bold seasonings.",
+		}
+
+		// Return a random description
+		rand.Seed(time.Now().UnixNano())
+		description = descriptions[rand.Intn(len(descriptions))]
 	}
 
-	// Return a random description
-	rand.Seed(time.Now().UnixNano())
-	return descriptions[rand.Intn(len(descriptions))], nil
+	return description, nil
 }
 
-// ClassifyRecipe classifies a recipe's cuisine, category, and difficulty
+// ClassifyRecipe classifies a recipe's cuisine, category, and difficulty with AI fallback
 func (s *AIService) ClassifyRecipe(ctx context.Context, rec *recipe.Recipe) (*outbound.RecipeClassification, error) {
 	s.logger.Info("Classifying recipe")
 
-	// Mock classification
-	cuisines := []string{"italian", "american", "asian", "mediterranean", "french"}
-	categories := []string{"main_course", "appetizer", "dessert", "side_dish"}
-	difficulties := []string{"easy", "medium", "hard"}
-	dietary := []string{"vegetarian", "gluten_free", "dairy_free"}
+	// Try primary provider
+	classification, err := s.client.ClassifyRecipe(ctx, rec)
+	if err != nil {
+		s.logger.Warn("Primary AI provider failed for classification, using fallback",
+			zap.Error(err))
+		
+		// Mock classification
+		cuisines := []string{"italian", "american", "asian", "mediterranean", "french"}
+		categories := []string{"main_course", "appetizer", "dessert", "side_dish"}
+		difficulties := []string{"easy", "medium", "hard"}
+		dietary := []string{"vegetarian", "gluten_free", "dairy_free"}
 
-	rand.Seed(time.Now().UnixNano())
+		rand.Seed(time.Now().UnixNano())
 
-	return &outbound.RecipeClassification{
-		Cuisine:    cuisines[rand.Intn(len(cuisines))],
-		Category:   categories[rand.Intn(len(categories))],
-		Difficulty: difficulties[rand.Intn(len(difficulties))],
-		Dietary:    []string{dietary[rand.Intn(len(dietary))]},
-		Confidence: 0.8 + rand.Float64()*0.2, // 0.8 to 1.0
-	}, nil
+		classification = &outbound.RecipeClassification{
+			Cuisine:    cuisines[rand.Intn(len(cuisines))],
+			Category:   categories[rand.Intn(len(categories))],
+			Difficulty: difficulties[rand.Intn(len(difficulties))],
+			Dietary:    []string{dietary[rand.Intn(len(dietary))]},
+			Confidence: 0.8 + rand.Float64()*0.2, // 0.8 to 1.0
+		}
+	}
+
+	return classification, nil
 }
 
 // generateMockRecipe generates a mock recipe for demo purposes

@@ -1,0 +1,171 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alchemorsel-api-netpol
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-api
+    app.kubernetes.io/version: v3
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: alchemorsel-api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from web frontend
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alchemorsel-web
+      ports:
+        - protocol: TCP
+          port: 3010
+    # Allow traffic from ALB/ingress
+    - from: []
+      ports:
+        - protocol: TCP
+          port: 3010
+    # Allow metrics scraping from monitoring
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: alchemorsel-monitoring
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow HTTPS traffic (external APIs, etc.)
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+    # Allow HTTP traffic (internal services)
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 80
+    # Allow database access
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow Redis access
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 6379
+    # Allow Ollama access
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alchemorsel-ollama
+      ports:
+        - protocol: TCP
+          port: 11434
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alchemorsel-web-netpol
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-web
+    app.kubernetes.io/version: v3
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: alchemorsel-web
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from ALB/ingress
+    - from: []
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+    # Allow metrics scraping
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: alchemorsel-monitoring
+      ports:
+        - protocol: TCP
+          port: 9113
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow API access
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alchemorsel-api
+      ports:
+        - protocol: TCP
+          port: 3010
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alchemorsel-ollama-netpol
+  namespace: alchemorsel
+  labels:
+    app.kubernetes.io/name: alchemorsel-ollama
+    app.kubernetes.io/version: v3
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: alchemorsel-ollama
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from API pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: alchemorsel-api
+      ports:
+        - protocol: TCP
+          port: 11434
+  egress:
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow HTTPS for model downloads
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+---
+# Default deny-all policy for the namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: alchemorsel
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress

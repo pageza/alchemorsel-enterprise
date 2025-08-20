@@ -7,9 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -169,7 +168,7 @@ func (s *Server) initTemplates() {
 
 // parseTemplatesFromFS recursively parses templates from embedded filesystem
 func parseTemplatesFromFS(tmpl *template.Template, fsys embed.FS, root string) error {
-	return filepath.WalkDir(".", func(path string, d os.DirEntry, err error) error {
+	return fs.WalkDir(fsys, root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -178,13 +177,13 @@ func parseTemplatesFromFS(tmpl *template.Template, fsys embed.FS, root string) e
 			return nil
 		}
 
-		// Read template content
+		// Read template content from embedded filesystem
 		content, err := fsys.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("failed to read template %s: %w", path, err)
 		}
 
-		// Create template name from path
+		// Create template name from path (relative to root)
 		name := strings.TrimPrefix(path, root+"/")
 		name = strings.TrimSuffix(name, ".html")
 

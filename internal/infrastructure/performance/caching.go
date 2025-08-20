@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/alchemorsel/v3/internal/infrastructure/cache"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -19,9 +20,9 @@ type CacheConfig struct {
 	DistributedCache   bool
 }
 
-// CacheManager manages multiple cache layers
+// CacheManager manages multiple cache layers (legacy wrapper for new cache infrastructure)
 type CacheManager struct {
-	redis        *redis.Client
+	cacheService *cache.CacheService
 	localCache   *MemoryCache
 	config       CacheConfig
 	logger       *zap.Logger
@@ -37,13 +38,13 @@ type CacheMetrics struct {
 	TotalTime   time.Duration
 }
 
-// NewCacheManager creates a new cache manager
-func NewCacheManager(redisClient *redis.Client, config CacheConfig, logger *zap.Logger) *CacheManager {
+// NewCacheManager creates a new cache manager using the new cache infrastructure
+func NewCacheManager(cacheService *cache.CacheService, config CacheConfig, logger *zap.Logger) *CacheManager {
 	return &CacheManager{
-		redis:      redisClient,
-		localCache: NewMemoryCache(1000), // 1000 item limit
-		config:     config,
-		logger:     logger,
+		cacheService: cacheService,
+		localCache:   NewMemoryCache(1000), // 1000 item limit
+		config:       config,
+		logger:       logger,
 	}
 }
 

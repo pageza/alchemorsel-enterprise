@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/alchemorsel/v3/internal/application/recipe"
 	"github.com/alchemorsel/v3/internal/application/user"
@@ -16,12 +17,15 @@ import (
 	"github.com/alchemorsel/v3/internal/infrastructure/http/server"
 	gormRepo "github.com/alchemorsel/v3/internal/infrastructure/persistence/gorm"
 	"github.com/alchemorsel/v3/internal/infrastructure/persistence/memory"
+	"github.com/alchemorsel/v3/internal/infrastructure/persistence/postgres"
 	"github.com/alchemorsel/v3/internal/infrastructure/persistence/sqlite"
 	"github.com/alchemorsel/v3/internal/infrastructure/security"
 	"github.com/alchemorsel/v3/internal/ports/inbound"
 	"github.com/alchemorsel/v3/internal/ports/outbound"
+	"github.com/alchemorsel/v3/pkg/healthcheck"
 	"github.com/alchemorsel/v3/pkg/logger"
 	
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -35,6 +39,9 @@ var Module = fx.Options(
 	LoggerModule,
 	DatabaseModule,
 	CacheModule,
+	
+	// Health check module
+	HealthCheckModule,
 	
 	// Repository modules
 	RepositoryModule,
@@ -74,38 +81,96 @@ var LoggerModule = fx.Provide(
 	},
 )
 
-// DatabaseModule provides database connections
+// DatabaseModule provides database connections with PostgreSQL and performance optimization
 var DatabaseModule = fx.Provide(
-	// SQLite database with GORM
+	// PostgreSQL database with performance optimization
 	func(cfg *config.Config, log *zap.Logger) (*gorm.DB, error) {
-		// Use in-memory SQLite for demo
-		dbPath := ":memory:"
-		if cfg.Database.Database != "" {
-			dbPath = cfg.Database.Database + ".db"
-		}
-
-		// Set log level based on config
-		logLevel := gormLogger.Silent
-		if cfg.App.Debug {
-			logLevel = gormLogger.Info
-		}
-
-		db, err := sqlite.SetupDatabase(dbPath, logLevel)
+		// Import PostgreSQL connection manager
+		pgPkg := "github.com/alchemorsel/v3/internal/infrastructure/persistence/postgres"
+		_ = pgPkg // Ensure import
+		
+		// Create PostgreSQL connection manager with optimized settings
+		connectionManager, err := postgres.NewConnectionManager(cfg, log)
 		if err != nil {
-			return nil, fmt.Errorf("failed to setup SQLite database: %w", err)
+			return nil, fmt.Errorf("failed to create PostgreSQL connection manager: %w", err)
 		}
 
-		// Seed database with demo data
-		if err := sqlite.SeedDatabase(db); err != nil {
-			log.Warn("Failed to seed database", zap.Error(err))
+		db := connectionManager.GetDB()
+		
+		// Auto-migrate models if enabled
+		if cfg.Database.AutoMigrate {
+			if err := db.AutoMigrate(
+				&gormRepo.UserModel{},
+				&gormRepo.RecipeModel{},
+				&gormRepo.RatingModel{},
+				&gormRepo.AIRequestModel{},
+				&gormRepo.RecipeLikeModel{},
+				&gormRepo.UserFollowModel{},
+				&gormRepo.CollectionModel{},
+				&gormRepo.CollectionRecipeModel{},
+				&gormRepo.CommentModel{},
+				&gormRepo.ActivityModel{},
+				&gormRepo.RecipeViewModel{},
+			); err != nil {
+				log.Warn("Failed to auto-migrate database", zap.Error(err))
+			}
 		}
 
-		log.Info("Connected to SQLite database",
-			zap.String("path", dbPath),
-			zap.Bool("in_memory", dbPath == ":memory:"),
+		log.Info("Connected to PostgreSQL database with performance optimization",
+			zap.String("host", cfg.Database.Host),
+			zap.Int("port", cfg.Database.Port),
+			zap.String("database", cfg.Database.Database),
+			zap.Int("max_open_conns", cfg.Database.MaxOpenConns),
+			zap.Int("max_idle_conns", cfg.Database.MaxIdleConns),
 		)
 
 		return db, nil
+	},
+	
+	// PostgreSQL Connection Manager
+	func(cfg *config.Config, log *zap.Logger) (*postgres.ConnectionManager, error) {
+		return postgres.NewConnectionManager(cfg, log)
+	},
+	
+	// Query Cache with Redis integration
+	func(cfg *config.Config, log *zap.Logger) (*postgres.QueryCache, error) {
+		// Create Redis client for cache
+		redisClient := redis.NewClient(&redis.Options{
+			Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+			Password: cfg.Redis.Password,
+			DB:       cfg.Redis.Database,
+		})
+		
+		// Test Redis connection
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		if err := redisClient.Ping(ctx).Err(); err != nil {
+			log.Warn("Redis connection failed, query cache disabled", zap.Error(err))
+			return nil, err
+		}
+		
+		cacheConfig := postgres.CacheConfig{
+			Enabled:    true,
+			DefaultTTL: 5 * time.Minute,
+			KeyPrefix:  "alchemorsel:query",
+		}
+		
+		return postgres.NewQueryCache(redisClient, log, cacheConfig), nil
+	},
+	
+	// Performance Dashboard
+	func(
+		cm *postgres.ConnectionManager, 
+		log *zap.Logger,
+		db *gorm.DB,
+		qc *postgres.QueryCache,
+	) *postgres.PerformanceDashboard {
+		qm := cm.GetQueryMonitor()
+		io := cm.GetIndexOptimizer()
+		io.SetDB(db)
+		
+		return postgres.NewPerformanceDashboard(cm, qm, io, qc, log)
 	},
 )
 
@@ -120,6 +185,68 @@ var CacheModule = fx.Provide(
 	func(log *zap.Logger) outbound.MessageBus {
 		log.Info("Using mock message bus for demo")
 		return &MockMessageBus{}
+	},
+)
+
+// HealthCheckModule provides health check functionality
+var HealthCheckModule = fx.Provide(
+	// Health metrics
+	func(cfg *config.Config) *healthcheck.HealthMetrics {
+		if cfg.Monitoring.HealthCheck.EnableMetrics {
+			return healthcheck.NewHealthMetricsWithConfig(healthcheck.MetricsConfig{
+				Namespace: cfg.Monitoring.HealthCheck.Metrics.Namespace,
+				Subsystem: cfg.Monitoring.HealthCheck.Metrics.Subsystem,
+				Enabled:   cfg.Monitoring.HealthCheck.Metrics.Enabled,
+			})
+		}
+		return healthcheck.NewHealthMetrics()
+	},
+	
+	// Enterprise health check
+	func(cfg *config.Config, log *zap.Logger, metrics *healthcheck.HealthMetrics) *healthcheck.EnterpriseHealthCheck {
+		if cfg.Monitoring.HealthCheck.EnableEnterprise {
+			hc := healthcheck.NewEnterpriseHealthCheck(cfg.App.Version, log)
+			// Configure cache TTL
+			hc.HealthCheck.SetCacheTTL(cfg.Monitoring.HealthCheck.CacheTTL)
+			return hc
+		}
+		// Return basic health check wrapped in enterprise interface
+		basic := healthcheck.New(cfg.App.Version, log)
+		basic.SetCacheTTL(cfg.Monitoring.HealthCheck.CacheTTL)
+		return &healthcheck.EnterpriseHealthCheck{HealthCheck: basic}
+	},
+	
+	// System checker
+	func(cfg *config.Config) healthcheck.Checker {
+		return healthcheck.NewCustomChecker("system", func(ctx context.Context) (healthcheck.Status, string, interface{}) {
+			return healthcheck.StatusHealthy, "System operational", map[string]interface{}{
+				"service": "alchemorsel-v3",
+				"version": cfg.App.Version,
+				"environment": cfg.App.Environment,
+			}
+		})
+	},
+	
+	// Database checker
+	func(db *gorm.DB) healthcheck.Checker {
+		return healthcheck.NewCustomChecker("database", func(ctx context.Context) (healthcheck.Status, string, interface{}) {
+			sqlDB, err := db.DB()
+			if err != nil {
+				return healthcheck.StatusUnhealthy, err.Error(), nil
+			}
+			
+			if err := sqlDB.PingContext(ctx); err != nil {
+				return healthcheck.StatusUnhealthy, err.Error(), nil
+			}
+			
+			stats := sqlDB.Stats()
+			return healthcheck.StatusHealthy, "Database operational", map[string]interface{}{
+				"open_connections": stats.OpenConnections,
+				"in_use": stats.InUse,
+				"idle": stats.Idle,
+				"max_open_connections": stats.MaxOpenConnections,
+			}
+		})
 	},
 )
 
@@ -186,6 +313,7 @@ var EventModule = fx.Provide(
 // LifecycleModule provides lifecycle hooks
 var LifecycleModule = fx.Invoke(
 	RegisterLifecycleHooks,
+	InitializeHealthChecks,
 )
 
 // RegisterLifecycleHooks registers application lifecycle hooks
@@ -337,6 +465,9 @@ var PureAPIModule = fx.Options(
 	DatabaseModule,
 	CacheModule,
 	
+	// Health check module
+	HealthCheckModule,
+	
 	// Repository modules
 	RepositoryModule,
 	
@@ -361,6 +492,7 @@ var PureAPIHTTPModule = fx.Provide(
 // PureAPILifecycleModule provides lifecycle hooks for pure API
 var PureAPILifecycleModule = fx.Invoke(
 	RegisterPureAPILifecycleHooks,
+	InitializeHealthChecks,
 )
 
 // NewPureAPIServer creates a new pure API server instance (no templates)
@@ -371,6 +503,7 @@ func NewPureAPIServer(
 	userService *user.UserService,
 	authService *security.AuthService,
 	aiService outbound.AIService,
+	healthCheck *healthcheck.EnterpriseHealthCheck,
 ) *PureAPIServer {
 	return &PureAPIServer{
 		config:        cfg,
@@ -379,6 +512,7 @@ func NewPureAPIServer(
 		userService:   userService,
 		authService:   authService,
 		aiService:     aiService,
+		healthCheck:   healthCheck,
 	}
 }
 
@@ -443,6 +577,7 @@ type PureAPIServer struct {
 	userService   *user.UserService
 	authService   *security.AuthService
 	aiService     outbound.AIService
+	healthCheck   *healthcheck.EnterpriseHealthCheck
 }
 
 // Start starts the pure API HTTP server
@@ -455,6 +590,7 @@ func (s *PureAPIServer) Start() error {
 		s.userService,
 		s.authService,
 		s.aiService,
+		s.healthCheck,
 	)
 	
 	// Store the server instance for shutdown
@@ -469,4 +605,56 @@ func (s *PureAPIServer) Shutdown(ctx context.Context) error {
 		return nil
 	}
 	return s.server.Shutdown(ctx)
+}
+
+// InitializeHealthChecks registers all health checks with the enterprise health check instance
+func InitializeHealthChecks(
+	cfg *config.Config,
+	log *zap.Logger,
+	hc *healthcheck.EnterpriseHealthCheck,
+	systemChecker healthcheck.Checker,
+	dbChecker healthcheck.Checker,
+) {
+	log.Info("Initializing enterprise health checks")
+	
+	// Register system checker
+	if cfg.Monitoring.HealthCheck.EnableCircuitBreaker {
+		circuitConfig := healthcheck.CircuitBreakerConfig{
+			FailureThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.FailureThreshold,
+			SuccessThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.SuccessThreshold,
+			Timeout:         cfg.Monitoring.HealthCheck.CircuitBreaker.Timeout,
+			MaxRequests:     cfg.Monitoring.HealthCheck.CircuitBreaker.MaxRequests,
+		}
+		hc.RegisterWithCircuitBreaker("system", systemChecker, circuitConfig)
+	} else {
+		hc.Register("system", systemChecker)
+	}
+	
+	// Register database checker
+	if cfg.Monitoring.HealthCheck.EnableCircuitBreaker {
+		circuitConfig := healthcheck.CircuitBreakerConfig{
+			FailureThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.FailureThreshold,
+			SuccessThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.SuccessThreshold,
+			Timeout:         cfg.Monitoring.HealthCheck.CircuitBreaker.Timeout,
+			MaxRequests:     cfg.Monitoring.HealthCheck.CircuitBreaker.MaxRequests,
+		}
+		hc.RegisterWithCircuitBreaker("database", dbChecker, circuitConfig)
+	} else {
+		hc.Register("database", dbChecker)
+	}
+	
+	// Register dependencies if enabled
+	if cfg.Monitoring.HealthCheck.EnableDependencies {
+		// Register database dependency
+		dbDep := healthcheck.DatabaseDependency("database", true, dbChecker)
+		hc.RegisterDependency(dbDep)
+		
+		log.Info("Registered health check dependencies")
+	}
+	
+	log.Info("Enterprise health checks initialized successfully",
+		zap.Bool("circuit_breaker", cfg.Monitoring.HealthCheck.EnableCircuitBreaker),
+		zap.Bool("dependencies", cfg.Monitoring.HealthCheck.EnableDependencies),
+		zap.Bool("metrics", cfg.Monitoring.HealthCheck.EnableMetrics),
+	)
 }

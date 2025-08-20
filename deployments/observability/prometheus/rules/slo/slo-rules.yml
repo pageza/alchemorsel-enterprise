@@ -1,0 +1,307 @@
+# SLO (Service Level Objective) Rules for Alchemorsel v3
+# Defines the SLOs for monitoring service reliability and performance
+
+groups:
+  - name: slo.availability
+    interval: 30s
+    rules:
+      # === API Availability SLO (99.9%) ===
+      
+      # Error rate for API requests
+      - record: slo:api_error_rate
+        expr: |
+          (
+            sum(rate(http_requests_total{service="alchemorsel-api",status_code=~"5.."}[5m])) /
+            sum(rate(http_requests_total{service="alchemorsel-api"}[5m]))
+          ) * 100
+        labels:
+          service: alchemorsel-api
+          slo_type: availability
+
+      # Success rate for API requests
+      - record: slo:api_success_rate
+        expr: |
+          (
+            sum(rate(http_requests_total{service="alchemorsel-api",status_code!~"5.."}[5m])) /
+            sum(rate(http_requests_total{service="alchemorsel-api"}[5m]))
+          ) * 100
+        labels:
+          service: alchemorsel-api
+          slo_type: availability
+
+      # API availability over different time windows
+      - record: slo:api_availability_5m
+        expr: slo:api_success_rate
+        labels:
+          service: alchemorsel-api
+          window: 5m
+
+      - record: slo:api_availability_1h
+        expr: |
+          (
+            sum(rate(http_requests_total{service="alchemorsel-api",status_code!~"5.."}[1h])) /
+            sum(rate(http_requests_total{service="alchemorsel-api"}[1h]))
+          ) * 100
+        labels:
+          service: alchemorsel-api
+          window: 1h
+
+      - record: slo:api_availability_24h
+        expr: |
+          (
+            sum(rate(http_requests_total{service="alchemorsel-api",status_code!~"5.."}[24h])) /
+            sum(rate(http_requests_total{service="alchemorsel-api"}[24h]))
+          ) * 100
+        labels:
+          service: alchemorsel-api
+          window: 24h
+
+      # === Database Availability SLO ===
+      
+      - record: slo:database_availability
+        expr: up{service="postgresql"} * 100
+        labels:
+          service: postgresql
+          slo_type: availability
+
+      # === Cache Availability SLO ===
+      
+      - record: slo:cache_availability
+        expr: up{service="redis"} * 100
+        labels:
+          service: redis
+          slo_type: availability
+
+  - name: slo.latency
+    interval: 30s
+    rules:
+      # === API Latency SLO (95th percentile < 500ms) ===
+      
+      # 95th percentile latency for API requests
+      - record: slo:api_latency_p95
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(http_request_duration_seconds_bucket{service="alchemorsel-api"}[5m])) by (le)
+          ) * 1000
+        labels:
+          service: alchemorsel-api
+          slo_type: latency
+          percentile: "95"
+
+      # 99th percentile latency for API requests
+      - record: slo:api_latency_p99
+        expr: |
+          histogram_quantile(0.99, 
+            sum(rate(http_request_duration_seconds_bucket{service="alchemorsel-api"}[5m])) by (le)
+          ) * 1000
+        labels:
+          service: alchemorsel-api
+          slo_type: latency
+          percentile: "99"
+
+      # 50th percentile latency for API requests
+      - record: slo:api_latency_p50
+        expr: |
+          histogram_quantile(0.50, 
+            sum(rate(http_request_duration_seconds_bucket{service="alchemorsel-api"}[5m])) by (le)
+          ) * 1000
+        labels:
+          service: alchemorsel-api
+          slo_type: latency
+          percentile: "50"
+
+      # === AI Service Latency SLO (95th percentile < 2s) ===
+      
+      - record: slo:ai_latency_p95
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(ai_request_duration_seconds_bucket[5m])) by (le)
+          ) * 1000
+        labels:
+          service: ollama
+          slo_type: latency
+          percentile: "95"
+
+      # === Database Query Latency SLO (95th percentile < 100ms) ===
+      
+      - record: slo:db_query_latency_p95
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(db_query_duration_seconds_bucket[5m])) by (le)
+          ) * 1000
+        labels:
+          service: postgresql
+          slo_type: latency
+          percentile: "95"
+
+  - name: slo.error_budget
+    interval: 1m
+    rules:
+      # === Error Budget Calculations ===
+      
+      # API Error Budget (99.9% availability = 0.1% error budget)
+      - record: slo:api_error_budget_target
+        expr: 0.1  # 0.1% error budget for 99.9% SLO
+        labels:
+          service: alchemorsel-api
+          slo_type: error_budget
+
+      # Current error budget consumption
+      - record: slo:api_error_budget_consumed
+        expr: slo:api_error_rate
+        labels:
+          service: alchemorsel-api
+          slo_type: error_budget
+
+      # Remaining error budget
+      - record: slo:api_error_budget_remaining
+        expr: slo:api_error_budget_target - slo:api_error_budget_consumed
+        labels:
+          service: alchemorsel-api
+          slo_type: error_budget
+
+      # Error budget burn rate (how fast we're consuming error budget)
+      - record: slo:api_error_budget_burn_rate
+        expr: |
+          slo:api_error_budget_consumed / slo:api_error_budget_target
+        labels:
+          service: alchemorsel-api
+          slo_type: error_budget
+
+  - name: slo.business_metrics
+    interval: 1m
+    rules:
+      # === Business SLOs ===
+      
+      # Recipe creation success rate
+      - record: slo:recipe_creation_success_rate
+        expr: |
+          (
+            sum(rate(recipes_created_total[5m])) /
+            sum(rate(http_requests_total{path=~".*/recipes",method="POST"}[5m]))
+          ) * 100
+        labels:
+          service: alchemorsel-api
+          slo_type: business_success
+
+      # User registration success rate
+      - record: slo:user_registration_success_rate
+        expr: |
+          (
+            sum(rate(users_registered_total[5m])) /
+            sum(rate(http_requests_total{path=~".*/register",method="POST"}[5m]))
+          ) * 100
+        labels:
+          service: alchemorsel-api
+          slo_type: business_success
+
+      # AI request success rate
+      - record: slo:ai_request_success_rate
+        expr: |
+          (
+            sum(rate(ai_requests_total{status="success"}[5m])) /
+            sum(rate(ai_requests_total[5m]))
+          ) * 100
+        labels:
+          service: ollama
+          slo_type: business_success
+
+  - name: slo.cache_performance
+    interval: 30s
+    rules:
+      # === Cache SLO (>90% hit rate) ===
+      
+      # Cache hit ratio
+      - record: slo:cache_hit_ratio
+        expr: |
+          (
+            sum(rate(cache_operations_total{operation="hit"}[5m])) /
+            sum(rate(cache_operations_total{operation=~"hit|miss"}[5m]))
+          ) * 100
+        labels:
+          service: redis
+          slo_type: performance
+
+      # Cache miss ratio
+      - record: slo:cache_miss_ratio
+        expr: 100 - slo:cache_hit_ratio
+        labels:
+          service: redis
+          slo_type: performance
+
+  - name: slo.capacity
+    interval: 1m
+    rules:
+      # === Capacity SLOs ===
+      
+      # CPU utilization should stay below 80%
+      - record: slo:cpu_utilization
+        expr: |
+          100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+        labels:
+          component: system
+          slo_type: capacity
+
+      # Memory utilization should stay below 85%
+      - record: slo:memory_utilization
+        expr: |
+          (
+            (
+              node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes
+            ) / node_memory_MemTotal_bytes
+          ) * 100
+        labels:
+          component: system
+          slo_type: capacity
+
+      # Database connection pool utilization should stay below 80%
+      - record: slo:db_connection_utilization
+        expr: |
+          (
+            db_connections_active / 
+            (db_connections_active + db_connections_idle)
+          ) * 100
+        labels:
+          service: postgresql
+          slo_type: capacity
+
+  - name: slo.monthly_aggregates
+    interval: 5m
+    rules:
+      # === Monthly SLO Tracking ===
+      
+      # Monthly availability (for SLA reporting)
+      - record: slo:api_availability_monthly
+        expr: |
+          (
+            sum(rate(http_requests_total{service="alchemorsel-api",status_code!~"5.."}[30d])) /
+            sum(rate(http_requests_total{service="alchemorsel-api"}[30d]))
+          ) * 100
+        labels:
+          service: alchemorsel-api
+          window: 30d
+          slo_type: availability
+
+      # Monthly error budget consumption
+      - record: slo:api_error_budget_monthly_consumed
+        expr: |
+          (
+            sum(rate(http_requests_total{service="alchemorsel-api",status_code=~"5.."}[30d])) /
+            sum(rate(http_requests_total{service="alchemorsel-api"}[30d]))
+          ) * 100
+        labels:
+          service: alchemorsel-api
+          window: 30d
+          slo_type: error_budget
+
+      # Monthly P95 latency
+      - record: slo:api_latency_p95_monthly
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(http_request_duration_seconds_bucket{service="alchemorsel-api"}[30d])) by (le)
+          ) * 1000
+        labels:
+          service: alchemorsel-api
+          window: 30d
+          slo_type: latency
+          percentile: "95"

@@ -1,0 +1,138 @@
+{
+  "models": [
+    {
+      "name": "llama3.2:3b",
+      "purpose": "general",
+      "priority": 1,
+      "preload": true,
+      "required": true,
+      "description": "Primary model for recipe generation and AI interactions",
+      "use_cases": [
+        "recipe_generation",
+        "ingredient_suggestions",
+        "cooking_assistance",
+        "nutrition_analysis"
+      ],
+      "estimated_size_gb": 2.0,
+      "recommended_memory_gb": 4.0
+    },
+    {
+      "name": "llama3.2:1b",
+      "purpose": "lightweight",
+      "priority": 2,
+      "preload": false,
+      "required": false,
+      "description": "Lightweight model for quick responses and development",
+      "use_cases": [
+        "quick_responses",
+        "development_testing",
+        "fallback_inference"
+      ],
+      "estimated_size_gb": 1.3,
+      "recommended_memory_gb": 2.0
+    },
+    {
+      "name": "codellama:7b",
+      "purpose": "code",
+      "priority": 3,
+      "preload": false,
+      "required": false,
+      "description": "Code analysis and generation model",
+      "use_cases": [
+        "code_analysis",
+        "recipe_formatting",
+        "data_processing"
+      ],
+      "estimated_size_gb": 3.8,
+      "recommended_memory_gb": 8.0
+    },
+    {
+      "name": "mistral:7b",
+      "purpose": "alternative",
+      "priority": 4,
+      "preload": false,
+      "required": false,
+      "description": "Alternative model for diverse AI responses",
+      "use_cases": [
+        "creative_writing",
+        "alternative_responses",
+        "multilingual_support"
+      ],
+      "estimated_size_gb": 4.1,
+      "recommended_memory_gb": 8.0
+    }
+  ],
+  "environments": {
+    "development": {
+      "default_models": ["llama3.2:3b"],
+      "optional_models": ["llama3.2:1b"],
+      "max_disk_usage_gb": 10,
+      "max_memory_usage_gb": 8
+    },
+    "production": {
+      "default_models": ["llama3.2:3b", "llama3.2:1b"],
+      "optional_models": ["codellama:7b", "mistral:7b"],
+      "max_disk_usage_gb": 50,
+      "max_memory_usage_gb": 32
+    },
+    "testing": {
+      "default_models": ["llama3.2:1b"],
+      "optional_models": [],
+      "max_disk_usage_gb": 5,
+      "max_memory_usage_gb": 4
+    }
+  },
+  "settings": {
+    "auto_cleanup": true,
+    "preserve_required": true,
+    "pull_timeout_seconds": 600,
+    "max_retries": 3,
+    "preload_timeout_seconds": 60,
+    "health_check_interval_seconds": 30,
+    "model_rotation_enabled": false,
+    "concurrent_pulls": 1,
+    "compression_enabled": true,
+    "cache_optimization": true
+  },
+  "performance": {
+    "cpu_optimization": {
+      "threads": "auto",
+      "numa_aware": true,
+      "cpu_affinity": false
+    },
+    "memory_optimization": {
+      "mmap_enabled": true,
+      "swap_usage": "minimal",
+      "gc_frequency": "low"
+    },
+    "inference_optimization": {
+      "batch_size": 1,
+      "context_length": 2048,
+      "gpu_layers": 0,
+      "rope_frequency_base": 10000.0,
+      "rope_frequency_scale": 1.0
+    }
+  },
+  "monitoring": {
+    "metrics_enabled": true,
+    "performance_tracking": true,
+    "error_reporting": true,
+    "usage_analytics": true,
+    "health_checks": {
+      "inference_test": true,
+      "memory_check": true,
+      "disk_check": true,
+      "api_validation": true
+    }
+  },
+  "security": {
+    "model_verification": true,
+    "checksum_validation": true,
+    "secure_download": true,
+    "access_control": {
+      "api_keys": false,
+      "rate_limiting": true,
+      "request_validation": true
+    }
+  }
+}

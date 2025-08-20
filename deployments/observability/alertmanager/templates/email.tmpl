@@ -1,0 +1,151 @@
+{{ define "email.subject" }}
+[{{ .Status | toUpper }}] Alchemorsel {{ .GroupLabels.alertname }} - {{ .GroupLabels.service }}
+{{ end }}
+
+{{ define "email.html" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Alchemorsel Alert Notification</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .header { background: #2E3B4E; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; }
+        .alert { margin: 15px 0; padding: 15px; border-radius: 5px; }
+        .critical { background: #fee; border-left: 5px solid #d32f2f; }
+        .warning { background: #fff3e0; border-left: 5px solid #f57c00; }
+        .info { background: #e3f2fd; border-left: 5px solid #1976d2; }
+        .resolved { background: #e8f5e8; border-left: 5px solid #388e3c; }
+        .meta { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 3px; }
+        .action-button { 
+            display: inline-block; 
+            padding: 10px 20px; 
+            margin: 5px; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 5px; 
+        }
+        .ack-button { background: #2196F3; }
+        .runbook-button { background: #4CAF50; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔔 Alchemorsel Alert Notification</h1>
+        <p>Status: <strong>{{ .Status | toUpper }}</strong> | 
+           Time: {{ (index .Alerts 0).StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+    </div>
+    
+    <div class="content">
+        <h2>Alert Summary</h2>
+        <table>
+            <tr><th>Service</th><td>{{ .GroupLabels.service }}</td></tr>
+            <tr><th>Alert Name</th><td>{{ .GroupLabels.alertname }}</td></tr>
+            <tr><th>Severity</th><td>{{ .CommonLabels.severity }}</td></tr>
+            <tr><th>Environment</th><td>{{ .CommonLabels.environment | default "production" }}</td></tr>
+            <tr><th>Team</th><td>{{ .CommonLabels.team | default "platform" }}</td></tr>
+            <tr><th>Cluster</th><td>{{ .CommonLabels.cluster | default "alchemorsel-production" }}</td></tr>
+        </table>
+
+        {{ range .Alerts }}
+        <div class="alert {{ if eq .Labels.severity "critical" }}critical{{ else if eq .Labels.severity "warning" }}warning{{ else }}info{{ end }}">
+            <h3>{{ .Annotations.summary }}</h3>
+            <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+            
+            {{ if .Annotations.impact }}
+            <div class="meta">
+                <strong>🎯 Impact:</strong> {{ .Annotations.impact }}
+            </div>
+            {{ end }}
+            
+            {{ if .Annotations.action }}
+            <div class="meta">
+                <strong>🔧 Required Action:</strong> {{ .Annotations.action }}
+            </div>
+            {{ end }}
+            
+            <div class="meta">
+                <strong>🕐 Started:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}<br>
+                {{ if .EndsAt }}
+                <strong>🕐 Ended:</strong> {{ .EndsAt.Format "2006-01-02 15:04:05 UTC" }}<br>
+                <strong>⏱️ Duration:</strong> {{ .EndsAt.Sub .StartsAt }}
+                {{ else }}
+                <strong>⏱️ Duration:</strong> {{ .StartsAt | since }}
+                {{ end }}
+            </div>
+            
+            {{ if .Labels.instance }}
+            <div class="meta">
+                <strong>🖥️ Instance:</strong> {{ .Labels.instance }}
+            </div>
+            {{ end }}
+        </div>
+        {{ end }}
+
+        <h3>Quick Actions</h3>
+        <p>
+            <a href="https://alertmanager.alchemorsel.com/#/silences/new" class="action-button ack-button">
+                🔇 Create Silence
+            </a>
+            {{ range .Alerts }}
+            {{ if .Annotations.runbook }}
+            <a href="{{ .Annotations.runbook }}" class="action-button runbook-button">
+                📖 View Runbook
+            </a>
+            {{ end }}
+            {{ end }}
+            <a href="https://grafana.alchemorsel.com/d/api-overview" class="action-button ack-button">
+                📊 View Dashboard
+            </a>
+        </p>
+
+        <h3>Related Information</h3>
+        <ul>
+            <li><a href="https://grafana.alchemorsel.com">Grafana Dashboards</a></li>
+            <li><a href="https://prometheus.alchemorsel.com">Prometheus Metrics</a></li>
+            <li><a href="https://jaeger.alchemorsel.com">Distributed Tracing</a></li>
+            <li><a href="https://kibana.alchemorsel.com">Application Logs</a></li>
+        </ul>
+
+        <div class="meta">
+            <small>
+                This alert was generated by the Alchemorsel monitoring system.<br>
+                For support, contact the platform team at platform-team@alchemorsel.com
+            </small>
+        </div>
+    </div>
+</body>
+</html>
+{{ end }}
+
+{{ define "slack.title" }}
+{{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} {{ .GroupLabels.alertname }} - {{ .GroupLabels.service }}
+{{ end }}
+
+{{ define "slack.text" }}
+{{ if eq .Status "firing" }}
+*Alert Status:* FIRING 🔥
+{{ else }}
+*Alert Status:* RESOLVED ✅
+{{ end }}
+
+{{ range .Alerts }}
+*Service:* {{ .Labels.service }}
+*Summary:* {{ .Annotations.summary }}
+*Description:* {{ .Annotations.description }}
+{{ if .Annotations.impact }}*Impact:* {{ .Annotations.impact }}{{ end }}
+{{ if .Annotations.action }}*Action Required:* {{ .Annotations.action }}{{ end }}
+*Severity:* {{ .Labels.severity }}
+*Duration:* {{ if .EndsAt }}{{ .EndsAt.Sub .StartsAt }}{{ else }}{{ .StartsAt | since }}{{ end }}
+{{ if .Annotations.runbook }}*Runbook:* {{ .Annotations.runbook }}{{ end }}
+{{ end }}
+
+*Quick Links:*
+• <https://grafana.alchemorsel.com|📊 Dashboards>
+• <https://alertmanager.alchemorsel.com|🔕 Manage Alerts>
+• <https://prometheus.alchemorsel.com|📈 Metrics>
+{{ end }}

@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 # Install build dependencies and security tools
 RUN apk add --no-cache \
@@ -27,6 +27,9 @@ RUN go mod download && go mod verify
 
 # Copy source code
 COPY . .
+
+# Update module dependencies for Go 1.23
+RUN go mod tidy
 
 # Run security and quality checks
 RUN go vet ./...

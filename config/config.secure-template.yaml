@@ -1,0 +1,218 @@
+# Alchemorsel v3 Secure Configuration Template
+# This file contains NO hardcoded secrets - all secrets are loaded from external sources
+# Use this as a template for secure deployments
+
+app:
+  name: "Alchemorsel"
+  version: "3.0.0"
+  environment: "production"  # Override with ALCHEMORSEL_APP_ENVIRONMENT
+  debug: false
+  log_level: "info"
+  log_format: "json"
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: "15s"
+  write_timeout: "15s"
+  idle_timeout: "60s"
+  max_header_bytes: 1048576 # 1MB
+  shutdown_timeout: "30s"
+  enable_cors: true
+  allowed_origins:
+    - "https://alchemorsel.com"
+    - "https://app.alchemorsel.com"
+    # Add your domain here
+  trusted_proxies: []
+  enable_compression: true
+  enable_pprof: false  # Disabled in production for security
+
+database:
+  driver: "postgres"
+  host: "localhost"  # Override with ALCHEMORSEL_DATABASE_HOST
+  port: 5432
+  database: "alchemorsel_prod"  # Override with ALCHEMORSEL_DATABASE_DATABASE
+  username: "alchemorsel"  # Override with ALCHEMORSEL_DATABASE_USERNAME
+  # password: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  ssl_mode: "require"  # Enforced SSL in production
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: "1h"
+  conn_max_idle_time: "10m"
+  log_level: "warn"  # Reduced logging in production
+  slow_query_threshold: "100ms"
+  auto_migrate: false  # Disabled in production
+
+redis:
+  host: "localhost"  # Override with ALCHEMORSEL_REDIS_HOST
+  port: 6379
+  # password: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  database: 0
+  max_retries: 3
+  min_idle_conns: 2
+  max_idle_conns: 10
+  conn_max_lifetime: "1h"
+  dial_timeout: "5s"
+  read_timeout: "3s"
+  write_timeout: "3s"
+  pool_size: 10
+  enable_cluster: false
+  cluster_nodes: []
+
+auth:
+  # jwt_secret: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  # session_secret: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  jwt_expiration: "24h"
+  refresh_expiration: "168h" # 7 days
+  bcrypt_cost: 12  # Increased for production security
+  enable_oauth: true
+  # google_client_id: Set via environment
+  # google_client_secret: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  # facebook_app_id: Set via environment
+  # facebook_app_secret: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  session_max_age: 86400 # 24 hours
+
+aws:
+  region: "us-east-1"  # Override with ALCHEMORSEL_AWS_REGION
+  # access_key_id: Set via environment or IAM role
+  # secret_access_key: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  # session_token: Set via environment or IAM role
+  endpoint: ""  # Override for MinIO/custom S3 endpoint
+  s3_bucket: "alchemorsel-prod"  # Override with ALCHEMORSEL_AWS_S3_BUCKET
+  cloudfront_url: ""
+
+ai:
+  provider: "openai"
+  # openai_key: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  openai_model: "gpt-4"
+  # anthropic_key: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  anthropic_model: "claude-3-sonnet"
+  max_tokens: 2000
+  temperature: 0.7
+  timeout_seconds: 30
+  enable_cache: true
+  cache_ttl: "1h"
+
+kafka:
+  brokers:
+    - "localhost:9092"  # Override with ALCHEMORSEL_KAFKA_BROKERS
+  group_id: "alchemorsel-api"
+  client_id: "alchemorsel-api-v3"
+  enable_sasl: true  # Enabled for production security
+  sasl_username: "alchemorsel"  # Override with ALCHEMORSEL_KAFKA_SASL_USERNAME
+  # sasl_password: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  enable_tls: true  # Enabled for production security
+  retry_max: 3
+  required_acks: 1
+
+monitoring:
+  enable_metrics: true
+  metrics_port: 9090
+  enable_tracing: true
+  jaeger_endpoint: "http://localhost:14268/api/traces"
+  sampling_rate: 0.1
+  enable_newrelic: false
+  # newrelic_license: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  newrelic_app_name: "Alchemorsel API v3"
+  # sentry_dsn: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  sentry_environment: "production"
+  health_check_path: "/health"
+  readiness_path: "/ready"
+
+email:
+  provider: "smtp"
+  smtp_host: "smtp.gmail.com"
+  smtp_port: 587
+  # smtp_username: Set via environment
+  # smtp_password: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  from_address: "noreply@alchemorsel.com"
+  from_name: "Alchemorsel"
+  # sendgrid_api_key: LOADED FROM SECRET MANAGER OR ENVIRONMENT
+  enable_tls: true
+
+storage:
+  provider: "s3"  # Use S3 in production
+  local_path: "./uploads"  # Only used if provider is "local"
+  max_file_size: 10485760 # 10MB
+  allowed_types:
+    - "image/jpeg"
+    - "image/png"
+    - "image/webp"
+    - "video/mp4"
+  image_max_width: 2048
+  image_max_height: 2048
+  enable_cdn: true
+  cdn_base_url: ""
+
+rate_limit:
+  enable: true
+  requests_per_min: 60
+  burst_size: 10
+  cleanup_interval: "1m"
+  use_redis: true
+
+# Security configuration (new section)
+security:
+  enable_audit_logging: true
+  audit_log_file: "/var/log/alchemorsel/audit.log"
+  enable_secret_manager: true
+  secret_manager:
+    enable_cache: true
+    cache_ttl: "1h"
+    max_cache_size: 1000
+    enable_audit_logging: true
+    rotation_interval: "24h"
+    encryption_algorithm: "AES-256-GCM"
+    enable_zeroization: true
+    master_key_derivation:
+      time: 1
+      memory: 65536  # 64MB
+      threads: 4
+      key_len: 32
+  secret_loader:
+    enable_env_vars: true
+    enable_vault: false  # Enable when Vault is available
+    enable_kubernetes: false  # Enable in K8s environment
+    enable_aws_secrets_manager: false  # Enable for AWS deployment
+    env_prefix: "ALCHEMORSEL"
+    default_provider: "env"
+    cache_ttl: "1h"
+    enable_validation: true
+    enable_transformation: true
+    security_policy:
+      require_encryption: false
+      allowed_providers: ["env", "vault", "kubernetes", "aws-sm"]
+      require_validation: true
+      max_secret_size: 1048576  # 1MB
+      enforce_access_control: true
+
+features:
+  enable_ai_recipes: true
+  enable_social_features: true
+  enable_premium: false
+  enable_analytics: true
+  enable_export: true
+  maintenance_mode: false
+
+# NOTES FOR SECURE DEPLOYMENT:
+# 
+# 1. NEVER put actual secrets in this file
+# 2. All secrets should be loaded via:
+#    - Environment variables (prefixed with ALCHEMORSEL_)
+#    - Docker secrets (/run/secrets/)
+#    - External secret managers (Vault, AWS SM, etc.)
+# 3. Use the secure configuration loader: config.LoadSecureConfig()
+# 4. Required environment variables:
+#    - ALCHEMORSEL_AUTH_JWT_SECRET
+#    - ALCHEMORSEL_AUTH_SESSION_SECRET
+#    - ALCHEMORSEL_DATABASE_PASSWORD
+#    - ALCHEMORSEL_REDIS_PASSWORD (if Redis auth enabled)
+#    - ALCHEMORSEL_AWS_SECRET_ACCESS_KEY (if using AWS)
+#    - ALCHEMORSEL_AI_OPENAI_KEY (if using OpenAI)
+#    - ALCHEMORSEL_AI_ANTHROPIC_KEY (if using Anthropic)
+# 5. Optional secrets (set if services are used):
+#    - ALCHEMORSEL_KAFKA_SASL_PASSWORD
+#    - ALCHEMORSEL_EMAIL_SMTP_PASSWORD
+#    - ALCHEMORSEL_EMAIL_SENDGRID_API_KEY
+#    - ALCHEMORSEL_MONITORING_NEWRELIC_LICENSE
+#    - ALCHEMORSEL_MONITORING_SENTRY_DSN

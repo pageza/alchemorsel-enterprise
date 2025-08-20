@@ -57,7 +57,7 @@ dev: ## Start development server with hot reload
 	air -c .air.toml
 
 .PHONY: build
-build: clean ## Build the application
+build: clean optimize ## Build the application
 	@echo "$(GREEN)Building $(APP_NAME)...$(RESET)"
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
@@ -380,6 +380,38 @@ release-notes: ## Generate release notes
 	@echo "$(YELLOW)This would generate release notes from git commits$(RESET)"
 	# git log --oneline --decorate --graph $(shell git describe --tags --abbrev=0)..HEAD
 
+# 14KB Optimization Commands
+
+.PHONY: optimize
+optimize: ## Run 14KB first packet optimization
+	@echo "$(GREEN)Running 14KB optimization build...$(RESET)"
+	go run cmd/optimize/main.go --command=build --verbose
+
+.PHONY: optimize-analyze
+optimize-analyze: ## Analyze 14KB optimization status
+	@echo "$(GREEN)Analyzing 14KB optimization status...$(RESET)"
+	go run cmd/optimize/main.go --command=analyze
+
+.PHONY: optimize-validate
+optimize-validate: ## Validate 14KB compliance
+	@echo "$(GREEN)Validating 14KB compliance...$(RESET)"
+	go run cmd/optimize/main.go --command=validate
+
+.PHONY: optimize-report
+optimize-report: ## Generate 14KB optimization report
+	@echo "$(GREEN)Generating 14KB optimization report...$(RESET)"
+	go run cmd/optimize/main.go --command=report --format=html
+
+.PHONY: optimize-clean
+optimize-clean: ## Clean optimization artifacts
+	@echo "$(GREEN)Cleaning optimization artifacts...$(RESET)"
+	go run cmd/optimize/main.go --command=clean
+
+.PHONY: optimize-watch
+optimize-watch: ## Watch for changes and re-optimize
+	@echo "$(GREEN)Starting optimization watcher...$(RESET)"
+	go run cmd/optimize/main.go --command=watch
+
 # Performance Commands
 
 .PHONY: profile-cpu
@@ -415,6 +447,299 @@ dependency-check: ## Check dependencies for vulnerabilities
 
 # Default target
 .DEFAULT_GOAL := help
+
+# Hot Reload Development Commands
+
+.PHONY: dev-start
+dev-start: ## Start complete hot reload development environment
+	@echo "$(GREEN)🚀 Starting Alchemorsel v3 Hot Reload Development Environment$(RESET)"
+	@echo "$(BLUE)📋 This will start:$(RESET)"
+	@echo "  • PostgreSQL database (port 5434)"
+	@echo "  • Redis cache (port 6381)"
+	@echo "  • Ollama AI service (port 11435)"
+	@echo "  • API service with hot reload (port 3010)"
+	@echo "  • Web service with hot reload (port 3011)"
+	@echo "  • Live reload WebSocket (port 35729)"
+	@echo "  • Development proxy (port 8090)"
+	@echo "  • Development dashboard (port 3030)"
+	@echo "  • Asset pipeline with hot reload"
+	@echo ""
+	@echo "$(YELLOW)🌐 Access Points:$(RESET)"
+	@echo "  • Main Application: http://localhost:8090"
+	@echo "  • Development Dashboard: http://localhost:3030"
+	@echo "  • API Direct: http://localhost:3010"
+	@echo "  • Web Direct: http://localhost:3011"
+	@echo "  • API Documentation: http://localhost:8090/swagger/"
+	@echo ""
+	docker-compose -f docker-compose.hotreload.yml up -d
+	@echo "$(GREEN)✅ Hot reload environment started successfully!$(RESET)"
+	@echo "$(BLUE)💡 Run 'make dev-logs' to view logs$(RESET)"
+
+.PHONY: dev-stop
+dev-stop: ## Stop hot reload development environment
+	@echo "$(GREEN)🛑 Stopping hot reload development environment...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml down
+	@echo "$(GREEN)✅ Development environment stopped$(RESET)"
+
+.PHONY: dev-restart
+dev-restart: ## Restart hot reload development environment
+	@echo "$(GREEN)🔄 Restarting hot reload development environment...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml restart
+	@echo "$(GREEN)✅ Development environment restarted$(RESET)"
+
+.PHONY: dev-logs
+dev-logs: ## View development environment logs
+	@echo "$(GREEN)📋 Viewing development environment logs (Ctrl+C to exit)...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml logs -f
+
+.PHONY: dev-logs-api
+dev-logs-api: ## View API service logs
+	@echo "$(GREEN)📋 Viewing API service logs...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml logs -f api-dev
+
+.PHONY: dev-logs-web
+dev-logs-web: ## View web service logs
+	@echo "$(GREEN)📋 Viewing web service logs...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml logs -f web-dev
+
+.PHONY: dev-logs-proxy
+dev-logs-proxy: ## View proxy logs
+	@echo "$(GREEN)📋 Viewing proxy logs...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml logs -f dev-proxy
+
+.PHONY: dev-status
+dev-status: ## Check development environment status
+	@echo "$(GREEN)📊 Development Environment Status$(RESET)"
+	@echo ""
+	@echo "$(BLUE)🐳 Docker Containers:$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml ps
+	@echo ""
+	@echo "$(BLUE)🌐 Service Health Checks:$(RESET)"
+	@curl -s http://localhost:8090/dev-status | python3 -m json.tool || echo "Proxy not responding"
+	@echo ""
+	@curl -s http://localhost:3010/health | python3 -m json.tool || echo "API service not responding"
+	@echo ""
+	@curl -s http://localhost:3011/health | python3 -m json.tool || echo "Web service not responding"
+
+.PHONY: dev-dashboard
+dev-dashboard: ## Open development dashboard in browser
+	@echo "$(GREEN)🚀 Opening development dashboard...$(RESET)"
+	@which xdg-open > /dev/null && xdg-open http://localhost:3030 || \
+	 which open > /dev/null && open http://localhost:3030 || \
+	 echo "$(YELLOW)Please open http://localhost:3030 in your browser$(RESET)"
+
+.PHONY: dev-build
+dev-build: ## Build development Docker images
+	@echo "$(GREEN)🔨 Building development Docker images...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml build --parallel
+
+.PHONY: dev-pull
+dev-pull: ## Pull latest development images
+	@echo "$(GREEN)📥 Pulling latest development images...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml pull
+
+.PHONY: dev-clean
+dev-clean: ## Clean development environment
+	@echo "$(GREEN)🧹 Cleaning development environment...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml down -v --remove-orphans
+	docker system prune -f
+	@echo "$(GREEN)✅ Development environment cleaned$(RESET)"
+
+.PHONY: dev-reset
+dev-reset: dev-clean dev-build dev-start ## Reset development environment completely
+
+.PHONY: dev-shell-api
+dev-shell-api: ## Open shell in API development container
+	@echo "$(GREEN)🐚 Opening shell in API development container...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml exec api-dev /bin/bash
+
+.PHONY: dev-shell-web
+dev-shell-web: ## Open shell in Web development container
+	@echo "$(GREEN)🐚 Opening shell in Web development container...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml exec web-dev /bin/bash
+
+.PHONY: dev-debug-api
+dev-debug-api: ## Start API service with debugger
+	@echo "$(GREEN)🐛 Starting API service with debugger...$(RESET)"
+	@echo "$(YELLOW)Connect your debugger to localhost:2346$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml run --rm --service-ports api-dev /app/debug-dev.sh
+
+.PHONY: dev-debug-web
+dev-debug-web: ## Start Web service with debugger
+	@echo "$(GREEN)🐛 Starting Web service with debugger...$(RESET)"
+	@echo "$(YELLOW)Connect your debugger to localhost:2347$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml run --rm --service-ports web-dev /app/debug-dev.sh
+
+.PHONY: dev-test
+dev-test: ## Run tests in development environment
+	@echo "$(GREEN)🧪 Running tests in development environment...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml run --rm api-dev /app/test-dev.sh
+
+.PHONY: dev-test-watch
+dev-test-watch: ## Run tests with file watching
+	@echo "$(GREEN)🧪 Starting test watcher...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml up test-runner
+
+.PHONY: dev-migrate
+dev-migrate: ## Run database migrations in development
+	@echo "$(GREEN)🗃️ Running database migrations...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml run --rm api-dev go run ./cmd/migrate up
+
+.PHONY: dev-migrate-reset
+dev-migrate-reset: ## Reset database and run migrations
+	@echo "$(GREEN)🗃️ Resetting database and running migrations...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml run --rm api-dev go run ./cmd/migrate reset
+
+.PHONY: dev-seed
+dev-seed: ## Seed development database with test data
+	@echo "$(GREEN)🌱 Seeding development database...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml run --rm api-dev go run ./cmd/seed
+
+.PHONY: dev-assets-watch
+dev-assets-watch: ## Start asset watcher for CSS/JS hot reload
+	@echo "$(GREEN)🎨 Starting asset watcher...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml up assets-dev
+
+.PHONY: dev-assets-build
+dev-assets-build: ## Build assets for development
+	@echo "$(GREEN)🎨 Building assets for development...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml run --rm assets-dev npm run build
+
+.PHONY: dev-reload
+dev-reload: ## Manually trigger hot reload
+	@echo "$(GREEN)🔄 Triggering hot reload...$(RESET)"
+	@curl -X POST http://localhost:3030/api/hotreload/trigger || echo "Dashboard not available"
+
+.PHONY: dev-metrics
+dev-metrics: ## View development metrics
+	@echo "$(GREEN)📊 Development Metrics$(RESET)"
+	@echo ""
+	@echo "$(BLUE)Proxy Statistics:$(RESET)"
+	@curl -s http://localhost:8090/dev-proxy/stats | python3 -m json.tool || echo "Proxy not responding"
+	@echo ""
+	@echo "$(BLUE)Live Reload Status:$(RESET)"
+	@curl -s http://localhost:35729/status | python3 -m json.tool || echo "Live reload not responding"
+
+.PHONY: dev-health
+dev-health: ## Check all service health
+	@echo "$(GREEN)🏥 Service Health Check$(RESET)"
+	@echo ""
+	@services="api:3010 web:3011 proxy:8090 dashboard:3030 livereload:35729"; \
+	for service in $$services; do \
+		name=$${service%%:*}; \
+		port=$${service##*:}; \
+		echo -n "$(BLUE)$$name$(RESET): "; \
+		if curl -s --max-time 3 http://localhost:$$port/health > /dev/null 2>&1 || \
+		   curl -s --max-time 3 http://localhost:$$port > /dev/null 2>&1; then \
+			echo "$(GREEN)✅ Healthy$(RESET)"; \
+		else \
+			echo "$(RED)❌ Unhealthy$(RESET)"; \
+		fi; \
+	done
+
+.PHONY: dev-ports
+dev-ports: ## Show all development ports
+	@echo "$(GREEN)🔌 Development Environment Ports$(RESET)"
+	@echo ""
+	@echo "$(BLUE)Main Services:$(RESET)"
+	@echo "  • 8090 - Development Proxy (main entry point)"
+	@echo "  • 3010 - API Service (hot reload enabled)"
+	@echo "  • 3011 - Web Service (hot reload enabled)"
+	@echo "  • 3030 - Development Dashboard"
+	@echo ""
+	@echo "$(BLUE)Databases & Cache:$(RESET)"
+	@echo "  • 5434 - PostgreSQL Database"
+	@echo "  • 6381 - Redis Cache"
+	@echo "  • 11435 - Ollama AI Service"
+	@echo ""
+	@echo "$(BLUE)Development Tools:$(RESET)"
+	@echo "  • 35729 - Live Reload WebSocket"
+	@echo "  • 2346 - API Debugger (Delve)"
+	@echo "  • 2347 - Web Debugger (Delve)"
+	@echo "  • 6061 - API Profiler (pprof)"
+	@echo "  • 9091 - API Metrics"
+	@echo "  • 9092 - Web Metrics"
+
+.PHONY: dev-help
+dev-help: ## Show development workflow help
+	@echo "$(CYAN)🚀 Alchemorsel v3 - Hot Reload Development Workflow$(RESET)"
+	@echo ""
+	@echo "$(GREEN)Quick Start:$(RESET)"
+	@echo "  1. Start development environment:    make dev-start"
+	@echo "  2. Open main application:           http://localhost:8090"
+	@echo "  3. Open development dashboard:      http://localhost:3030"
+	@echo "  4. View logs:                       make dev-logs"
+	@echo "  5. Stop environment:                make dev-stop"
+	@echo ""
+	@echo "$(GREEN)Development Commands:$(RESET)"
+	@awk 'BEGIN {FS = ":.*?## "} /^dev-[a-zA-Z_-]+:.*?## / {printf "  $(CYAN)%-25s$(RESET) %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "$(YELLOW)💡 Tips:$(RESET)"
+	@echo "  • Code changes trigger automatic rebuilds"
+	@echo "  • Templates reload without container restart"
+	@echo "  • CSS changes reload instantly"
+	@echo "  • Database migrations apply automatically"
+	@echo "  • Use the dashboard to monitor all services"
+	@echo ""
+	@echo "$(BLUE)Debugging:$(RESET)"
+	@echo "  • API debugger:  make dev-debug-api  (port 2346)"
+	@echo "  • Web debugger:  make dev-debug-web  (port 2347)"
+	@echo "  • Service logs:  make dev-logs-api | dev-logs-web"
+	@echo "  • Health check:  make dev-health"
+
+# AI Development Commands
+
+.PHONY: dev-ai-models
+dev-ai-models: ## List available AI models in development
+	@echo "$(GREEN)🤖 Available AI Models$(RESET)"
+	@curl -s http://localhost:11435/api/tags | python3 -m json.tool || echo "Ollama not responding"
+
+.PHONY: dev-ai-pull
+dev-ai-pull: ## Pull AI model for development (usage: make dev-ai-pull MODEL=llama2)
+	@if [ -z "$(MODEL)" ]; then \
+		echo "$(RED)❌ Please specify MODEL=<model-name>$(RESET)"; \
+		echo "$(BLUE)Example: make dev-ai-pull MODEL=llama2$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)📥 Pulling AI model: $(MODEL)$(RESET)"
+	@curl -X POST http://localhost:11435/api/pull -d '{"name":"$(MODEL)"}' || echo "Ollama not responding"
+
+.PHONY: dev-ai-test
+dev-ai-test: ## Test AI service integration
+	@echo "$(GREEN)🤖 Testing AI service integration...$(RESET)"
+	@curl -s http://localhost:3010/api/ai/health | python3 -m json.tool || echo "AI service not responding"
+
+# Performance Development Commands
+
+.PHONY: dev-benchmark
+dev-benchmark: ## Run performance benchmarks in development
+	@echo "$(GREEN)⚡ Running performance benchmarks...$(RESET)"
+	docker-compose -f docker-compose.hotreload.yml run --rm api-dev go test -bench=. -benchmem ./test/performance/
+
+.PHONY: dev-profile-cpu
+dev-profile-cpu: ## Profile CPU usage in development
+	@echo "$(GREEN)🔍 Profiling CPU usage...$(RESET)"
+	@echo "$(BLUE)Profile will be available at: http://localhost:6061/debug/pprof/$(RESET)"
+	@which xdg-open > /dev/null && xdg-open http://localhost:6061/debug/pprof/ || \
+	 which open > /dev/null && open http://localhost:6061/debug/pprof/ || \
+	 echo "$(YELLOW)Please open http://localhost:6061/debug/pprof/ in your browser$(RESET)"
+
+.PHONY: dev-profile-memory
+dev-profile-memory: ## Profile memory usage in development
+	@echo "$(GREEN)🔍 Profiling memory usage...$(RESET)"
+	@curl -s http://localhost:6061/debug/pprof/heap > heap.prof && \
+	go tool pprof heap.prof
+
+.PHONY: dev-load-test
+dev-load-test: ## Run load test against development environment
+	@echo "$(GREEN)🚀 Running load test...$(RESET)"
+	@if command -v hey > /dev/null 2>&1; then \
+		hey -n 1000 -c 10 http://localhost:8090/; \
+	else \
+		echo "$(YELLOW)Installing hey load testing tool...$(RESET)"; \
+		go install github.com/rakyll/hey@latest; \
+		hey -n 1000 -c 10 http://localhost:8090/; \
+	fi
 
 # Version target
 .PHONY: version

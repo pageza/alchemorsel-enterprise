@@ -12,6 +12,7 @@ import (
 
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
 	"github.com/alchemorsel/v3/internal/infrastructure/http/webserver"
+	"github.com/alchemorsel/v3/pkg/healthcheck"
 	"github.com/alchemorsel/v3/pkg/logger"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -70,11 +71,25 @@ func main() {
 		// Session Store
 		fx.Provide(webserver.NewSessionStore),
 		
+		// Health Check
+		fx.Provide(func(cfg *config.Config, log *zap.Logger) *healthcheck.EnterpriseHealthCheck {
+			if cfg.Monitoring.HealthCheck.EnableEnterprise {
+				hc := healthcheck.NewEnterpriseHealthCheck(cfg.App.Version, log)
+				hc.HealthCheck.SetCacheTTL(cfg.Monitoring.HealthCheck.CacheTTL)
+				return hc
+			}
+			// Return basic health check wrapped in enterprise interface
+			basic := healthcheck.New(cfg.App.Version, log)
+			basic.SetCacheTTL(cfg.Monitoring.HealthCheck.CacheTTL)
+			return &healthcheck.EnterpriseHealthCheck{HealthCheck: basic}
+		}),
+		
 		// Web Server
 		fx.Provide(webserver.NewWebServer),
 		
 		// Lifecycle
 		fx.Invoke(registerLifecycleHooks),
+		fx.Invoke(initializeWebHealthChecks),
 	)
 
 	// Run the application
@@ -143,6 +158,66 @@ func getAPIURL(cfg *config.Config) string {
 	
 	// Default to localhost with API port
 	return fmt.Sprintf("http://localhost:3000")
+}
+
+// initializeWebHealthChecks registers health checks for the web service
+func initializeWebHealthChecks(
+	cfg *config.Config,
+	log *zap.Logger,
+	hc *healthcheck.EnterpriseHealthCheck,
+	apiClient *webserver.APIClient,
+) {
+	log.Info("Initializing web service health checks")
+	
+	// Register system checker
+	systemChecker := healthcheck.NewCustomChecker("system", func(ctx context.Context) (healthcheck.Status, string, interface{}) {
+		return healthcheck.StatusHealthy, "System operational", map[string]interface{}{
+			"service": "alchemorsel-web",
+			"version": cfg.App.Version,
+			"environment": cfg.App.Environment,
+		}
+	})
+	
+	// Register API dependency checker
+	apiChecker := healthcheck.NewCustomChecker("api_backend", func(ctx context.Context) (healthcheck.Status, string, interface{}) {
+		if apiClient.VerifyConnection(ctx) {
+			return healthcheck.StatusHealthy, "API backend accessible", map[string]interface{}{
+				"api_url": getAPIURL(cfg),
+			}
+		}
+		return healthcheck.StatusUnhealthy, "API backend not accessible", map[string]interface{}{
+			"api_url": getAPIURL(cfg),
+		}
+	})
+	
+	if cfg.Monitoring.HealthCheck.EnableCircuitBreaker {
+		circuitConfig := healthcheck.CircuitBreakerConfig{
+			FailureThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.FailureThreshold,
+			SuccessThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.SuccessThreshold,
+			Timeout:         cfg.Monitoring.HealthCheck.CircuitBreaker.Timeout,
+			MaxRequests:     cfg.Monitoring.HealthCheck.CircuitBreaker.MaxRequests,
+		}
+		hc.RegisterWithCircuitBreaker("system", systemChecker, circuitConfig)
+		hc.RegisterWithCircuitBreaker("api_backend", apiChecker, circuitConfig)
+	} else {
+		hc.Register("system", systemChecker)
+		hc.Register("api_backend", apiChecker)
+	}
+	
+	// Register dependencies if enabled
+	if cfg.Monitoring.HealthCheck.EnableDependencies {
+		// Register API backend as a dependency
+		apiDep := healthcheck.ServiceDependency("api_backend", true, []string{}, apiChecker)
+		hc.RegisterDependency(apiDep)
+		
+		log.Info("Registered web service dependencies")
+	}
+	
+	log.Info("Web service health checks initialized successfully",
+		zap.Bool("circuit_breaker", cfg.Monitoring.HealthCheck.EnableCircuitBreaker),
+		zap.Bool("dependencies", cfg.Monitoring.HealthCheck.EnableDependencies),
+		zap.Bool("metrics", cfg.Monitoring.HealthCheck.EnableMetrics),
+	)
 }
 
 func setupGracefulShutdown(log *zap.Logger) {

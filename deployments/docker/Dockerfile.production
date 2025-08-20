@@ -1,91 +1,135 @@
-# Production Dockerfile optimized for security, performance, and size
-FROM golang:1.22-alpine AS builder
+# Multi-stage production Dockerfile for Alchemorsel v3
+# Security-optimized with minimal attack surface
+
+# Build arguments
+ARG GO_VERSION=1.23
+ARG NODE_VERSION=20
+ARG ALPINE_VERSION=3.20
+ARG DISTROLESS_VERSION=nonroot
+
+# Stage 1: Build Go application
+FROM golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS go-builder
 
 # Install build dependencies
 RUN apk add --no-cache \
     git \
     ca-certificates \
     tzdata \
-    upx \
     gcc \
     musl-dev
 
-# Set build arguments
-ARG VERSION=unknown
-ARG COMMIT=unknown
-ARG BUILD_TIME=unknown
-
-# Set security labels
-LABEL maintainer="Alchemorsel Team <devops@alchemorsel.com>"
-LABEL org.opencontainers.image.source="https://github.com/alchemorsel/v3"
-LABEL org.opencontainers.image.description="Alchemorsel v3 API Server - Production"
-LABEL org.opencontainers.image.version="${VERSION}"
-LABEL org.opencontainers.image.created="${BUILD_TIME}"
-LABEL org.opencontainers.image.licenses="MIT"
+# Create non-root user for build
+RUN adduser -D -g '' appuser
 
 # Set working directory
 WORKDIR /app
 
-# Copy dependency files first for better caching
+# Copy go mod files first for better caching
 COPY go.mod go.sum ./
-
-# Download and verify dependencies
-RUN go mod download && go mod verify
+RUN go mod download
+RUN go mod verify
 
 # Copy source code
 COPY . .
 
-# Run security checks
-RUN go vet ./...
-RUN go test -race -short ./...
+# Build arguments for versioning
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_TIME=unknown
 
-# Build optimized binary with version information
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -a \
-    -installsuffix cgo \
-    -ldflags="-w -s -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildTime=${BUILD_TIME} -extldflags '-static'" \
-    -tags "netgo osusergo static_build" \
-    -trimpath \
-    -o main cmd/api/main.go
+# Build the application with optimizations
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
+    -a -installsuffix cgo \
+    -ldflags="-s -w \
+              -X main.Version=${VERSION} \
+              -X main.Commit=${COMMIT} \
+              -X main.BuildTime=${BUILD_TIME} \
+              -extldflags '-static'" \
+    -o alchemorsel \
+    cmd/api/main.go
 
-# Compress binary (optional, can be disabled for faster builds)
-RUN upx --best --lzma main || echo "UPX compression failed, continuing without compression"
+# Build migration tool
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
+    -a -installsuffix cgo \
+    -ldflags="-s -w -extldflags '-static'" \
+    -o migrate \
+    cmd/migrate/main.go
 
-# Production stage using distroless for maximum security
-FROM gcr.io/distroless/static:nonroot
+# Stage 2: Build frontend assets
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS frontend-builder
 
-# Import timezone data
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+# Install build dependencies
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++
 
-# Copy binary from builder stage
-COPY --from=builder /app/main /app/main
-
-# Copy configuration files
-COPY --from=builder /app/config /app/config
-
-# Copy static files and templates
-COPY --from=builder /app/internal/infrastructure/http/server/static /app/static
-COPY --from=builder /app/internal/infrastructure/http/server/templates /app/templates
-
-# Copy migration files
-COPY --from=builder /app/internal/infrastructure/persistence/migrations /app/migrations
-
-# Set working directory
 WORKDIR /app
 
-# Use nonroot user from distroless (UID 65532)
-USER nonroot:nonroot
+# Copy package files
+COPY package*.json ./
+RUN npm ci --only=production
 
-# Expose ports (app, metrics)
-EXPOSE 8080 9090
+# Copy frontend source
+COPY src/ src/
+COPY webpack.config.js postcss.config.js ./
+
+# Build frontend assets
+RUN npm run build:production
+
+# Stage 3: Security scanner for binaries
+FROM alpine:${ALPINE_VERSION} AS security-scanner
+
+# Install Trivy for binary scanning
+RUN apk add --no-cache curl
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+# Copy binaries for scanning
+COPY --from=go-builder /app/alchemorsel /app/migrate /tmp/
+
+# Scan binaries (this will fail the build if critical vulnerabilities found)
+RUN trivy filesystem --exit-code 1 --severity CRITICAL /tmp/
+
+# Stage 4: Final production image
+FROM gcr.io/distroless/static-debian11:${DISTROLESS_VERSION}
+
+# Metadata labels
+LABEL maintainer="Alchemorsel Team <team@alchemorsel.com>" \
+      org.opencontainers.image.title="Alchemorsel v3" \
+      org.opencontainers.image.description="Enterprise AI-powered recipe platform" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_TIME}" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      org.opencontainers.image.vendor="Alchemorsel" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.source="https://github.com/alchemorsel/v3"
+
+# Copy SSL certificates from builder
+COPY --from=go-builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Copy timezone data
+COPY --from=go-builder /usr/share/zoneinfo /usr/share/zoneinfo
+
+# Copy built binaries
+COPY --from=go-builder --chown=65532:65532 /app/alchemorsel /app/migrate /app/
+
+# Copy frontend assets
+COPY --from=frontend-builder --chown=65532:65532 /app/dist /app/static/
+
+# Copy configuration and templates
+COPY --from=go-builder --chown=65532:65532 /app/config /app/config/
+COPY --from=go-builder --chown=65532:65532 /app/internal/templates /app/templates/
+
+# Security: Use non-root user (already set in distroless)
+USER 65532:65532
+
+# Expose ports
+EXPOSE 3010
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD ["/app/main", "--health-check"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD ["/app/alchemorsel", "healthcheck"]
 
-# Set resource limits (can be overridden)
-ENV GOMAXPROCS=1
-ENV GOMEMLIMIT=512MiB
-
-# Run the application
-ENTRYPOINT ["/app/main"]
+# Default command
+ENTRYPOINT ["/app/alchemorsel"]
+CMD ["serve"]

@@ -1,0 +1,516 @@
+# Alchemorsel v3 Hot Reload Development Environment
+# Comprehensive hot reload setup with all services and advanced features
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database (Persistent development data)
+  postgres:
+    image: postgres:15-alpine
+    container_name: alchemorsel-postgres-dev
+    environment:
+      POSTGRES_DB: alchemorsel_dev
+      POSTGRES_USER: alchemorsel
+      POSTGRES_PASSWORD: alchemorsel_dev_password
+      # Enable detailed logging for development
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+    ports:
+      - "5434:5432"  # Non-conflicting port for development
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./internal/infrastructure/persistence/migrations/sql:/docker-entrypoint-initdb.d
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alchemorsel -d alchemorsel_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - alchemorsel-dev-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis Cache (Development instance)
+  redis:
+    image: redis:7-alpine
+    container_name: alchemorsel-redis-dev
+    ports:
+      - "6381:6379"  # Non-conflicting port for development
+    volumes:
+      - redis_dev_data:/data
+      - ./config/redis-dev.conf:/usr/local/etc/redis/redis.conf:ro
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - alchemorsel-dev-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Ollama AI Service (From existing containerization)
+  ollama:
+    build:
+      context: ./deployments/ollama
+      dockerfile: Dockerfile
+    container_name: alchemorsel-ollama-dev
+    environment:
+      OLLAMA_HOST: "0.0.0.0"
+      OLLAMA_ORIGINS: "*"
+      OLLAMA_DEBUG: "true"
+    ports:
+      - "11435:11434"  # Non-conflicting port for development
+    volumes:
+      - ollama_dev_data:/root/.ollama
+      - ./deployments/ollama/scripts:/scripts:ro
+    healthcheck:
+      test: ["CMD", "/scripts/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - alchemorsel-dev-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # API Service with Hot Reload
+  api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: alchemorsel-api-dev
+    environment:
+      # Application configuration
+      APP_ENVIRONMENT: development
+      APP_DEBUG: "true"
+      APP_LOG_LEVEL: debug
+      APP_VERSION: "v3.0.0-dev"
+      
+      # Service ports
+      API_PORT: 8080
+      METRICS_PORT: 9090
+      HEALTH_PORT: 8090
+      DEBUGGER_PORT: 2345
+      PPROF_PORT: 6060
+      
+      # Hot reload configuration
+      HOT_RELOAD_ENABLED: "true"
+      LIVE_RELOAD_PORT: 35729
+      TEMPLATE_CACHE_DISABLED: "true"
+      STATIC_CACHE_DISABLED: "true"
+      
+      # Database configuration
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: alchemorsel_dev
+      DATABASE_USER: alchemorsel
+      DATABASE_PASSWORD: alchemorsel_dev_password
+      DATABASE_SSL_MODE: disable
+      SQL_DEBUG: "true"
+      
+      # Redis configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DATABASE: 0
+      
+      # AI service configuration
+      OLLAMA_HOST: ollama
+      OLLAMA_PORT: 11434
+      OLLAMA_API_ENDPOINT: "http://ollama:11434"
+      
+      # Monitoring and observability
+      JAEGER_ENDPOINT: "http://jaeger:14268/api/traces"
+      PROMETHEUS_PUSHGATEWAY: "http://prometheus:9090"
+      
+      # Development tools
+      CGO_ENABLED: 0
+      GOOS: linux
+      GOARCH: amd64
+      GO111MODULE: "on"
+      AIR_ENABLE_COLORS: "true"
+      AIR_DEBUG: "true"
+    ports:
+      - "3010:8080"   # API service
+      - "9091:9090"   # Metrics
+      - "2346:2345"   # Delve debugger
+      - "6061:6060"   # pprof
+      - "35730:35729" # Live reload WebSocket
+    volumes:
+      # Source code hot reload
+      - .:/app:cached
+      - /app/node_modules  # Exclude node_modules from host mount
+      
+      # Go module cache
+      - go_dev_cache:/go/pkg/mod
+      - go_build_cache:/app/.gocache
+      - go_mod_cache:/app/.gomodcache
+      
+      # Development artifacts
+      - dev_tmp:/app/tmp
+      - dev_logs:/app/logs
+      - dev_uploads:/app/uploads
+      - dev_coverage:/app/coverage
+      
+      # Configuration overrides
+      - ./config:/app/config:ro
+      - ./.air.toml:/app/.air.toml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    command: ["/app/start-dev.sh"]
+    networks:
+      - alchemorsel-dev-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  # Web Service with Hot Reload
+  web-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: alchemorsel-web-dev
+    environment:
+      # Application configuration
+      APP_ENVIRONMENT: development
+      APP_DEBUG: "true"
+      APP_LOG_LEVEL: debug
+      APP_VERSION: "v3.0.0-dev"
+      
+      # Service configuration
+      WEB_PORT: 8081
+      API_URL: "http://api-dev:8080"
+      METRICS_PORT: 9091
+      DEBUGGER_PORT: 2346
+      
+      # Hot reload configuration
+      HOT_RELOAD_ENABLED: "true"
+      LIVE_RELOAD_PORT: 35731
+      TEMPLATE_CACHE_DISABLED: "true"
+      STATIC_CACHE_DISABLED: "true"
+      
+      # Session configuration
+      SESSION_SECRET: "dev-secret-key-change-in-production"
+      SESSION_SECURE: "false"
+      
+      # Development tools
+      CGO_ENABLED: 0
+      GOOS: linux
+      GOARCH: amd64
+      GO111MODULE: "on"
+      AIR_ENABLE_COLORS: "true"
+      AIR_DEBUG: "true"
+    ports:
+      - "3011:8081"   # Web service
+      - "9092:9091"   # Metrics
+      - "2347:2346"   # Delve debugger
+      - "35731:35731" # Live reload WebSocket
+    volumes:
+      # Source code hot reload
+      - .:/app:cached
+      - /app/node_modules  # Exclude node_modules from host mount
+      
+      # Go module cache (shared with API service)
+      - go_dev_cache:/go/pkg/mod
+      - go_build_cache:/app/.gocache
+      - go_mod_cache:/app/.gomodcache
+      
+      # Development artifacts
+      - web_tmp:/app/tmp
+      - web_logs:/app/logs
+      
+      # Configuration
+      - ./config:/app/config:ro
+      - ./.air.toml:/app/.air.toml:ro
+    depends_on:
+      api-dev:
+        condition: service_started
+    command: ["/app/start-web-dev.sh"]
+    networks:
+      - alchemorsel-dev-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  # Asset Build Pipeline (Node.js/npm)
+  assets-dev:
+    image: node:18-alpine
+    container_name: alchemorsel-assets-dev
+    working_dir: /app
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"  # Enable polling for file watching in containers
+    ports:
+      - "3001:3001"   # Webpack dev server
+      - "35732:35732" # Asset live reload
+    volumes:
+      # Asset source files
+      - ./internal/infrastructure/http/server/static:/app/src:cached
+      - ./internal/infrastructure/http/webserver/static:/app/web-src:cached
+      
+      # Built assets output
+      - dev_assets:/app/dist
+      
+      # Node.js configuration and cache
+      - ./package.json:/app/package.json:ro
+      - ./package-lock.json:/app/package-lock.json:ro
+      - node_dev_modules:/app/node_modules
+    command: >
+      sh -c "
+        if [ -f package.json ]; then
+          npm ci
+          npm run watch
+        else
+          echo 'No package.json found, skipping asset pipeline'
+          sleep infinity
+        fi
+      "
+    networks:
+      - alchemorsel-dev-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Live Reload Server (WebSocket server for browser auto-refresh)
+  livereload:
+    image: node:18-alpine
+    container_name: alchemorsel-livereload-dev
+    working_dir: /app
+    environment:
+      LIVERELOAD_PORT: 35729
+      LIVERELOAD_DEBUG: "true"
+    ports:
+      - "35729:35729"  # LiveReload WebSocket
+    volumes:
+      - .:/app:cached
+    command: >
+      sh -c "
+        npm install -g livereload
+        livereload /app --port 35729 --debug --extraExts 'go,html,css,js'
+      "
+    networks:
+      - alchemorsel-dev-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Development Proxy (nginx for routing and live reload injection)
+  dev-proxy:
+    image: nginx:alpine
+    container_name: alchemorsel-dev-proxy
+    ports:
+      - "8090:80"  # Main development entry point
+    volumes:
+      - ./config/nginx-dev.conf:/etc/nginx/nginx.conf:ro
+      - dev_assets:/usr/share/nginx/html/assets:ro
+    depends_on:
+      - api-dev
+      - web-dev
+      - livereload
+    networks:
+      - alchemorsel-dev-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Development Dashboard (monitoring and control interface)
+  dashboard:
+    image: node:18-alpine
+    container_name: alchemorsel-dashboard-dev
+    working_dir: /app
+    environment:
+      DASHBOARD_PORT: 3030
+      API_BASE_URL: "http://api-dev:8080"
+      WEB_BASE_URL: "http://web-dev:8081"
+    ports:
+      - "3030:3030"  # Development dashboard
+    volumes:
+      - ./tools/dev-dashboard:/app:cached
+      - node_dashboard_modules:/app/node_modules
+    command: >
+      sh -c "
+        npm install
+        npm start
+      "
+    depends_on:
+      - api-dev
+      - web-dev
+    networks:
+      - alchemorsel-dev-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Database Migration Watcher
+  migrate-watcher:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: alchemorsel-migrate-watcher
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: alchemorsel_dev
+      DATABASE_USER: alchemorsel
+      DATABASE_PASSWORD: alchemorsel_dev_password
+      WATCH_MIGRATIONS: "true"
+      AUTO_MIGRATE: "true"
+    volumes:
+      - ./internal/infrastructure/persistence/migrations:/app/migrations:cached
+      - ./cmd/migrate:/app/cmd/migrate:cached
+    command: >
+      sh -c "
+        echo 'Starting migration watcher...'
+        inotifywait -m -r -e create,modify,delete /app/migrations --format '%w%f %e' |
+        while read FILE EVENT; do
+          echo 'Migration file changed: $FILE ($EVENT)'
+          if [ '$AUTO_MIGRATE' = 'true' ]; then
+            echo 'Running migrations...'
+            go run ./cmd/migrate up || echo 'Migration failed'
+          fi
+        done
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - alchemorsel-dev-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Test Runner (continuous testing)
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: testing
+    container_name: alchemorsel-test-runner
+    environment:
+      APP_ENVIRONMENT: testing
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: alchemorsel_test
+      DATABASE_USER: alchemorsel
+      DATABASE_PASSWORD: alchemorsel_dev_password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DATABASE: 1
+      WATCH_TESTS: "true"
+      RUN_ON_CHANGE: "true"
+    volumes:
+      - .:/app:cached
+      - go_dev_cache:/go/pkg/mod
+      - test_coverage:/app/coverage
+    command: >
+      sh -c "
+        if [ '$WATCH_TESTS' = 'true' ]; then
+          echo 'Starting test watcher...'
+          inotifywait -m -r -e create,modify --include '.*\.go$' /app --format '%w%f %e' |
+          while read FILE EVENT; do
+            echo 'Go file changed: $FILE ($EVENT)'
+            if [ '$RUN_ON_CHANGE' = 'true' ]; then
+              echo 'Running tests...'
+              /app/test-dev.sh
+            fi
+          done
+        else
+          /app/test-dev.sh
+        fi
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - alchemorsel-dev-network
+    profiles:
+      - testing  # Only start when testing profile is active
+
+# Named volumes for development data persistence
+volumes:
+  postgres_dev_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/postgres-dev
+  redis_dev_data:
+    driver: local
+  ollama_dev_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/ollama-dev
+  go_dev_cache:
+    driver: local
+  go_build_cache:
+    driver: local
+  go_mod_cache:
+    driver: local
+  dev_tmp:
+    driver: local
+  dev_logs:
+    driver: local
+  dev_uploads:
+    driver: local
+  dev_coverage:
+    driver: local
+  dev_assets:
+    driver: local
+  web_tmp:
+    driver: local
+  web_logs:
+    driver: local
+  test_coverage:
+    driver: local
+  node_dev_modules:
+    driver: local
+  node_dashboard_modules:
+    driver: local
+
+# Development network
+networks:
+  alchemorsel-dev-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

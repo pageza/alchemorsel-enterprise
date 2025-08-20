@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -26,21 +27,32 @@ type Session struct {
 
 // SessionStore manages user sessions
 type SessionStore struct {
-	sessions map[string]*Session
-	mu       sync.RWMutex
-	config   *config.Config
-	logger   *zap.Logger
+	sessions    map[string]*Session
+	mu          sync.RWMutex
+	config      *config.Config
+	logger      *zap.Logger
+	// SECURITY FIX ALV3-2025-007: Add persistence options
+	persistent  bool
+	storageType string // "memory", "redis", "file"
 }
 
 // NewSessionStore creates a new session store
 func NewSessionStore(cfg *config.Config, logger *zap.Logger) *SessionStore {
 	store := &SessionStore{
-		sessions: make(map[string]*Session),
-		config:   cfg,
-		logger:   logger,
+		sessions:    make(map[string]*Session),
+		config:      cfg,
+		logger:      logger,
+		persistent:  false, // TODO: Make configurable
+		storageType: "memory", // TODO: Support Redis/file storage
 	}
 
-	// Start cleanup goroutine
+	// SECURITY FIX ALV3-2025-007: Enhanced session management
+	logger.Info("Initializing session store",
+		zap.String("storage_type", store.storageType),
+		zap.Bool("persistent", store.persistent),
+	)
+
+	// Start cleanup goroutine with more frequent cleanup for security
 	go store.cleanupExpired()
 
 	return store
@@ -74,10 +86,16 @@ func (s *SessionStore) Get(r *http.Request, name string) (*Session, error) {
 func (s *SessionStore) New(name string) *Session {
 	sessionID := generateSessionID()
 	
+	// SECURITY FIX: Reduce session lifetime to 30 minutes for security
+	sessionLifetime := 30 * time.Minute
+	if s.config.Auth.SessionMaxAge > 0 {
+		sessionLifetime = time.Duration(s.config.Auth.SessionMaxAge) * time.Second
+	}
+	
 	session := &Session{
 		ID:        sessionID,
 		CreatedAt: time.Now(),
-		ExpiresAt: time.Now().Add(24 * time.Hour), // 24 hour sessions
+		ExpiresAt: time.Now().Add(sessionLifetime),
 		Data:      make(map[string]interface{}),
 	}
 
@@ -85,18 +103,26 @@ func (s *SessionStore) New(name string) *Session {
 	s.sessions[sessionID] = session
 	s.mu.Unlock()
 
+	s.logger.Debug("Created new session", 
+		zap.String("session_id", sessionID),
+		zap.Duration("lifetime", sessionLifetime),
+	)
+
 	return session
 }
 
 // Save saves the session and sets the cookie
 func (session *Session) Save(w http.ResponseWriter) {
+	// CRITICAL SECURITY FIX ALV3-2025-004: Secure session configuration
 	cookie := &http.Cookie{
 		Name:     "alchemorsel-session",
 		Value:    session.ID,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
-		SameSite: http.SameSiteLaxMode,
+		// SECURITY FIX: Always use Secure flag in production
+		Secure:   true, // Should be configurable based on environment
+		// SECURITY FIX: Use SameSiteStrictMode for better CSRF protection
+		SameSite: http.SameSiteStrictMode,
 		Expires:  session.ExpiresAt,
 		MaxAge:   int(time.Until(session.ExpiresAt).Seconds()),
 	}
@@ -121,26 +147,41 @@ func (s *SessionStore) Delete(sessionID string) {
 
 // cleanupExpired removes expired sessions periodically
 func (s *SessionStore) cleanupExpired() {
-	ticker := time.NewTicker(1 * time.Hour)
+	// SECURITY FIX: More frequent cleanup (every 5 minutes) for better memory management
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	for range ticker.C {
 		s.mu.Lock()
 		now := time.Now()
+		expiredCount := 0
 		for id, session := range s.sessions {
 			if now.After(session.ExpiresAt) {
 				delete(s.sessions, id)
+				expiredCount++
 				s.logger.Debug("Cleaned up expired session", zap.String("session_id", id))
 			}
 		}
 		s.mu.Unlock()
+		
+		if expiredCount > 0 {
+			s.logger.Info("Session cleanup completed",
+				zap.Int("expired_sessions", expiredCount),
+				zap.Int("active_sessions", len(s.sessions)),
+			)
+		}
 	}
 }
 
-// generateSessionID generates a random session ID
+// generateSessionID generates a cryptographically secure random session ID
 func generateSessionID() string {
-	b := make([]byte, 32)
-	rand.Read(b)
+	// SECURITY FIX: Use larger session ID (48 bytes = 384 bits)
+	b := make([]byte, 48)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp-based ID if crypto/rand fails
+		// This should never happen in practice
+		return fmt.Sprintf("fallback-%d", time.Now().UnixNano())
+	}
 	return base64.URLEncoding.EncodeToString(b)
 }
 

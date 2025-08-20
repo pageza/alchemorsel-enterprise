@@ -4,7 +4,6 @@ package healthcheck
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"sync"
@@ -37,10 +36,10 @@ type Check struct {
 
 // Response represents the health check response
 type Response struct {
-	Status     Status           `json:"status"`
-	Version    string           `json:"version"`
-	Timestamp  time.Time        `json:"timestamp"`
-	Checks     []Check          `json:"checks"`
+	Status        Status        `json:"status"`
+	Version       string        `json:"version"`
+	Timestamp     time.Time     `json:"timestamp"`
+	Checks        []Check       `json:"checks"`
 	TotalDuration time.Duration `json:"total_duration_ms"`
 }
 
@@ -76,17 +75,24 @@ func (h *HealthCheck) Register(name string, checker Checker) {
 	h.checkers[name] = checker
 }
 
+// SetCacheTTL sets the cache TTL for health check responses
+func (h *HealthCheck) SetCacheTTL(ttl time.Duration) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.cacheTTL = ttl
+}
+
 // Handler returns the HTTP handler for health checks
 func (h *HealthCheck) Handler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		response := h.Check(c.Request.Context())
-		
+
 		// Determine HTTP status code
 		statusCode := http.StatusOK
 		if response.Status == StatusUnhealthy {
 			statusCode = http.StatusServiceUnavailable
 		}
-		
+
 		c.JSON(statusCode, response)
 	}
 }
@@ -96,7 +102,7 @@ func (h *HealthCheck) LivenessHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Simple liveness check - if the handler responds, the service is alive
 		c.JSON(http.StatusOK, gin.H{
-			"status": "alive",
+			"status":    "alive",
 			"timestamp": time.Now(),
 		})
 	}
@@ -106,7 +112,7 @@ func (h *HealthCheck) LivenessHandler() gin.HandlerFunc {
 func (h *HealthCheck) ReadinessHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		response := h.Check(c.Request.Context())
-		
+
 		// Service is ready only if all checks pass
 		if response.Status != StatusHealthy {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
@@ -116,9 +122,9 @@ func (h *HealthCheck) ReadinessHandler() gin.HandlerFunc {
 			})
 			return
 		}
-		
+
 		c.JSON(http.StatusOK, gin.H{
-			"status": "ready",
+			"status":    "ready",
 			"timestamp": time.Now(),
 		})
 	}
@@ -134,7 +140,7 @@ func (h *HealthCheck) Check(ctx context.Context) Response {
 		return cached
 	}
 	h.mu.RUnlock()
-	
+
 	start := time.Now()
 	response := Response{
 		Version:   h.version,
@@ -142,15 +148,15 @@ func (h *HealthCheck) Check(ctx context.Context) Response {
 		Status:    StatusHealthy,
 		Checks:    []Check{},
 	}
-	
+
 	// Create context with timeout
 	checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	
+
 	// Run checks concurrently
 	var wg sync.WaitGroup
 	checksChan := make(chan Check, len(h.checkers))
-	
+
 	h.mu.RLock()
 	for name, checker := range h.checkers {
 		wg.Add(1)
@@ -162,17 +168,17 @@ func (h *HealthCheck) Check(ctx context.Context) Response {
 		}(name, checker)
 	}
 	h.mu.RUnlock()
-	
+
 	// Wait for all checks to complete
 	go func() {
 		wg.Wait()
 		close(checksChan)
 	}()
-	
+
 	// Collect results
 	for check := range checksChan {
 		response.Checks = append(response.Checks, check)
-		
+
 		// Update overall status
 		if check.Status == StatusUnhealthy {
 			response.Status = StatusUnhealthy
@@ -180,14 +186,14 @@ func (h *HealthCheck) Check(ctx context.Context) Response {
 			response.Status = StatusDegraded
 		}
 	}
-	
+
 	response.TotalDuration = time.Since(start)
-	
+
 	// Update cache
 	h.mu.Lock()
 	h.cache = &response
 	h.mu.Unlock()
-	
+
 	return response
 }
 
@@ -208,17 +214,17 @@ func (d *DatabaseChecker) Check(ctx context.Context) Check {
 		Name:        "database",
 		LastChecked: start,
 	}
-	
+
 	// Perform ping
 	err := d.pool.Ping(ctx)
 	check.Duration = time.Since(start)
-	
+
 	if err != nil {
 		check.Status = StatusUnhealthy
 		check.Message = err.Error()
 		return check
 	}
-	
+
 	// Get pool stats
 	stats := d.pool.Stat()
 	check.Status = StatusHealthy
@@ -228,14 +234,14 @@ func (d *DatabaseChecker) Check(ctx context.Context) Check {
 		"acquired_conns": stats.AcquiredConns(),
 		"max_conns":      stats.MaxConns(),
 	}
-	
+
 	// Check connection pool health
 	utilizationPercent := float64(stats.AcquiredConns()) / float64(stats.MaxConns()) * 100
 	if utilizationPercent > 90 {
 		check.Status = StatusDegraded
 		check.Message = "High connection pool utilization"
 	}
-	
+
 	return check
 }
 
@@ -256,23 +262,23 @@ func (r *RedisChecker) Check(ctx context.Context) Check {
 		Name:        "redis",
 		LastChecked: start,
 	}
-	
+
 	// Perform ping
 	pong, err := r.client.Ping(ctx).Result()
 	check.Duration = time.Since(start)
-	
+
 	if err != nil {
 		check.Status = StatusUnhealthy
 		check.Message = err.Error()
 		return check
 	}
-	
+
 	if pong != "PONG" {
 		check.Status = StatusUnhealthy
 		check.Message = "Unexpected ping response"
 		return check
 	}
-	
+
 	// Get Redis info
 	info, err := r.client.Info(ctx, "server", "clients", "memory").Result()
 	if err == nil {
@@ -281,7 +287,7 @@ func (r *RedisChecker) Check(ctx context.Context) Check {
 			"info": info, // In production, parse this into structured data
 		}
 	}
-	
+
 	check.Status = StatusHealthy
 	return check
 }
@@ -307,17 +313,17 @@ func (d *DiskChecker) Check(ctx context.Context) Check {
 		Name:        "disk",
 		LastChecked: start,
 	}
-	
+
 	// TODO: Implement actual disk space check
 	// This would use syscall.Statfs on Unix systems
-	
+
 	check.Status = StatusHealthy
 	check.Duration = time.Since(start)
 	check.Metadata = map[string]interface{}{
 		"path":      d.path,
 		"threshold": d.threshold,
 	}
-	
+
 	return check
 }
 
@@ -348,7 +354,7 @@ func (e *ExternalServiceChecker) Check(ctx context.Context) Check {
 		Name:        e.name,
 		LastChecked: start,
 	}
-	
+
 	// Create request with context
 	req, err := http.NewRequestWithContext(ctx, "GET", e.url, nil)
 	if err != nil {
@@ -357,18 +363,18 @@ func (e *ExternalServiceChecker) Check(ctx context.Context) Check {
 		check.Duration = time.Since(start)
 		return check
 	}
-	
+
 	// Perform request
 	resp, err := e.client.Do(req)
 	check.Duration = time.Since(start)
-	
+
 	if err != nil {
 		check.Status = StatusUnhealthy
 		check.Message = err.Error()
 		return check
 	}
 	defer resp.Body.Close()
-	
+
 	// Check status code
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		check.Status = StatusHealthy
@@ -379,12 +385,12 @@ func (e *ExternalServiceChecker) Check(ctx context.Context) Check {
 		check.Status = StatusDegraded
 		check.Message = "Service returned non-success status"
 	}
-	
+
 	check.Metadata = map[string]interface{}{
 		"status_code": resp.StatusCode,
 		"url":         e.url,
 	}
-	
+
 	return check
 }
 
@@ -405,9 +411,9 @@ func NewCustomChecker(name string, check func(ctx context.Context) (Status, stri
 // Check performs custom health check
 func (c *CustomChecker) Check(ctx context.Context) Check {
 	start := time.Now()
-	
+
 	status, message, metadata := c.check(ctx)
-	
+
 	return Check{
 		Name:        c.name,
 		Status:      status,

@@ -1,0 +1,333 @@
+# Warning Alert Rules for Alchemorsel v3
+# Medium-severity alerts that require attention but are not immediately critical
+
+groups:
+  - name: warning.performance
+    rules:
+      # === Performance Degradation Alerts ===
+      
+      - alert: APILatencyHigh
+        expr: slo:api_latency_p95 > 500
+        for: 10m
+        labels:
+          severity: warning
+          service: alchemorsel-api
+          slo_type: latency
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/api-latency"
+        annotations:
+          summary: "API latency is high"
+          description: "API P95 latency is {{ $value }}ms, above the 500ms SLO target."
+          impact: "User experience degradation - slower response times"
+          action: "Check database performance, review slow queries, and monitor resource usage."
+
+      - alert: DatabaseSlowQueries
+        expr: slo:db_query_latency_p95 > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: postgresql
+          slo_type: latency
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/slow-queries"
+        annotations:
+          summary: "Database queries are slow"
+          description: "Database P95 query latency is {{ $value }}ms, above the 100ms target."
+          impact: "Application performance degradation"
+          action: "Review slow query log, check for missing indexes, and analyze query plans."
+
+      - alert: AIServiceLatencyHigh
+        expr: slo:ai_latency_p95 > 2000
+        for: 5m
+        labels:
+          severity: warning
+          service: ollama
+          slo_type: latency
+          team: ai
+          runbook: "https://runbooks.alchemorsel.com/ai-latency"
+        annotations:
+          summary: "AI service latency is high"
+          description: "AI service P95 latency is {{ $value }}ms, above the 2000ms target."
+          impact: "AI-powered features respond slowly"
+          action: "Check AI service resource usage and model performance."
+
+      - alert: CacheHitRateLow
+        expr: slo:cache_hit_ratio < 90
+        for: 10m
+        labels:
+          severity: warning
+          service: redis
+          slo_type: performance
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/low-cache-hits"
+        annotations:
+          summary: "Cache hit ratio is low"
+          description: "Cache hit ratio is {{ $value }}%, below the 90% target."
+          impact: "Increased database load and slower response times"
+          action: "Review cache strategy, check for cache evictions, and optimize cache keys."
+
+  - name: warning.capacity
+    rules:
+      # === Resource Usage Warnings ===
+      
+      - alert: HighCPUUsageWarning
+        expr: slo:cpu_utilization > 75
+        for: 15m
+        labels:
+          severity: warning
+          component: system
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/cpu-usage"
+        annotations:
+          summary: "CPU usage is high on {{ $labels.instance }}"
+          description: "CPU usage has been above 75% for more than 15 minutes."
+          impact: "Performance degradation may occur during peak load"
+          action: "Monitor for continued increase. Consider scaling or optimizing CPU-intensive processes."
+
+      - alert: HighMemoryUsageWarning
+        expr: slo:memory_utilization > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/memory-usage"
+        annotations:
+          summary: "Memory usage is high on {{ $labels.instance }}"
+          description: "Memory usage has been above 80% for more than 10 minutes."
+          impact: "Risk of performance degradation and potential out-of-memory conditions"
+          action: "Check for memory leaks and consider increasing memory allocation."
+
+      - alert: DiskSpaceLow
+        expr: |
+          (
+            (node_filesystem_size_bytes{fstype!~"tmpfs|fuse.lxcfs"} - node_filesystem_free_bytes{fstype!~"tmpfs|fuse.lxcfs"}) / 
+            node_filesystem_size_bytes{fstype!~"tmpfs|fuse.lxcfs"}
+          ) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/disk-space"
+        annotations:
+          summary: "Disk space is running low on {{ $labels.instance }}"
+          description: "Disk usage is above 80% on {{ $labels.device }} ({{ $labels.mountpoint }})."
+          impact: "Risk of running out of disk space"
+          action: "Clean up unnecessary files and plan for disk space expansion."
+
+      - alert: DatabaseConnectionsHigh
+        expr: slo:db_connection_utilization > 70
+        for: 10m
+        labels:
+          severity: warning
+          service: postgresql
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/db-connections"
+        annotations:
+          summary: "Database connection pool usage is high"
+          description: "Database connection pool is {{ $value }}% full."
+          impact: "Risk of connection exhaustion during peak load"
+          action: "Monitor connection usage patterns and consider increasing pool size."
+
+  - name: warning.business_metrics
+    rules:
+      # === Business Metrics Warnings ===
+      
+      - alert: RecipeCreationRateDropped
+        expr: |
+          (
+            rate(recipes_created_total[1h]) / 
+            rate(recipes_created_total[1h] offset 1h)
+          ) < 0.7
+        for: 30m
+        labels:
+          severity: warning
+          service: alchemorsel-api
+          team: product
+          runbook: "https://runbooks.alchemorsel.com/low-recipe-creation"
+        annotations:
+          summary: "Recipe creation rate has dropped significantly"
+          description: "Recipe creation rate is {{ $value | humanizePercentage }} of the previous hour's rate."
+          impact: "Reduced user engagement with core functionality"
+          action: "Check for UX issues, performance problems, or external factors affecting user behavior."
+
+      - alert: UserRegistrationRateDropped
+        expr: |
+          (
+            rate(users_registered_total[2h]) / 
+            rate(users_registered_total[2h] offset 2h)
+          ) < 0.5
+        for: 1h
+        labels:
+          severity: warning
+          service: alchemorsel-api
+          team: product
+          runbook: "https://runbooks.alchemorsel.com/low-registrations"
+        annotations:
+          summary: "User registration rate has dropped significantly"
+          description: "User registration rate is {{ $value | humanizePercentage }} of the previous 2-hour period."
+          impact: "Reduced user acquisition"
+          action: "Check registration flow, marketing campaigns, and any technical issues."
+
+      - alert: AIRequestFailureRateHigh
+        expr: slo:ai_request_success_rate < 95
+        for: 15m
+        labels:
+          severity: warning
+          service: ollama
+          slo_type: success_rate
+          team: ai
+          runbook: "https://runbooks.alchemorsel.com/ai-failures"
+        annotations:
+          summary: "AI request failure rate is high"
+          description: "AI request success rate is {{ $value }}%, below the 95% target."
+          impact: "AI-powered features experiencing increased failures"
+          action: "Check AI service logs, model availability, and resource constraints."
+
+      - alert: UnusualTrafficPattern
+        expr: |
+          abs(
+            rate(http_requests_total{service="alchemorsel-api"}[1h]) - 
+            rate(http_requests_total{service="alchemorsel-api"}[1h] offset 1h)
+          ) / rate(http_requests_total{service="alchemorsel-api"}[1h] offset 1h) > 0.5
+        for: 30m
+        labels:
+          severity: warning
+          service: alchemorsel-api
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/unusual-traffic"
+        annotations:
+          summary: "Unusual traffic pattern detected"
+          description: "Traffic volume has changed by more than 50% compared to the previous hour."
+          impact: "Potential bot traffic, marketing campaign, or system issue"
+          action: "Analyze traffic sources and patterns. Check for DDoS attacks or legitimate traffic spikes."
+
+  - name: warning.security
+    rules:
+      # === Security Warnings ===
+      
+      - alert: ElevatedFailedLogins
+        expr: increase(http_requests_total{path="/auth/login",status_code="401"}[10m]) > 20
+        for: 5m
+        labels:
+          severity: warning
+          service: alchemorsel-api
+          team: security
+          runbook: "https://runbooks.alchemorsel.com/failed-logins"
+        annotations:
+          summary: "Elevated number of failed login attempts"
+          description: "{{ $value }} failed login attempts in the last 10 minutes."
+          impact: "Possible credential attacks or user issues"
+          action: "Monitor for patterns and escalation. Consider implementing rate limiting."
+
+      - alert: UnusualAPIErrorRate
+        expr: slo:api_error_rate > 0.5
+        for: 15m
+        labels:
+          severity: warning
+          service: alchemorsel-api
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/api-errors"
+        annotations:
+          summary: "API error rate is elevated"
+          description: "API error rate is {{ $value }}%, above normal levels."
+          impact: "Users experiencing failures"
+          action: "Check error logs for patterns and root causes."
+
+      - alert: SuspiciousUserAgent
+        expr: increase(http_requests_total{user_agent=~".*bot.*|.*crawler.*|.*scan.*"}[1h]) > 100
+        for: 30m
+        labels:
+          severity: warning
+          service: alchemorsel-api
+          team: security
+          runbook: "https://runbooks.alchemorsel.com/suspicious-agents"
+        annotations:
+          summary: "High volume of requests from suspicious user agents"
+          description: "{{ $value }} requests from bot-like user agents in the last hour."
+          impact: "Potential scraping or automated attacks"
+          action: "Analyze request patterns and consider blocking malicious agents."
+
+  - name: warning.external_dependencies
+    rules:
+      # === External Service Warnings ===
+      
+      - alert: ExternalServiceSlowResponse
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(external_service_request_duration_seconds_bucket[5m])) by (le, service)
+          ) > 5
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/external-service-slow"
+        annotations:
+          summary: "External service {{ $labels.service }} is responding slowly"
+          description: "P95 response time for {{ $labels.service }} is {{ $value }}s."
+          impact: "Features depending on this service may be slow"
+          action: "Check external service status and consider implementing fallbacks."
+
+      - alert: ExternalServiceErrorRate
+        expr: |
+          (
+            rate(external_service_requests_total{status=~"5.."}[5m]) /
+            rate(external_service_requests_total[5m])
+          ) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/external-service-errors"
+        annotations:
+          summary: "High error rate from external service {{ $labels.service }}"
+          description: "Error rate for {{ $labels.service }} is {{ $value }}%."
+          impact: "Features may fail or degrade gracefully"
+          action: "Check external service status and implement circuit breakers if needed."
+
+  - name: warning.monitoring
+    rules:
+      # === Monitoring Health Warnings ===
+      
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: prometheus
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/target-down"
+        annotations:
+          summary: "Prometheus target {{ $labels.instance }} is down"
+          description: "{{ $labels.job }} target {{ $labels.instance }} has been down for more than 5 minutes."
+          impact: "Missing metrics for this service"
+          action: "Check service health and network connectivity."
+
+      - alert: PrometheusScrapeErrors
+        expr: increase(prometheus_target_scrapes_exceeded_sample_limit_total[5m]) > 0
+        for: 0s
+        labels:
+          severity: warning
+          service: prometheus
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/scrape-errors"
+        annotations:
+          summary: "Prometheus scrape sample limit exceeded"
+          description: "Target {{ $labels.instance }} exceeded sample limit {{ $value }} times."
+          impact: "Incomplete metrics collection"
+          action: "Optimize metrics or increase sample limits."
+
+      - alert: GrafanaDashboardErrors
+        expr: increase(grafana_alerting_rule_evaluation_failures_total[5m]) > 0
+        for: 0s
+        labels:
+          severity: warning
+          service: grafana
+          team: platform
+          runbook: "https://runbooks.alchemorsel.com/grafana-errors"
+        annotations:
+          summary: "Grafana dashboard evaluation errors"
+          description: "{{ $value }} dashboard evaluation failures in the last 5 minutes."
+          impact: "Dashboards may show incorrect data"
+          action: "Check dashboard queries and data sources."

@@ -1,0 +1,9 @@
+// HTMX transition styles
+.htmx-swapping {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.htmx-settling {
+  opacity: 1;
+}

@@ -1,0 +1,358 @@
+name: Quality Gates
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      image_tag:
+        required: true
+        type: string
+    secrets:
+      SONAR_TOKEN:
+        required: true
+      DATADOG_API_KEY:
+        required: true
+
+env:
+  GO_VERSION: "1.23"
+  NODE_VERSION: "20"
+
+jobs:
+  # Code Quality Analysis with SonarQube
+  sonar-analysis:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests with coverage
+        run: |
+          go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+          go tool cover -func=coverage.out -o coverage.func
+
+      - name: SonarQube Scan
+        uses: sonarqube-quality-gate-action@v1.3.0
+        with:
+          scanMetadataReportFile: .scannerwork/report-task.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Check SonarQube Quality Gate
+        run: |
+          # Wait for SonarQube analysis to complete
+          sleep 30
+          
+          # Get quality gate status
+          QUALITY_GATE_STATUS=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" \
+            "https://sonarcloud.io/api/qualitygates/project_status?projectKey=alchemorsel_v3" \
+            | jq -r '.projectStatus.status')
+          
+          if [ "$QUALITY_GATE_STATUS" != "OK" ]; then
+            echo "Quality gate failed: $QUALITY_GATE_STATUS"
+            exit 1
+          fi
+
+  # Performance Quality Gates
+  performance-gates:
+    name: Performance Quality Gates
+    runs-on: ubuntu-latest
+    needs: [sonar-analysis]
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: alchemorsel_perf
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          go mod download
+          npm ci
+
+      - name: Start application
+        run: |
+          export DATABASE_URL="postgres://postgres:postgres@localhost:5432/alchemorsel_perf?sslmode=disable"
+          export REDIS_URL="redis://localhost:6379"
+          export GO_ENV="test"
+          
+          # Run migrations
+          go run cmd/migrate/main.go up
+          
+          # Start application in background
+          go run cmd/api/main.go &
+          APP_PID=$!
+          echo $APP_PID > app.pid
+          
+          # Wait for application to start
+          timeout 60 bash -c 'until curl -f http://localhost:3010/health; do sleep 2; done'
+
+      - name: Run performance tests
+        run: |
+          cd test/performance
+          npm ci
+          npm run test:performance
+
+      - name: Check Core Web Vitals
+        run: |
+          # Install Lighthouse CI
+          npm install -g @lhci/cli
+          
+          # Run Lighthouse audit
+          lhci autorun \
+            --upload.target=temporary-public-storage \
+            --collect.url=http://localhost:3011 \
+            --assert.preset=lighthouse:recommended
+
+      - name: Performance regression check
+        run: |
+          # Compare with baseline performance metrics
+          node scripts/performance-comparison.js \
+            --current=test/performance/results.json \
+            --baseline=test/performance/baseline.json \
+            --threshold=10
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -f app.pid ]; then
+            kill $(cat app.pid) || true
+          fi
+
+  # Security Quality Gates
+  security-gates:
+    name: Security Quality Gates
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+
+      - name: Run Gosec Security Scanner
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: '-fmt sarif -out gosec.sarif -severity medium ./...'
+
+      - name: Upload Gosec scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gosec.sarif
+
+      - name: Run Nancy vulnerability scanner
+        run: |
+          go install github.com/sonatypecommunity/nancy@latest
+          go list -json -deps ./... | nancy sleuth
+          
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      - name: OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'alchemorsel-v3'
+          path: '.'
+          format: 'ALL'
+          args: >
+            --enableRetired
+            --enableExperimental
+            --nvdApiKey ${{ secrets.NVD_API_KEY }}
+
+      - name: Upload OWASP results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: reports/dependency-check-report.sarif
+
+  # AI Quality Gates
+  ai-quality-gates:
+    name: AI Quality Gates
+    runs-on: ubuntu-latest
+    services:
+      ollama:
+        image: ollama/ollama:latest
+        ports:
+          - 11434:11434
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Start Ollama and pull models
+        run: |
+          # Wait for Ollama to start
+          timeout 60 bash -c 'until curl -f http://localhost:11434/api/tags; do sleep 2; done'
+          
+          # Pull required models
+          curl -X POST http://localhost:11434/api/pull -d '{"name": "llama3.2:1b"}'
+
+      - name: Run AI model tests
+        run: |
+          export OLLAMA_BASE_URL="http://localhost:11434"
+          go test -v ./internal/ai/... -tags=ai_integration
+
+      - name: AI response quality check
+        run: |
+          # Test AI response quality and consistency
+          node test/ai/quality-check.js
+
+      - name: AI performance benchmarks
+        run: |
+          # Run AI performance benchmarks
+          go test -bench=BenchmarkAI -run=^$ ./internal/ai/...
+
+  # Database Quality Gates
+  database-gates:
+    name: Database Quality Gates
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: alchemorsel_db_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Test database migrations
+        run: |
+          export DATABASE_URL="postgres://postgres:postgres@localhost:5432/alchemorsel_db_test?sslmode=disable"
+          
+          # Test migration up
+          go run cmd/migrate/main.go up
+          
+          # Test migration down
+          go run cmd/migrate/main.go down
+          
+          # Test migration up again
+          go run cmd/migrate/main.go up
+
+      - name: Database performance tests
+        run: |
+          export DATABASE_URL="postgres://postgres:postgres@localhost:5432/alchemorsel_db_test?sslmode=disable"
+          go test -v ./internal/database/... -tags=db_performance
+
+      - name: Check database schema compliance
+        run: |
+          # Validate database schema against standards
+          psql $DATABASE_URL -f scripts/schema-validation.sql
+
+  # Quality Gate Summary
+  quality-gate-summary:
+    name: Quality Gate Summary
+    runs-on: ubuntu-latest
+    needs: [sonar-analysis, performance-gates, security-gates, ai-quality-gates, database-gates]
+    if: always()
+    steps:
+      - name: Collect quality metrics
+        run: |
+          echo "Quality Gate Results:"
+          echo "- Code Quality: ${{ needs.sonar-analysis.result }}"
+          echo "- Performance: ${{ needs.performance-gates.result }}"
+          echo "- Security: ${{ needs.security-gates.result }}"
+          echo "- AI Quality: ${{ needs.ai-quality-gates.result }}"
+          echo "- Database: ${{ needs.database-gates.result }}"
+
+      - name: Update quality dashboard
+        run: |
+          # Update Datadog dashboard with quality metrics
+          curl -X POST "https://api.datadoghq.com/api/v1/series" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+            -d '{
+              "series": [
+                {
+                  "metric": "alchemorsel.quality.gate.status",
+                  "points": [['$(date +%s)', 1]],
+                  "tags": ["environment:${{ inputs.environment }}", "result:success"]
+                }
+              ]
+            }'
+
+      - name: Fail if any quality gate failed
+        if: contains(needs.*.result, 'failure')
+        run: |
+          echo "One or more quality gates failed"
+          exit 1
