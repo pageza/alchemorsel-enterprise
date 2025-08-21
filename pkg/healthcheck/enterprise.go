@@ -79,6 +79,16 @@ func NewEnterpriseHealthCheck(version string, logger *zap.Logger) *EnterpriseHea
 	}
 }
 
+// NewEnterpriseHealthCheckWithMetrics creates a new enterprise health check instance with provided metrics
+func NewEnterpriseHealthCheckWithMetrics(version string, logger *zap.Logger, metrics *HealthMetrics) *EnterpriseHealthCheck {
+	return &EnterpriseHealthCheck{
+		HealthCheck:     New(version, logger),
+		dependencies:    NewDependencyManager(logger),
+		circuitBreakers: make(map[string]*CircuitBreaker),
+		metrics:         metrics,
+	}
+}
+
 // RegisterWithCircuitBreaker registers a checker with circuit breaker protection
 func (e *EnterpriseHealthCheck) RegisterWithCircuitBreaker(name string, checker Checker, config CircuitBreakerConfig) {
 	e.mu.Lock()

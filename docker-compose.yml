@@ -13,7 +13,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -95,7 +94,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./deployments/docker/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./deployments/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     networks:
       - alchemorsel-network
@@ -153,7 +152,7 @@ services:
       ALCHEMORSEL_AWS_SECRET_ACCESS_KEY: minioadmin
       ALCHEMORSEL_AWS_S3_BUCKET: alchemorsel-dev
     ports:
-      - "8080:8080"
+      - "3013:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -163,6 +162,34 @@ services:
         condition: service_started
     volumes:
       - ./uploads:/app/uploads
+    networks:
+      - alchemorsel-network
+
+  # Alchemorsel Web Frontend (HTMX)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: alchemorsel-web
+    environment:
+      ALCHEMORSEL_APP_ENVIRONMENT: development
+      ALCHEMORSEL_DATABASE_HOST: postgres
+      ALCHEMORSEL_DATABASE_PORT: 5432
+      ALCHEMORSEL_DATABASE_DATABASE: alchemorsel_dev
+      ALCHEMORSEL_DATABASE_USERNAME: postgres
+      ALCHEMORSEL_DATABASE_PASSWORD: postgres
+      ALCHEMORSEL_REDIS_HOST: redis
+      ALCHEMORSEL_REDIS_PORT: 6379
+      API_URL: http://api:8080
+    ports:
+      - "3014:8080"
+    depends_on:
+      api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - alchemorsel-network
 

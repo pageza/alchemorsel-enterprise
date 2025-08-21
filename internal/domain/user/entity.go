@@ -302,3 +302,22 @@ func validatePassword(password string) error {
 	
 	return nil
 }
+
+// ReconstructUser reconstructs a User from persistence data
+// This is used by the repository layer to recreate domain entities from database rows
+func ReconstructUser(id uuid.UUID, email, name, passwordHash string, isActive, isVerified bool, role UserRole, createdAt, updatedAt time.Time, lastLoginAt *time.Time) *User {
+	return &User{
+		id:           id,
+		email:        email,
+		name:         name,
+		passwordHash: passwordHash,
+		isActive:     isActive,
+		isVerified:   isVerified,
+		role:         role,
+		profile:      &UserProfile{}, // Default empty profile
+		preferences:  &UserPreferences{}, // Default empty preferences
+		createdAt:    createdAt,
+		updatedAt:    updatedAt,
+		lastLoginAt:  lastLoginAt,
+	}
+}

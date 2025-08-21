@@ -563,14 +563,14 @@ func (c *Client) generateSimpleCompletion(ctx context.Context, prompt string) (s
 // GenerateDescription generates a description for a recipe
 func (c *Client) GenerateDescription(ctx context.Context, recipe *recipe.Recipe) (string, error) {
 	if err := c.HealthCheck(ctx); err != nil {
-		return fmt.Sprintf("A delicious %s recipe crafted with care.", recipe.Title), nil
+		return fmt.Sprintf("A delicious %s recipe crafted with care.", recipe.Title()), nil
 	}
 
-	prompt := fmt.Sprintf("Write a brief, appetizing description for this recipe: %s with ingredients: %v", recipe.Title, recipe.Ingredients)
+	prompt := fmt.Sprintf("Write a brief, appetizing description for this recipe: %s with ingredients: %v", recipe.Title(), recipe.Ingredients())
 	
 	response, err := c.generateSimpleCompletion(ctx, prompt)
 	if err != nil {
-		return fmt.Sprintf("A wonderful %s recipe that brings together fantastic flavors.", recipe.Title), nil
+		return fmt.Sprintf("A wonderful %s recipe that brings together fantastic flavors.", recipe.Title()), nil
 	}
 
 	return response, nil

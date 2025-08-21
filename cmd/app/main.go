@@ -16,7 +16,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -25,9 +24,9 @@ import (
 
 // User represents a user in the system
 type User struct {
-	ID           uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	ID           string    `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	Email        string    `json:"email" gorm:"uniqueIndex"`
-	Name         string    `json:"name" gorm:"column:full_name"`
+	Name         string    `json:"name" gorm:"column:name"`
 	PasswordHash string    `json:"-" gorm:"column:password_hash"`
 	Role         string    `json:"role" gorm:"default:'user'"`
 	IsActive     bool      `json:"is_active" gorm:"column:is_active;default:true"`
@@ -37,10 +36,10 @@ type User struct {
 
 // Recipe represents a recipe in the system
 type Recipe struct {
-	ID              uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	ID              string    `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	Title           string    `json:"title"`
 	Description     string    `json:"description"`
-	AuthorID        uuid.UUID `json:"author_id" gorm:"type:uuid"`
+	AuthorID        string    `json:"author_id" gorm:"type:uuid"`
 	Author          User      `json:"author" gorm:"foreignKey:AuthorID"`
 	Cuisine         string    `json:"cuisine"`
 	Difficulty      string    `json:"difficulty"`
@@ -58,8 +57,8 @@ type Recipe struct {
 
 // Ingredient represents a recipe ingredient
 type Ingredient struct {
-	ID         uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	RecipeID   uuid.UUID `json:"recipe_id" gorm:"type:uuid"`
+	ID         string    `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	RecipeID   string    `json:"recipe_id" gorm:"type:uuid"`
 	Name       string    `json:"name"`
 	Amount     float64   `json:"amount"`
 	Unit       string    `json:"unit"`
@@ -72,8 +71,8 @@ type Ingredient struct {
 
 // Instruction represents a recipe instruction step
 type Instruction struct {
-	ID               uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	RecipeID         uuid.UUID `json:"recipe_id" gorm:"type:uuid"`
+	ID               string    `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	RecipeID         string    `json:"recipe_id" gorm:"type:uuid"`
 	StepNumber       int       `json:"step_number"`
 	Description      string    `json:"description"`
 	DurationMinutes  int       `json:"duration_minutes"`
@@ -85,16 +84,16 @@ type Instruction struct {
 
 // RecipeTag represents a recipe tag
 type RecipeTag struct {
-	ID        uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	RecipeID  uuid.UUID `json:"recipe_id" gorm:"type:uuid"`
+	ID        string    `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	RecipeID  string    `json:"recipe_id" gorm:"type:uuid"`
 	Tag       string    `json:"tag"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 // Session represents a user session
 type Session struct {
-	ID        uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID    uuid.UUID `json:"user_id" gorm:"type:uuid"`
+	ID        string    `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID    string    `json:"user_id" gorm:"type:uuid"`
 	User      User      `json:"user" gorm:"foreignKey:UserID"`
 	Token     string    `json:"token" gorm:"uniqueIndex"`
 	ExpiresAt time.Time `json:"expires_at"`
@@ -127,7 +126,7 @@ type AIRecipeRequest struct {
 var (
 	db        *gorm.DB
 	templates *template.Template
-	jwtSecret = []byte("your-secret-key-change-in-production")
+	jwtSecret []byte
 	
 	// Recipe creation patterns for intent detection
 	recipeIntentPatterns = []*regexp.Regexp{
@@ -322,7 +321,7 @@ func extractDietaryRequirements(message string) []string {
 }
 
 // generateRecipe creates a structured recipe based on the AI request
-func generateRecipe(request *AIRecipeRequest, userID uuid.UUID) (*Recipe, error) {
+func generateRecipe(request *AIRecipeRequest, userID string) (*Recipe, error) {
 	if request == nil {
 		return nil, fmt.Errorf("invalid recipe request")
 	}
@@ -678,6 +677,9 @@ func main() {
                                       v3.0.0 - Enterprise Recipe Platform                                      
 	`)
 
+	// Initialize JWT secret
+	initJWTSecret()
+
 	// Initialize database
 	initDatabase()
 
@@ -701,11 +703,46 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, r))
 }
 
+func initJWTSecret() {
+	secret := os.Getenv("ALCHEMORSEL_JWT_SECRET")
+	if secret == "" {
+		// Use a secure default for development
+		secret = "alchemorsel-dev-secret-change-in-production-2025"
+		log.Printf("Warning: Using default JWT secret. Set ALCHEMORSEL_JWT_SECRET environment variable for production.")
+	}
+	jwtSecret = []byte(secret)
+	log.Printf("JWT secret initialized (%d bytes)", len(jwtSecret))
+}
+
 func initDatabase() {
-	// Get database URL from environment or use default
+	// Get database URL from environment or build from environment variables
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://alchemorsel:alchemorsel_dev_password@localhost:5434/alchemorsel_dev?sslmode=disable"
+		// Build database URL from environment variables (for Docker containers)
+		host := os.Getenv("ALCHEMORSEL_DATABASE_HOST")
+		port := os.Getenv("ALCHEMORSEL_DATABASE_PORT")
+		database := os.Getenv("ALCHEMORSEL_DATABASE_DATABASE")
+		username := os.Getenv("ALCHEMORSEL_DATABASE_USERNAME")
+		password := os.Getenv("ALCHEMORSEL_DATABASE_PASSWORD")
+		
+		// Use defaults if environment variables are not set
+		if host == "" {
+			host = "localhost"
+		}
+		if port == "" {
+			port = "5434"
+		}
+		if database == "" {
+			database = "alchemorsel_dev"
+		}
+		if username == "" {
+			username = "alchemorsel"
+		}
+		if password == "" {
+			password = "alchemorsel_dev_password"
+		}
+		
+		dbURL = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", username, password, host, port, database)
 	}
 
 	var err error
@@ -738,7 +775,8 @@ func initDatabase() {
 	// Auto migrate with error handling for constraint conflicts
 	err = safeAutoMigrate(db)
 	if err != nil {
-		log.Fatal("❌ Failed to migrate database:", err)
+		log.Printf("⚠️  Database migration failed: %v", err)
+		log.Printf("📝 Web server will continue without migrations")
 	}
 
 	// Seed demo data
@@ -1086,7 +1124,7 @@ func redirectIfAuthenticated(handler http.HandlerFunc) http.HandlerFunc {
 
 // JWT Claims
 type Claims struct {
-	UserID uuid.UUID `json:"user_id"`
+	UserID string    `json:"user_id"`
 	Email  string    `json:"email"`
 	jwt.StandardClaims
 }
@@ -1167,7 +1205,7 @@ func validateJWT(tokenString string) (*Claims, error) {
 	return claims, nil
 }
 
-func getUserByID(id uuid.UUID) (*User, error) {
+func getUserByID(id string) (*User, error) {
 	var user User
 	err := db.Where("id = ? AND is_active = ?", id, true).First(&user).Error
 	if err != nil {

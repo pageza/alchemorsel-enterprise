@@ -3,10 +3,13 @@ package postgres
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/alchemorsel/v3/internal/domain/user"
 	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -94,17 +97,26 @@ func (r *UserRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error)
 
 // FindByEmail finds a user by email address
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*user.User, error) {
-	query := `SELECT id, username, email, created_at, updated_at FROM users WHERE email = $1`
+	query := `SELECT id, name, email, password_hash, is_active, is_verified, role, created_at, updated_at, last_login_at FROM users WHERE email = $1`
 
-	var u user.User
+	var id uuid.UUID
+	var name, userEmail, passwordHash string
+	var isActive, isVerified bool
+	var role user.UserRole
 	var createdAt, updatedAt time.Time
+	var lastLoginAt *time.Time
 	
 	err := r.db.QueryRow(ctx, query, email).Scan(
-		&u.ID,
-		&u.Username, 
-		&u.Email,
+		&id,
+		&name, 
+		&userEmail,
+		&passwordHash,
+		&isActive,
+		&isVerified,
+		&role,
 		&createdAt,
 		&updatedAt,
+		&lastLoginAt,
 	)
 	
 	if err != nil {
@@ -118,9 +130,8 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*user.U
 		return nil, err
 	}
 
-	// Note: This is a simplified implementation - in production you'd properly 
-	// reconstruct the domain object with all its methods and validation
-	return &u, nil
+	reconstructedUser := user.ReconstructUser(id, userEmail, name, passwordHash, isActive, isVerified, role, createdAt, updatedAt, lastLoginAt)
+	return reconstructedUser, nil
 }
 
 // UpdateLastLogin updates the last login timestamp for a user

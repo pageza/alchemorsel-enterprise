@@ -18,7 +18,6 @@ import (
 	gormRepo "github.com/alchemorsel/v3/internal/infrastructure/persistence/gorm"
 	"github.com/alchemorsel/v3/internal/infrastructure/persistence/memory"
 	"github.com/alchemorsel/v3/internal/infrastructure/persistence/postgres"
-	"github.com/alchemorsel/v3/internal/infrastructure/persistence/sqlite"
 	"github.com/alchemorsel/v3/internal/infrastructure/security"
 	"github.com/alchemorsel/v3/internal/ports/inbound"
 	"github.com/alchemorsel/v3/internal/ports/outbound"
@@ -29,7 +28,6 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	gormLogger "gorm.io/gorm/logger"
 )
 
 // Module provides all dependency injection modules
@@ -205,49 +203,63 @@ var HealthCheckModule = fx.Provide(
 	// Enterprise health check
 	func(cfg *config.Config, log *zap.Logger, metrics *healthcheck.HealthMetrics) *healthcheck.EnterpriseHealthCheck {
 		if cfg.Monitoring.HealthCheck.EnableEnterprise {
-			hc := healthcheck.NewEnterpriseHealthCheck(cfg.App.Version, log)
+			hc := healthcheck.NewEnterpriseHealthCheckWithMetrics(cfg.App.Version, log, metrics)
 			// Configure cache TTL
 			hc.HealthCheck.SetCacheTTL(cfg.Monitoring.HealthCheck.CacheTTL)
 			return hc
 		}
-		// Return basic health check wrapped in enterprise interface
-		basic := healthcheck.New(cfg.App.Version, log)
-		basic.SetCacheTTL(cfg.Monitoring.HealthCheck.CacheTTL)
-		return &healthcheck.EnterpriseHealthCheck{HealthCheck: basic}
+		// Always use the metrics version to avoid duplicate registrations
+		hc := healthcheck.NewEnterpriseHealthCheckWithMetrics(cfg.App.Version, log, metrics)
+		hc.HealthCheck.SetCacheTTL(cfg.Monitoring.HealthCheck.CacheTTL)
+		return hc
 	},
 	
-	// System checker
-	func(cfg *config.Config) healthcheck.Checker {
-		return healthcheck.NewCustomChecker("system", func(ctx context.Context) (healthcheck.Status, string, interface{}) {
-			return healthcheck.StatusHealthy, "System operational", map[string]interface{}{
-				"service": "alchemorsel-v3",
-				"version": cfg.App.Version,
-				"environment": cfg.App.Environment,
-			}
-		})
-	},
+	// System checker (using value group)
+	fx.Annotate(
+		func(cfg *config.Config) healthcheck.Checker {
+			return healthcheck.NewCustomChecker("system", func(ctx context.Context) (healthcheck.Status, string, interface{}) {
+				return healthcheck.StatusHealthy, "System operational", map[string]interface{}{
+					"service": "alchemorsel-v3",
+					"version": cfg.App.Version,
+					"environment": cfg.App.Environment,
+				}
+			})
+		},
+		fx.ResultTags(`group:"healthcheckers"`),
+	),
 	
-	// Database checker
-	func(db *gorm.DB) healthcheck.Checker {
-		return healthcheck.NewCustomChecker("database", func(ctx context.Context) (healthcheck.Status, string, interface{}) {
-			sqlDB, err := db.DB()
-			if err != nil {
-				return healthcheck.StatusUnhealthy, err.Error(), nil
-			}
-			
-			if err := sqlDB.PingContext(ctx); err != nil {
-				return healthcheck.StatusUnhealthy, err.Error(), nil
-			}
-			
-			stats := sqlDB.Stats()
-			return healthcheck.StatusHealthy, "Database operational", map[string]interface{}{
-				"open_connections": stats.OpenConnections,
-				"in_use": stats.InUse,
-				"idle": stats.Idle,
-				"max_open_connections": stats.MaxOpenConnections,
-			}
-		})
-	},
+	// Database checker (using value group)
+	fx.Annotate(
+		func(db *gorm.DB) healthcheck.Checker {
+			return healthcheck.NewCustomChecker("database", func(ctx context.Context) (healthcheck.Status, string, interface{}) {
+				sqlDB, err := db.DB()
+				if err != nil {
+					return healthcheck.StatusUnhealthy, err.Error(), nil
+				}
+				
+				if err := sqlDB.PingContext(ctx); err != nil {
+					return healthcheck.StatusUnhealthy, err.Error(), nil
+				}
+				
+				stats := sqlDB.Stats()
+				return healthcheck.StatusHealthy, "Database operational", map[string]interface{}{
+					"open_connections": stats.OpenConnections,
+					"in_use": stats.InUse,
+					"idle": stats.Idle,
+					"max_open_connections": stats.MaxOpenConnections,
+				}
+			})
+		},
+		fx.ResultTags(`group:"healthcheckers"`),
+	),
+
+	// Health checker group collector
+	fx.Annotate(
+		func(checkers []healthcheck.Checker) HealthCheckerGroup {
+			return HealthCheckerGroup{Checkers: checkers}
+		},
+		fx.ParamTags(`group:"healthcheckers"`),
+	),
 )
 
 // RepositoryModule provides repository implementations
@@ -607,52 +619,62 @@ func (s *PureAPIServer) Shutdown(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
+// HealthCheckerGroup represents the collected health checkers from the value group
+type HealthCheckerGroup struct {
+	Checkers []healthcheck.Checker `group:"healthcheckers"`
+}
+
 // InitializeHealthChecks registers all health checks with the enterprise health check instance
 func InitializeHealthChecks(
 	cfg *config.Config,
 	log *zap.Logger,
 	hc *healthcheck.EnterpriseHealthCheck,
-	systemChecker healthcheck.Checker,
-	dbChecker healthcheck.Checker,
+	group HealthCheckerGroup,
 ) {
 	log.Info("Initializing enterprise health checks")
 	
-	// Register system checker
-	if cfg.Monitoring.HealthCheck.EnableCircuitBreaker {
-		circuitConfig := healthcheck.CircuitBreakerConfig{
-			FailureThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.FailureThreshold,
-			SuccessThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.SuccessThreshold,
-			Timeout:         cfg.Monitoring.HealthCheck.CircuitBreaker.Timeout,
-			MaxRequests:     cfg.Monitoring.HealthCheck.CircuitBreaker.MaxRequests,
-		}
-		hc.RegisterWithCircuitBreaker("system", systemChecker, circuitConfig)
-	} else {
-		hc.Register("system", systemChecker)
-	}
+	// Create a map to store checkers by name for dependency registration
+	checkerMap := make(map[string]healthcheck.Checker)
 	
-	// Register database checker
-	if cfg.Monitoring.HealthCheck.EnableCircuitBreaker {
-		circuitConfig := healthcheck.CircuitBreakerConfig{
-			FailureThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.FailureThreshold,
-			SuccessThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.SuccessThreshold,
-			Timeout:         cfg.Monitoring.HealthCheck.CircuitBreaker.Timeout,
-			MaxRequests:     cfg.Monitoring.HealthCheck.CircuitBreaker.MaxRequests,
+	// Register all checkers from the value group
+	for _, checker := range group.Checkers {
+		// Get the checker name by performing a test check to extract the name
+		testCtx := context.Background()
+		testCheck := checker.Check(testCtx)
+		checkerName := testCheck.Name
+		
+		// Store in map for later dependency registration
+		checkerMap[checkerName] = checker
+		
+		// Register with or without circuit breaker
+		if cfg.Monitoring.HealthCheck.EnableCircuitBreaker {
+			circuitConfig := healthcheck.CircuitBreakerConfig{
+				FailureThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.FailureThreshold,
+				SuccessThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.SuccessThreshold,
+				Timeout:         cfg.Monitoring.HealthCheck.CircuitBreaker.Timeout,
+				MaxRequests:     cfg.Monitoring.HealthCheck.CircuitBreaker.MaxRequests,
+			}
+			hc.RegisterWithCircuitBreaker(checkerName, checker, circuitConfig)
+		} else {
+			hc.Register(checkerName, checker)
 		}
-		hc.RegisterWithCircuitBreaker("database", dbChecker, circuitConfig)
-	} else {
-		hc.Register("database", dbChecker)
+		
+		log.Info("Registered health checker", zap.String("name", checkerName))
 	}
 	
 	// Register dependencies if enabled
 	if cfg.Monitoring.HealthCheck.EnableDependencies {
-		// Register database dependency
-		dbDep := healthcheck.DatabaseDependency("database", true, dbChecker)
-		hc.RegisterDependency(dbDep)
+		// Register database dependency if database checker exists
+		if dbChecker, exists := checkerMap["database"]; exists {
+			dbDep := healthcheck.DatabaseDependency("database", true, dbChecker)
+			hc.RegisterDependency(dbDep)
+		}
 		
 		log.Info("Registered health check dependencies")
 	}
 	
 	log.Info("Enterprise health checks initialized successfully",
+		zap.Int("checkers_count", len(group.Checkers)),
 		zap.Bool("circuit_breaker", cfg.Monitoring.HealthCheck.EnableCircuitBreaker),
 		zap.Bool("dependencies", cfg.Monitoring.HealthCheck.EnableDependencies),
 		zap.Bool("metrics", cfg.Monitoring.HealthCheck.EnableMetrics),

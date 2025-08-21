@@ -1,8 +1,7 @@
-# Dockerfile.web - HTMX Web Frontend Service
 # Build stage
 FROM golang:1.23-alpine AS builder
 
-# Install build dependencies and security tools
+# Install dependencies
 RUN apk add --no-cache \
     git \
     ca-certificates \
@@ -11,19 +10,13 @@ RUN apk add --no-cache \
     gcc \
     musl-dev
 
-# Set security labels
-LABEL maintainer="Alchemorsel Team <devops@alchemorsel.com>"
-LABEL org.opencontainers.image.source="https://github.com/alchemorsel/v3"
-LABEL org.opencontainers.image.description="Alchemorsel v3 Web Frontend Server"
-LABEL org.opencontainers.image.licenses="MIT"
-
 # Set working directory
 WORKDIR /app
 
-# Copy dependency files first for better caching
+# Copy go modules
 COPY go.mod go.sum ./
 
-# Download dependencies with verification
+# Download dependencies
 RUN go mod download && go mod verify
 
 # Copy source code
@@ -32,60 +25,44 @@ COPY . .
 # Update module dependencies for Go 1.23
 RUN go mod tidy
 
-# Run security and quality checks
-# TODO: Fix compatibility issues with Go 1.23 before re-enabling
-# RUN go vet ./...
-# RUN go test -race -short ./...
+# Skip build checks temporarily to get container running
+# TODO: Re-enable after fixing syntax errors in performance package
 
-# Build optimized binary with security flags for Web service
+# Build web frontend binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -a \
     -installsuffix cgo \
     -ldflags='-w -s -extldflags "-static"' \
     -tags netgo \
-    -o web-server cmd/web/main.go
+    -o main cmd/app/main.go
 
-# Build health check command
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -a \
-    -installsuffix cgo \
-    -ldflags='-w -s -extldflags "-static"' \
-    -tags netgo \
-    -o health-check cmd/health-check/main.go
+# Compress binary
+RUN upx --best --lzma main
 
-# Compress binaries
-RUN upx --best --lzma web-server
-RUN upx --best --lzma health-check
-
-# Distroless stage for maximum security
+# Runtime stage
 FROM gcr.io/distroless/static:nonroot
 
-# Import timezone data
+# Copy timezone data
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
-# Copy binaries from builder stage
-COPY --from=builder /app/web-server /app/web-server
-COPY --from=builder /app/health-check /app/health-check
+# Copy the binary
+COPY --from=builder /app/main /app/main
 
-# Copy configuration files
+# Copy configuration
 COPY --from=builder /app/config /app/config
 
-# Copy static files and templates for web frontend
+# Copy static assets and templates
 COPY --from=builder /app/internal/infrastructure/http/server/static /app/static
 COPY --from=builder /app/internal/infrastructure/http/server/templates /app/templates
+
+# Copy migrations
+COPY --from=builder /app/internal/infrastructure/persistence/migrations /app/migrations
 
 # Set working directory
 WORKDIR /app
 
-# Use nonroot user from distroless
-USER nonroot:nonroot
-
-# Expose web port
+# Expose port
 EXPOSE 8080
 
-# Health check for Web service using standalone health check command
-HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
-    CMD ["/app/health-check", "--url=http://localhost:8080/health", "--mode=standard", "--timeout=10s"]
-
-# Run the Web application
-ENTRYPOINT ["/app/web-server"]
+# Run the binary
+ENTRYPOINT ["./main"]

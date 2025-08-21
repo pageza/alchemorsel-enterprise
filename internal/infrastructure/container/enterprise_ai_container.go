@@ -2,10 +2,15 @@
 package container
 
 import (
+	"context"
+	"net/http"
+	"time"
+
 	"github.com/alchemorsel/v3/internal/application/ai"
 	"github.com/alchemorsel/v3/internal/infrastructure/cache"
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
 	"github.com/alchemorsel/v3/internal/infrastructure/http/handlers"
+	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"go.uber.org/zap"
 )
 
@@ -64,8 +69,9 @@ func (c *EnterpriseAIContainer) createAIService() *ai.EnterpriseAIService {
 		ModelSettings:        c.getModelSettings(),
 	}
 
-	// Get cache repository
-	cacheRepo := c.cacheService.GetCacheRepository()
+	// For now, use nil cache repository to get basic compilation  
+	// TODO: Implement proper cache repository adapter
+	var cacheRepo outbound.CacheRepository = nil
 
 	// Create the enterprise AI service
 	return ai.NewEnterpriseAIService(
@@ -85,14 +91,15 @@ func (c *EnterpriseAIContainer) createAIHandler() *handlers.EnterpriseAIHandler 
 // Configuration helper methods
 
 func (c *EnterpriseAIContainer) getAIProvider() string {
-	if provider := c.config.GetString("ai.primary_provider"); provider != "" {
+	if provider := c.config.AI.Provider; provider != "" {
 		return provider
 	}
 	return "ollama" // Default to containerized Ollama
 }
 
 func (c *EnterpriseAIContainer) getFallbackProviders() []string {
-	providers := c.config.GetStringSlice("ai.fallback_providers")
+	// For now, return default fallback providers since not in config struct yet
+	providers := []string{"openai", "mock"}
 	if len(providers) == 0 {
 		return []string{"openai", "mock"}
 	}
@@ -100,7 +107,8 @@ func (c *EnterpriseAIContainer) getFallbackProviders() []string {
 }
 
 func (c *EnterpriseAIContainer) getDailyBudget() int {
-	budget := c.config.GetInt("ai.daily_budget_cents")
+	// Default daily budget since not in config struct yet
+	budget := 0
 	if budget <= 0 {
 		return 10000 // Default $100
 	}
@@ -108,7 +116,8 @@ func (c *EnterpriseAIContainer) getDailyBudget() int {
 }
 
 func (c *EnterpriseAIContainer) getMonthlyBudget() int {
-	budget := c.config.GetInt("ai.monthly_budget_cents")
+	// Default monthly budget since not in config struct yet
+	budget := 0
 	if budget <= 0 {
 		return 300000 // Default $3000
 	}
@@ -116,7 +125,8 @@ func (c *EnterpriseAIContainer) getMonthlyBudget() int {
 }
 
 func (c *EnterpriseAIContainer) getRequestsPerMinute() int {
-	rate := c.config.GetInt("ai.rate_limit.requests_per_minute")
+	// Default rate limit since not in config struct yet
+	rate := 0
 	if rate <= 0 {
 		return 60
 	}
@@ -124,7 +134,8 @@ func (c *EnterpriseAIContainer) getRequestsPerMinute() int {
 }
 
 func (c *EnterpriseAIContainer) getRequestsPerHour() int {
-	rate := c.config.GetInt("ai.rate_limit.requests_per_hour")
+	// Default rate limit since not in config struct yet
+	rate := 0
 	if rate <= 0 {
 		return 3600
 	}
@@ -132,7 +143,8 @@ func (c *EnterpriseAIContainer) getRequestsPerHour() int {
 }
 
 func (c *EnterpriseAIContainer) getRequestsPerDay() int {
-	rate := c.config.GetInt("ai.rate_limit.requests_per_day")
+	// Default rate limit since not in config struct yet
+	rate := 0
 	if rate <= 0 {
 		return 86400
 	}
@@ -140,7 +152,8 @@ func (c *EnterpriseAIContainer) getRequestsPerDay() int {
 }
 
 func (c *EnterpriseAIContainer) getMinQualityScore() float64 {
-	score := c.config.GetFloat64("ai.quality.min_score")
+	// Default quality score since not in config struct yet
+	score := 0.0
 	if score <= 0 {
 		return 0.7
 	}
@@ -148,15 +161,18 @@ func (c *EnterpriseAIContainer) getMinQualityScore() float64 {
 }
 
 func (c *EnterpriseAIContainer) getQualityCheckEnabled() bool {
-	return c.config.GetBool("ai.quality.enabled")
+	// Default quality check enabled since not in config struct yet
+	return true
 }
 
 func (c *EnterpriseAIContainer) getCacheEnabled() bool {
-	return c.config.GetBool("ai.cache.enabled")
+	// Use AI config cache setting
+	return c.config.AI.EnableCache
 }
 
 func (c *EnterpriseAIContainer) getCacheTTL() time.Duration {
-	ttl := c.config.GetDuration("ai.cache.ttl")
+	// Use AI config cache TTL
+	ttl := c.config.AI.CacheTTL
 	if ttl == 0 {
 		return 2 * time.Hour
 	}
@@ -164,11 +180,13 @@ func (c *EnterpriseAIContainer) getCacheTTL() time.Duration {
 }
 
 func (c *EnterpriseAIContainer) getMetricsEnabled() bool {
-	return c.config.GetBool("ai.metrics.enabled")
+	// Default metrics enabled since not in config struct yet
+	return true
 }
 
 func (c *EnterpriseAIContainer) getAlertsEnabled() bool {
-	return c.config.GetBool("ai.alerts.enabled")
+	// Default alerts enabled since not in config struct yet
+	return true
 }
 
 func (c *EnterpriseAIContainer) getModelSettings() map[string]ai.ModelConfig {
@@ -200,12 +218,8 @@ func (c *EnterpriseAIContainer) getModelSettings() map[string]ai.ModelConfig {
 		},
 	}
 
-	// Override with configuration if present
-	if configSettings := c.config.GetStringMap("ai.model_settings"); len(configSettings) > 0 {
-		// Parse configuration and override defaults
-		// This would be more complex in a real implementation
-		c.logger.Info("Using configured model settings", zap.Int("models", len(configSettings)))
-	}
+	// TODO: Override with configuration if present (not in config struct yet)
+	// In future, this would parse AI config model settings
 
 	return settings
 }

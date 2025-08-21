@@ -482,7 +482,7 @@ func (c *Client) AnalyzeNutrition(ctx context.Context, ingredients []string) (*o
 }
 
 func (c *Client) GenerateDescription(ctx context.Context, recipe *recipe.Recipe) (string, error) {
-	return fmt.Sprintf("A delicious %s recipe that's perfect for any occasion.", recipe.Title), nil
+	return fmt.Sprintf("A delicious %s recipe that's perfect for any occasion.", recipe.Title()), nil
 }
 
 func (c *Client) ClassifyRecipe(ctx context.Context, recipe *recipe.Recipe) (*outbound.RecipeClassification, error) {
