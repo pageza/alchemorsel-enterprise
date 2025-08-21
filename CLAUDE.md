@@ -125,12 +125,37 @@ Alchemorsel v3 is an AI-first recipe platform with HTMX frontend, focusing on 14
 - **Security**: All inputs sanitized, proper auth boundaries (ADR-0013)
 - **Testing**: Real PostgreSQL testing only (ADR-0012)
 
+## Development Diary System (MANDATORY):
+
+### Memory System Requirements:
+**ALL sessions must use `/DEVELOPMENT_DIARY.md` as a memory system to prevent break/fix/break loops**
+
+### Diary Contents (REQUIRED):
+1. **Application Intent**: Brief summary of platform purpose and core features
+2. **Feature References**: Link to relevant ADRs and PRDs for context
+3. **Decision Log**: Record key decisions with date, summary, and reasoning
+4. **Current State**: Track completed phases and current focus areas
+5. **Technical Debt**: Document known issues and architecture risks
+6. **Memory Triggers**: Critical reminders for future sessions
+
+### Session Workflow (MANDATORY):
+1. **Start Session**: Read diary to understand previous context and decisions
+2. **During Session**: Update diary with any significant decisions or discoveries
+3. **End Session**: Document current state and next steps for future sessions
+
+### Purpose:
+- **Prevent Forgetfulness**: Maintain context across sessions
+- **Avoid Reversions**: Remember why decisions were made
+- **Break Fix/Break Loops**: Learn from previous attempts
+- **Maintain Consistency**: Ensure architectural decisions stick
+
 ## Emergency Procedures:
 - **Architecture Drift**: Immediate ADR review and correction
 - **Security Issues**: STOP development, use cybersecurity-auditor immediately
 - **Performance Regression**: Use network-performance-optimizer for analysis
 - **Unknown Territory**: Use software-architect for guidance
+- **Session Confusion**: READ DEVELOPMENT_DIARY.md immediately
 
 ---
 
-**Remember**: These ADRs and workflows exist to maintain consistency and quality. When in doubt, consult the appropriate ADR and use the recommended subagent for the task type.
+**Remember**: These ADRs, workflows, and the development diary exist to maintain consistency and quality. When in doubt, consult the diary, appropriate ADR, and use the recommended subagent for the task type.

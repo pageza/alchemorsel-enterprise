@@ -300,14 +300,14 @@ func (scs *SessionCacheService) CacheUser(ctx context.Context, u *user.User, pre
 		return nil
 	}
 	
-	userKey := scs.keyBuilder.BuildUserKey(u.ID.String())
+	userKey := scs.keyBuilder.BuildUserKey(u.ID().String())
 	
 	cached := CachedUser{
 		User:         u,
 		Preferences:  preferences,
 		Settings:     settings,
 		CachedAt:     time.Now(),
-		LastModified: u.UpdatedAt,
+		LastModified: u.UpdatedAt(),
 		AccessCount:  0,
 	}
 	
@@ -322,14 +322,14 @@ func (scs *SessionCacheService) CacheUser(ctx context.Context, u *user.User, pre
 	
 	// Cache preferences separately for quick access
 	if scs.config.PreloadPrefs && len(preferences) > 0 {
-		prefsKey := scs.keyBuilder.BuildKey("user_prefs", u.ID.String())
+		prefsKey := scs.keyBuilder.BuildKey("user_prefs", u.ID().String())
 		prefsData, err := json.Marshal(preferences)
 		if err == nil {
 			scs.cache.Set(ctx, prefsKey, prefsData, scs.config.PreferencesTTL)
 		}
 	}
 	
-	scs.logger.Debug("User cached", zap.String("user_id", u.ID.String()))
+	scs.logger.Debug("User cached", zap.String("user_id", u.ID().String()))
 	return nil
 }
 

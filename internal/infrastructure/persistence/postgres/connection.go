@@ -30,62 +30,62 @@ type ConnectionManager struct {
 // ConnectionConfig holds advanced connection configuration
 type ConnectionConfig struct {
 	// Connection Pool Settings
-	MaxOpenConns        int           `json:"max_open_conns"`
-	MaxIdleConns        int           `json:"max_idle_conns"`
-	ConnMaxLifetime     time.Duration `json:"conn_max_lifetime"`
-	ConnMaxIdleTime     time.Duration `json:"conn_max_idle_time"`
-	
+	MaxOpenConns    int           `json:"max_open_conns"`
+	MaxIdleConns    int           `json:"max_idle_conns"`
+	ConnMaxLifetime time.Duration `json:"conn_max_lifetime"`
+	ConnMaxIdleTime time.Duration `json:"conn_max_idle_time"`
+
 	// Performance Settings
-	SlowQueryThreshold  time.Duration `json:"slow_query_threshold"`
-	QueryTimeout        time.Duration `json:"query_timeout"`
-	LogLevel            string        `json:"log_level"`
-	
+	SlowQueryThreshold time.Duration `json:"slow_query_threshold"`
+	QueryTimeout       time.Duration `json:"query_timeout"`
+	LogLevel           string        `json:"log_level"`
+
 	// Read Replica Settings
-	ReadReplicas        []string      `json:"read_replicas"`
-	ReadWritePolicy     string        `json:"read_write_policy"`
-	LoadBalancePolicy   string        `json:"load_balance_policy"`
-	
+	ReadReplicas      []string `json:"read_replicas"`
+	ReadWritePolicy   string   `json:"read_write_policy"`
+	LoadBalancePolicy string   `json:"load_balance_policy"`
+
 	// Cache Settings
-	EnableQueryCache    bool          `json:"enable_query_cache"`
-	CacheTTL           time.Duration `json:"cache_ttl"`
-	
+	EnableQueryCache bool          `json:"enable_query_cache"`
+	CacheTTL         time.Duration `json:"cache_ttl"`
+
 	// Monitoring Settings
-	EnableMetrics       bool          `json:"enable_metrics"`
-	MetricsInterval     time.Duration `json:"metrics_interval"`
+	EnableMetrics   bool          `json:"enable_metrics"`
+	MetricsInterval time.Duration `json:"metrics_interval"`
 }
 
 // DefaultConnectionConfig returns optimized default configuration
 func DefaultConnectionConfig() *ConnectionConfig {
 	return &ConnectionConfig{
 		// Optimized for 1000+ concurrent users
-		MaxOpenConns:        100,  // Increased from 25
-		MaxIdleConns:        25,   // Increased from 5
-		ConnMaxLifetime:     30 * time.Minute, // Reduced from 1h
-		ConnMaxIdleTime:     5 * time.Minute,  // Reduced from 10m
-		
+		MaxOpenConns:    100,              // Increased from 25
+		MaxIdleConns:    25,               // Increased from 5
+		ConnMaxLifetime: 30 * time.Minute, // Reduced from 1h
+		ConnMaxIdleTime: 5 * time.Minute,  // Reduced from 10m
+
 		// Performance tuning
-		SlowQueryThreshold:  50 * time.Millisecond, // Aggressive threshold
-		QueryTimeout:        30 * time.Second,
+		SlowQueryThreshold: 50 * time.Millisecond, // Aggressive threshold
+		QueryTimeout:       30 * time.Second,
 		LogLevel:           "warn",
-		
+
 		// Read replica configuration
-		ReadWritePolicy:    "auto",
-		LoadBalancePolicy:  "round_robin",
-		
+		ReadWritePolicy:   "auto",
+		LoadBalancePolicy: "round_robin",
+
 		// Cache configuration
-		EnableQueryCache:   true,
-		CacheTTL:          5 * time.Minute,
-		
+		EnableQueryCache: true,
+		CacheTTL:         5 * time.Minute,
+
 		// Monitoring
-		EnableMetrics:      true,
-		MetricsInterval:    10 * time.Second,
+		EnableMetrics:   true,
+		MetricsInterval: 10 * time.Second,
 	}
 }
 
 // NewConnectionManager creates a new connection manager with optimized settings
 func NewConnectionManager(cfg *config.Config, log *zap.Logger) (*ConnectionManager, error) {
 	connConfig := DefaultConnectionConfig()
-	
+
 	// Override defaults with config values
 	if cfg.Database.MaxOpenConns > 0 {
 		connConfig.MaxOpenConns = cfg.Database.MaxOpenConns
@@ -139,15 +139,15 @@ func NewConnectionManager(cfg *config.Config, log *zap.Logger) (*ConnectionManag
 // initializePrimaryConnection sets up the primary database connection
 func (cm *ConnectionManager) initializePrimaryConnection(config *ConnectionConfig) error {
 	dsn := cm.config.GetDSN()
-	
+
 	// Create GORM logger with performance optimization
 	gormLogger := cm.createGORMLogger(config)
-	
+
 	// Open database connection
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger:                 gormLogger,
-		SkipDefaultTransaction: true, // Improve performance
-		PrepareStmt:           true,  // Enable prepared statements
+		Logger:                                   gormLogger,
+		SkipDefaultTransaction:                   true, // Improve performance
+		PrepareStmt:                              true, // Enable prepared statements
 		DisableForeignKeyConstraintWhenMigrating: false,
 	})
 	if err != nil {
@@ -169,7 +169,7 @@ func (cm *ConnectionManager) initializePrimaryConnection(config *ConnectionConfi
 	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	if err := sqlDB.PingContext(ctx); err != nil {
 		return fmt.Errorf("failed to ping database: %w", err)
 	}
@@ -340,7 +340,7 @@ func (cm *ConnectionManager) collectMetrics() {
 
 	stats := cm.writeDB.Stats()
 	cm.metrics.UpdateConnectionStats(stats)
-	
+
 	// Collect query metrics
 	queryStats := cm.queryMonitor.GetStats()
 	cm.metrics.UpdateQueryStats(queryStats)
@@ -352,7 +352,7 @@ func getLoadBalancePolicy(policy string) dbresolver.Policy {
 	case "random":
 		return dbresolver.RandomPolicy{}
 	case "round_robin":
-		return dbresolver.RoundRobinPolicy{}
+		return dbresolver.RoundRobinPolicy()
 	default:
 		return dbresolver.RandomPolicy{}
 	}

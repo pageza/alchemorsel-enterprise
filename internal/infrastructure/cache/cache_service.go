@@ -3,13 +3,10 @@ package cache
 
 import (
 	"context"
-	"crypto/md5"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"go.uber.org/zap"
 )
 
@@ -94,7 +91,7 @@ func NewCacheService(redis *RedisClient, config *CacheConfig, logger *zap.Logger
 		config:      config,
 		logger:      logger,
 		serializer:  NewJSONSerializer(),
-		keyBuilder:  NewKeyBuilder(),
+		keyBuilder:  *NewKeyBuilder(),
 		compressor:  NewGzipCompressor(),
 		metrics:     &CacheMetrics{LastReset: time.Now()},
 	}

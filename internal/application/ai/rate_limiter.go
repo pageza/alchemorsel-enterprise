@@ -203,7 +203,6 @@ func (rl *RateLimiter) GetStatus(ctx context.Context, userID uuid.UUID) (*RateLi
 	defer rl.mu.RUnlock()
 	
 	userLimit := rl.getUserRateLimit(userID)
-	now := time.Now()
 	
 	// Calculate reset times
 	minuteReset := userLimit.WindowMinute.Add(time.Minute)

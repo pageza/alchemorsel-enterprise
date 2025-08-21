@@ -2,6 +2,7 @@
 package ai
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -22,13 +23,13 @@ func (s *EnterpriseAIService) buildOptimizationPrompt(rec *recipe.Recipe, optimi
 	// Add ingredients
 	prompt.WriteString("Ingredients:\n")
 	for _, ingredient := range rec.Ingredients() {
-		prompt.WriteString(fmt.Sprintf("- %s\n", ingredient.String()))
+		prompt.WriteString(fmt.Sprintf("- %s\n", ingredient.Name))
 	}
 	
 	// Add instructions
 	prompt.WriteString("\nInstructions:\n")
 	for i, instruction := range rec.Instructions() {
-		prompt.WriteString(fmt.Sprintf("%d. %s\n", i+1, instruction.Text))
+		prompt.WriteString(fmt.Sprintf("%d. %s\n", i+1, instruction.Description))
 	}
 	
 	// Optimization-specific instructions
@@ -91,12 +92,12 @@ func (s *EnterpriseAIService) buildDietaryAdaptationPrompt(rec *recipe.Recipe, d
 	
 	prompt.WriteString("Ingredients:\n")
 	for _, ingredient := range rec.Ingredients() {
-		prompt.WriteString(fmt.Sprintf("- %s\n", ingredient.String()))
+		prompt.WriteString(fmt.Sprintf("- %s\n", ingredient.Name))
 	}
 	
 	prompt.WriteString("\nInstructions:\n")
 	for i, instruction := range rec.Instructions() {
-		prompt.WriteString(fmt.Sprintf("%d. %s\n", i+1, instruction.Text))
+		prompt.WriteString(fmt.Sprintf("%d. %s\n", i+1, instruction.Description))
 	}
 	
 	// Dietary-specific guidance

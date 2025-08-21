@@ -2,7 +2,6 @@
 package postgres
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -61,12 +60,12 @@ func (qm *QueryMonitor) BeforeQuery(db *gorm.DB) {
 	if db.Statement == nil {
 		return
 	}
-	
+
 	ctx := &QueryContext{
 		StartTime: time.Now(),
 		SQL:       db.Statement.SQL.String(),
 	}
-	
+
 	db.InstanceSet("query_monitor_context", ctx)
 }
 
@@ -75,19 +74,19 @@ func (qm *QueryMonitor) AfterQuery(db *gorm.DB) {
 	if db.Statement == nil {
 		return
 	}
-	
+
 	ctxInterface, exists := db.InstanceGet("query_monitor_context")
 	if !exists {
 		return
 	}
-	
+
 	ctx, ok := ctxInterface.(*QueryContext)
 	if !ok {
 		return
 	}
-	
+
 	duration := time.Since(ctx.StartTime)
-	
+
 	qm.recordQuery(ctx.SQL, duration, db.Error)
 }
 
@@ -95,31 +94,31 @@ func (qm *QueryMonitor) AfterQuery(db *gorm.DB) {
 func (qm *QueryMonitor) recordQuery(sql string, duration time.Duration, err error) {
 	qm.mu.Lock()
 	defer qm.mu.Unlock()
-	
+
 	qm.stats.TotalQueries++
 	qm.stats.TotalQueryTime += duration
 	qm.stats.AverageQueryTime = qm.stats.TotalQueryTime / time.Duration(qm.stats.TotalQueries)
-	
+
 	if err != nil {
 		qm.stats.FailedQueries++
 	}
-	
+
 	// Check for slow queries (threshold: 100ms)
 	if duration > 100*time.Millisecond {
 		qm.stats.SlowQueries++
-		
+
 		slowQuery := SlowQuery{
 			SQL:       qm.sanitizeSQL(sql),
 			Duration:  duration,
 			Timestamp: time.Now(),
 		}
-		
+
 		if err != nil {
 			slowQuery.Error = err.Error()
 		}
-		
+
 		qm.recordSlowQuery(slowQuery)
-		
+
 		// Log slow query
 		qm.logger.Warn("Slow query detected",
 			zap.Duration("duration", duration),
@@ -135,7 +134,7 @@ func (qm *QueryMonitor) recordSlowQuery(query SlowQuery) {
 		// Remove oldest entry
 		qm.slowQueries = qm.slowQueries[1:]
 	}
-	
+
 	qm.slowQueries = append(qm.slowQueries, query)
 }
 
@@ -143,12 +142,12 @@ func (qm *QueryMonitor) recordSlowQuery(query SlowQuery) {
 func (qm *QueryMonitor) sanitizeSQL(sql string) string {
 	// Replace potential sensitive values with placeholders
 	sanitized := strings.ReplaceAll(sql, "'", "?")
-	
+
 	// Limit length for readability
 	if len(sanitized) > 500 {
 		sanitized = sanitized[:500] + "..."
 	}
-	
+
 	return sanitized
 }
 
@@ -156,7 +155,7 @@ func (qm *QueryMonitor) sanitizeSQL(sql string) string {
 func (qm *QueryMonitor) GetStats() QueryStats {
 	qm.mu.RLock()
 	defer qm.mu.RUnlock()
-	
+
 	return qm.stats
 }
 
@@ -164,20 +163,20 @@ func (qm *QueryMonitor) GetStats() QueryStats {
 func (qm *QueryMonitor) GetSlowQueries(limit int) []SlowQuery {
 	qm.mu.RLock()
 	defer qm.mu.RUnlock()
-	
+
 	if limit == 0 || limit > len(qm.slowQueries) {
 		limit = len(qm.slowQueries)
 	}
-	
+
 	// Return most recent queries
 	start := len(qm.slowQueries) - limit
 	if start < 0 {
 		start = 0
 	}
-	
+
 	result := make([]SlowQuery, limit)
 	copy(result, qm.slowQueries[start:])
-	
+
 	return result
 }
 
@@ -185,7 +184,7 @@ func (qm *QueryMonitor) GetSlowQueries(limit int) []SlowQuery {
 func (qm *QueryMonitor) ResetStats() {
 	qm.mu.Lock()
 	defer qm.mu.Unlock()
-	
+
 	qm.stats = QueryStats{LastReset: time.Now()}
 	qm.slowQueries = make([]SlowQuery, 0)
 }
@@ -194,12 +193,12 @@ func (qm *QueryMonitor) ResetStats() {
 func (qm *QueryMonitor) GetTopSlowQueries(limit int) []QueryPattern {
 	qm.mu.RLock()
 	defer qm.mu.RUnlock()
-	
+
 	patterns := make(map[string]*QueryPattern)
-	
+
 	for _, query := range qm.slowQueries {
 		pattern := qm.extractQueryPattern(query.SQL)
-		
+
 		if p, exists := patterns[pattern]; exists {
 			p.Count++
 			p.TotalDuration += query.Duration
@@ -220,14 +219,14 @@ func (qm *QueryMonitor) GetTopSlowQueries(limit int) []QueryPattern {
 			}
 		}
 	}
-	
+
 	// Convert to slice and sort by total duration
 	result := make([]QueryPattern, 0, len(patterns))
 	for _, pattern := range patterns {
 		pattern.AverageDuration = pattern.TotalDuration / time.Duration(pattern.Count)
 		result = append(result, *pattern)
 	}
-	
+
 	// Sort by total duration (highest first)
 	for i := 0; i < len(result)-1; i++ {
 		for j := i + 1; j < len(result); j++ {
@@ -236,11 +235,11 @@ func (qm *QueryMonitor) GetTopSlowQueries(limit int) []QueryPattern {
 			}
 		}
 	}
-	
+
 	if limit > 0 && limit < len(result) {
 		result = result[:limit]
 	}
-	
+
 	return result
 }
 
@@ -259,15 +258,15 @@ type QueryPattern struct {
 func (qm *QueryMonitor) extractQueryPattern(sql string) string {
 	// Normalize whitespace
 	normalized := strings.Join(strings.Fields(sql), " ")
-	
+
 	// Extract query type and main table
 	parts := strings.Split(strings.ToUpper(normalized), " ")
 	if len(parts) == 0 {
 		return "UNKNOWN"
 	}
-	
+
 	queryType := parts[0]
-	
+
 	// Try to identify main table for common operations
 	switch queryType {
 	case "SELECT":
@@ -287,7 +286,7 @@ func (qm *QueryMonitor) extractQueryPattern(sql string) string {
 			return fmt.Sprintf("DELETE FROM %s", parts[idx+1])
 		}
 	}
-	
+
 	return queryType
 }
 
@@ -305,26 +304,26 @@ func findWordIndex(words []string, target string) int {
 func (qm *QueryMonitor) GetQueryAnalysis() QueryAnalysis {
 	qm.mu.RLock()
 	defer qm.mu.RUnlock()
-	
+
 	analysis := QueryAnalysis{
-		Timestamp:    time.Now(),
-		TotalQueries: qm.stats.TotalQueries,
-		SlowQueries:  qm.stats.SlowQueries,
-		FailedQueries: qm.stats.FailedQueries,
+		Timestamp:        time.Now(),
+		TotalQueries:     qm.stats.TotalQueries,
+		SlowQueries:      qm.stats.SlowQueries,
+		FailedQueries:    qm.stats.FailedQueries,
 		AverageQueryTime: qm.stats.AverageQueryTime,
 	}
-	
+
 	if qm.stats.TotalQueries > 0 {
 		analysis.SlowQueryRatio = float64(qm.stats.SlowQueries) / float64(qm.stats.TotalQueries) * 100
 		analysis.FailureRate = float64(qm.stats.FailedQueries) / float64(qm.stats.TotalQueries) * 100
 	}
-	
+
 	// Get query patterns
 	analysis.TopSlowPatterns = qm.GetTopSlowQueries(10)
-	
+
 	// Generate recommendations
 	analysis.Recommendations = qm.generateQueryRecommendations()
-	
+
 	return analysis
 }
 
@@ -344,38 +343,38 @@ type QueryAnalysis struct {
 // generateQueryRecommendations generates optimization recommendations
 func (qm *QueryMonitor) generateQueryRecommendations() []string {
 	var recommendations []string
-	
+
 	if qm.stats.TotalQueries == 0 {
 		return recommendations
 	}
-	
+
 	slowRatio := float64(qm.stats.SlowQueries) / float64(qm.stats.TotalQueries) * 100
 	failureRate := float64(qm.stats.FailedQueries) / float64(qm.stats.TotalQueries) * 100
-	
+
 	if slowRatio > 10 {
 		recommendations = append(recommendations, "High slow query ratio (>10%) - urgent optimization needed")
 	} else if slowRatio > 5 {
 		recommendations = append(recommendations, "Moderate slow query ratio (>5%) - consider query optimization")
 	}
-	
+
 	if failureRate > 1 {
 		recommendations = append(recommendations, "High query failure rate (>1%) - check for database connection issues")
 	}
-	
+
 	if qm.stats.AverageQueryTime > 50*time.Millisecond {
 		recommendations = append(recommendations, "High average query time - consider adding indexes or optimizing queries")
 	}
-	
+
 	// Analyze patterns for specific recommendations
 	patterns := qm.GetTopSlowQueries(5)
 	for _, pattern := range patterns {
 		if pattern.Count > 10 && pattern.AverageDuration > 200*time.Millisecond {
-			recommendations = append(recommendations, 
-				fmt.Sprintf("Pattern '%s' executed %d times with avg duration %v - optimize this query", 
+			recommendations = append(recommendations,
+				fmt.Sprintf("Pattern '%s' executed %d times with avg duration %v - optimize this query",
 					pattern.Pattern, pattern.Count, pattern.AverageDuration))
 		}
 	}
-	
+
 	return recommendations
 }
 
@@ -388,7 +387,7 @@ type GORMLogWriter struct {
 // Printf implements the Writer interface
 func (w *GORMLogWriter) Printf(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	
+
 	// Log based on content
 	if strings.Contains(msg, "SLOW SQL") {
 		w.logger.Warn("GORM slow query", zap.String("message", msg))

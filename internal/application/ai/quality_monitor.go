@@ -2,8 +2,6 @@
 package ai
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
@@ -283,7 +281,7 @@ func (qm *QualityMonitor) GetQualityReport(featureName string) *QualityReport {
 	metrics := qm.qualityScores[featureName]
 	if metrics == nil {
 		return &QualityReport{
-			FeatureName:         featureName,
+			Period:              featureName,
 			AverageQualityScore: 0.0,
 			QualityByFeature:    make(map[string]float64),
 			QualityTrends:       []QualityTrend{},
@@ -294,11 +292,11 @@ func (qm *QualityMonitor) GetQualityReport(featureName string) *QualityReport {
 	}
 	
 	report := &QualityReport{
-		FeatureName:         featureName,
+		Period:              featureName,
 		AverageQualityScore: metrics.AverageScore,
 		QualityByFeature:    make(map[string]float64),
 		QualityTrends:       qm.generateQualityTrends(featureName),
-		LowQualityAlerts:    metrics.LowQualityCount,
+		LowQualityAlerts:    int(metrics.LowQualityCount),
 		ImprovementSuggestions: qm.generateImprovementSuggestions(featureName),
 		GeneratedAt:         time.Now(),
 	}

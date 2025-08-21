@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -140,11 +139,11 @@ func (rcs *RecipeCacheService) GetRecipe(ctx context.Context, id uuid.UUID, fall
 
 // CacheRecipe stores a recipe in cache with tags for invalidation
 func (rcs *RecipeCacheService) CacheRecipe(ctx context.Context, r *recipe.Recipe) error {
-	if r == nil || r.ID == uuid.Nil {
+	if r == nil || r.ID() == uuid.Nil {
 		return fmt.Errorf("invalid recipe for caching")
 	}
 	
-	cacheKey := rcs.keyBuilder.BuildRecipeKey(r.ID.String())
+	cacheKey := rcs.keyBuilder.BuildRecipeKey(r.ID().String())
 	
 	// Create cached recipe with metadata
 	cached := CachedRecipe{
@@ -162,8 +161,8 @@ func (rcs *RecipeCacheService) CacheRecipe(ctx context.Context, r *recipe.Recipe
 	// Store with tags for invalidation
 	tags := append([]string{
 		"recipe",
-		fmt.Sprintf("user:%s", r.AuthorID.String()),
-		fmt.Sprintf("status:%s", r.Status),
+		fmt.Sprintf("user:%s", r.AuthorID().String()),
+		fmt.Sprintf("status:%s", r.Status()),
 	}, rcs.generateCuisineTags(r)...)
 	
 	if err := rcs.cache.SetWithTags(ctx, cacheKey, data, rcs.config.RecipeTTL, tags); err != nil {
@@ -171,7 +170,7 @@ func (rcs *RecipeCacheService) CacheRecipe(ctx context.Context, r *recipe.Recipe
 	}
 	
 	rcs.logger.Debug("Recipe cached successfully", 
-		zap.String("recipe_id", r.ID.String()),
+		zap.String("recipe_id", r.ID().String()),
 		zap.Strings("tags", tags))
 	
 	return nil
@@ -193,7 +192,7 @@ func (rcs *RecipeCacheService) GetRecipeList(ctx context.Context, criteria outbo
 				zap.String("filters", cached.Filters),
 				zap.Int("count", len(cached.Recipes)))
 			
-			return cached.Results, cached.Total, nil
+			return cached.Recipes, cached.Total, nil
 		}
 		
 		rcs.logger.Error("Failed to unmarshal cached recipe list", zap.Error(err))
@@ -420,7 +419,7 @@ func (rcs *RecipeCacheService) WarmupPopularRecipes(ctx context.Context, loader 
 	for _, r := range recipes {
 		if err := rcs.CacheRecipe(ctx, r); err != nil {
 			rcs.logger.Error("Failed to warm recipe cache", 
-				zap.String("recipe_id", r.ID.String()), 
+				zap.String("recipe_id", r.ID().String()), 
 				zap.Error(err))
 		} else {
 			warmed++
@@ -456,29 +455,25 @@ func (rcs *RecipeCacheService) updateAccessCount(ctx context.Context, cacheKey s
 func (rcs *RecipeCacheService) generateRecipeTags(r *recipe.Recipe) []string {
 	tags := []string{
 		"recipe",
-		fmt.Sprintf("user:%s", r.AuthorID.String()),
-		fmt.Sprintf("status:%s", r.Status),
+		fmt.Sprintf("user:%s", r.AuthorID().String()),
+		fmt.Sprintf("status:%s", r.Status()),
 	}
 	
 	// Add cuisine tags
 	tags = append(tags, rcs.generateCuisineTags(r)...)
 	
-	// Add category tags
-	for _, category := range r.Categories {
-		tags = append(tags, fmt.Sprintf("category:%s", category))
-	}
+	// Add category tag
+	tags = append(tags, fmt.Sprintf("category:%s", r.Category()))
 	
 	// Add difficulty tag
-	tags = append(tags, fmt.Sprintf("difficulty:%s", r.Difficulty))
+	tags = append(tags, fmt.Sprintf("difficulty:%s", r.Difficulty()))
 	
 	return tags
 }
 
 func (rcs *RecipeCacheService) generateCuisineTags(r *recipe.Recipe) []string {
-	tags := make([]string, 0, len(r.Cuisines))
-	for _, cuisine := range r.Cuisines {
-		tags = append(tags, fmt.Sprintf("cuisine:%s", cuisine))
-	}
+	tags := make([]string, 0, 1)
+	tags = append(tags, fmt.Sprintf("cuisine:%s", r.Cuisine()))
 	return tags
 }
 
@@ -514,18 +509,30 @@ func (rcs *RecipeCacheService) buildRecipeListKey(criteria outbound.SearchCriter
 	}
 	
 	if len(criteria.Cuisines) > 0 {
-		sort.Strings(criteria.Cuisines)
-		filters["cuisines"] = strings.Join(criteria.Cuisines, ",")
+		cuisineStrings := make([]string, len(criteria.Cuisines))
+		for i, cuisine := range criteria.Cuisines {
+			cuisineStrings[i] = string(cuisine)
+		}
+		sort.Strings(cuisineStrings)
+		filters["cuisines"] = strings.Join(cuisineStrings, ",")
 	}
 	
 	if len(criteria.Categories) > 0 {
-		sort.Strings(criteria.Categories)
-		filters["categories"] = strings.Join(criteria.Categories, ",")
+		categoryStrings := make([]string, len(criteria.Categories))
+		for i, category := range criteria.Categories {
+			categoryStrings[i] = string(category)
+		}
+		sort.Strings(categoryStrings)
+		filters["categories"] = strings.Join(categoryStrings, ",")
 	}
 	
 	if len(criteria.Difficulty) > 0 {
-		sort.Strings(criteria.Difficulty)
-		filters["difficulty"] = strings.Join(criteria.Difficulty, ",")
+		difficultyStrings := make([]string, len(criteria.Difficulty))
+		for i, difficulty := range criteria.Difficulty {
+			difficultyStrings[i] = string(difficulty)
+		}
+		sort.Strings(difficultyStrings)
+		filters["difficulty"] = strings.Join(difficultyStrings, ",")
 	}
 	
 	if criteria.MinRating != nil {

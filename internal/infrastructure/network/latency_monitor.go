@@ -2,7 +2,10 @@ package network
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -324,7 +327,7 @@ func (lm *LatencyMonitor) GetAverageLatency(region, requestType string) time.Dur
 	}
 
 	// If no specific match, find region match
-	for name, data := range lm.measurements {
+	for _, data := range lm.measurements {
 		if data.Target.Region == region {
 			data.mu.RLock()
 			average := data.Average

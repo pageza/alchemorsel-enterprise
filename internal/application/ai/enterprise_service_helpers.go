@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alchemorsel/v3/internal/domain/recipe"
 	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // MealPlanResponse represents a generated meal plan
@@ -104,6 +104,8 @@ type CostReport struct {
 	CostByFeature     map[string]int         `json:"cost_by_feature"`
 	TokensUsed        int64                  `json:"tokens_used"`
 	AverageCostPerRequest float64           `json:"average_cost_per_request"`
+	AverageRCostPerRequest float64          `json:"average_rcost_per_request"`
+	TopUsers          []UserCostSummary      `json:"top_users"`
 	BudgetUtilization float64               `json:"budget_utilization"`
 	DailyBreakdown    []DailyCost            `json:"daily_breakdown"`
 	Projections       *CostProjection        `json:"projections"`

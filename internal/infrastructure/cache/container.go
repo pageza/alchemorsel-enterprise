@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
+	"github.com/alchemorsel/v3/internal/infrastructure/persistence/memory"
 	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"go.uber.org/zap"
 )
@@ -52,7 +53,7 @@ func NewContainer(cfg *config.Config, logger *zap.Logger) (*Container, error) {
 	container.CacheService = NewCacheService(redisClient, cacheConfig, logger)
 	
 	// Initialize cache repository
-	container.CacheRepo = NewCacheRepository(container.CacheService, logger)
+	container.CacheRepo = memory.NewCacheRepository()
 	
 	// Initialize specialized cache services
 	container.RecipeCache = NewRecipeCacheService(container.CacheService, logger)

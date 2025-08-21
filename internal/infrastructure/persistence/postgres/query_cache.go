@@ -17,21 +17,21 @@ import (
 
 // QueryCache provides intelligent query result caching with Redis
 type QueryCache struct {
-	redis        *redis.Client
-	logger       *zap.Logger
-	defaultTTL   time.Duration
-	enabled      bool
-	keyPrefix    string
-	metrics      *CacheMetrics
+	redis      *redis.Client
+	logger     *zap.Logger
+	defaultTTL time.Duration
+	enabled    bool
+	keyPrefix  string
+	metrics    *CacheMetrics
 }
 
 // CacheConfig holds cache configuration
 type CacheConfig struct {
-	Enabled       bool          `json:"enabled"`
-	DefaultTTL    time.Duration `json:"default_ttl"`
-	KeyPrefix     string        `json:"key_prefix"`
-	MaxKeyLength  int           `json:"max_key_length"`
-	CompressionEnabled bool     `json:"compression_enabled"`
+	Enabled            bool          `json:"enabled"`
+	DefaultTTL         time.Duration `json:"default_ttl"`
+	KeyPrefix          string        `json:"key_prefix"`
+	MaxKeyLength       int           `json:"max_key_length"`
+	CompressionEnabled bool          `json:"compression_enabled"`
 }
 
 // CacheMetrics tracks cache performance
@@ -47,13 +47,13 @@ type CacheMetrics struct {
 
 // CachedQuery represents a cached query with metadata
 type CachedQuery struct {
-	SQL         string      `json:"sql"`
+	SQL         string        `json:"sql"`
 	Args        []interface{} `json:"args"`
-	Result      interface{} `json:"result"`
-	CachedAt    time.Time   `json:"cached_at"`
+	Result      interface{}   `json:"result"`
+	CachedAt    time.Time     `json:"cached_at"`
 	TTL         time.Duration `json:"ttl"`
-	AccessCount int64       `json:"access_count"`
-	Tags        []string    `json:"tags"`
+	AccessCount int64         `json:"access_count"`
+	Tags        []string      `json:"tags"`
 }
 
 // QueryCacheKey represents a cache key structure
@@ -69,7 +69,7 @@ func NewQueryCache(redisClient *redis.Client, logger *zap.Logger, config CacheCo
 	if config.KeyPrefix == "" {
 		config.KeyPrefix = "alchemorsel:query"
 	}
-	
+
 	if config.DefaultTTL == 0 {
 		config.DefaultTTL = 5 * time.Minute
 	}
@@ -91,7 +91,7 @@ func (qc *QueryCache) Get(ctx context.Context, sql string, args []interface{}, d
 	}
 
 	key := qc.generateCacheKey(sql, args)
-	
+
 	start := time.Now()
 	defer func() {
 		qc.logger.Debug("Cache get operation",
@@ -194,7 +194,7 @@ func (qc *QueryCache) InvalidateByTags(ctx context.Context, tags []string) error
 	}
 
 	var allKeys []string
-	
+
 	for _, tag := range tags {
 		tagKey := fmt.Sprintf("%s:tag:%s", qc.keyPrefix, tag)
 		keys, err := qc.redis.SMembers(ctx, tagKey).Result()
@@ -281,29 +281,29 @@ func (qc *QueryCache) GetMetrics() CacheMetrics {
 func (qc *QueryCache) generateCacheKey(sql string, args []interface{}) string {
 	// Normalize SQL (remove extra whitespace, convert to lowercase)
 	normalizedSQL := strings.ToLower(strings.Join(strings.Fields(sql), " "))
-	
+
 	// Create a hash of SQL + args
 	hasher := md5.New()
 	hasher.Write([]byte(normalizedSQL))
-	
+
 	// Add arguments to hash
 	for _, arg := range args {
 		argBytes, _ := json.Marshal(arg)
 		hasher.Write(argBytes)
 	}
-	
+
 	hash := fmt.Sprintf("%x", hasher.Sum(nil))
-	
+
 	// Extract table hint for better organization
 	tableHint := qc.extractTableHint(normalizedSQL)
-	
+
 	return fmt.Sprintf("%s:%s:%s", qc.keyPrefix, tableHint, hash)
 }
 
 // extractTableHint extracts the primary table from SQL for key organization
 func (qc *QueryCache) extractTableHint(sql string) string {
 	sql = strings.ToLower(sql)
-	
+
 	// Try to extract table name from common patterns
 	if strings.Contains(sql, "from ") {
 		parts := strings.Split(sql, "from ")
@@ -315,7 +315,7 @@ func (qc *QueryCache) extractTableHint(sql string) string {
 			}
 		}
 	}
-	
+
 	if strings.Contains(sql, "update ") {
 		parts := strings.Split(sql, "update ")
 		if len(parts) > 1 {
@@ -326,7 +326,7 @@ func (qc *QueryCache) extractTableHint(sql string) string {
 			}
 		}
 	}
-	
+
 	if strings.Contains(sql, "insert into ") {
 		parts := strings.Split(sql, "insert into ")
 		if len(parts) > 1 {
@@ -337,7 +337,7 @@ func (qc *QueryCache) extractTableHint(sql string) string {
 			}
 		}
 	}
-	
+
 	return "unknown"
 }
 
@@ -345,40 +345,39 @@ func (qc *QueryCache) extractTableHint(sql string) string {
 func (qc *QueryCache) extractTableTags(sql string) []string {
 	sql = strings.ToLower(sql)
 	var tags []string
-	
+
 	// Common table names in our schema
 	tables := []string{
 		"users", "recipes", "ingredients", "instructions", "recipe_ratings",
 		"recipe_likes", "recipe_views", "collections", "notifications",
 		"user_follows", "comments", "activities", "ai_requests",
 	}
-	
+
 	for _, table := range tables {
 		if strings.Contains(sql, table) {
 			tags = append(tags, table)
 		}
 	}
-	
+
 	return tags
 }
 
 // copyResult copies cached result to destination
 func (qc *QueryCache) copyResult(src, dest interface{}) error {
-	srcValue := reflect.ValueOf(src)
 	destValue := reflect.ValueOf(dest)
-	
+
 	if destValue.Kind() != reflect.Ptr {
 		return fmt.Errorf("destination must be a pointer")
 	}
-	
+
 	destValue = destValue.Elem()
-	
+
 	// Convert through JSON for type safety
 	jsonData, err := json.Marshal(src)
 	if err != nil {
 		return err
 	}
-	
+
 	return json.Unmarshal(jsonData, dest)
 }
 
@@ -459,28 +458,28 @@ func (p *CachedGORMPlugin) Initialize(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	
+
 	err = db.Callback().Query().After("gorm:query").Register("cache:after", p.afterQuery)
 	if err != nil {
 		return err
 	}
-	
+
 	// Register callbacks for cache invalidation
 	err = db.Callback().Create().After("gorm:create").Register("cache:invalidate", p.invalidateCache)
 	if err != nil {
 		return err
 	}
-	
+
 	err = db.Callback().Update().After("gorm:update").Register("cache:invalidate", p.invalidateCache)
 	if err != nil {
 		return err
 	}
-	
+
 	err = db.Callback().Delete().After("gorm:delete").Register("cache:invalidate", p.invalidateCache)
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -490,12 +489,12 @@ func (p *CachedGORMPlugin) beforeQuery(db *gorm.DB) {
 	if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(db.Statement.SQL.String())), "SELECT") {
 		return
 	}
-	
+
 	// Skip if caching is disabled for this query
 	if _, ok := db.InstanceGet("skip_cache"); ok {
 		return
 	}
-	
+
 	// Try to get from cache
 	var result interface{}
 	found, err := p.cache.Get(context.Background(), db.Statement.SQL.String(), db.Statement.Vars, &result)
@@ -503,7 +502,7 @@ func (p *CachedGORMPlugin) beforeQuery(db *gorm.DB) {
 		// Log error but continue with normal query
 		return
 	}
-	
+
 	if found {
 		// Set cached result and skip actual query
 		db.Statement.Dest = result
@@ -517,22 +516,22 @@ func (p *CachedGORMPlugin) afterQuery(db *gorm.DB) {
 	if _, ok := db.InstanceGet("cached_result"); ok {
 		return
 	}
-	
+
 	// Skip for non-SELECT queries
 	if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(db.Statement.SQL.String())), "SELECT") {
 		return
 	}
-	
+
 	// Skip if caching is disabled for this query
 	if _, ok := db.InstanceGet("skip_cache"); ok {
 		return
 	}
-	
+
 	// Skip if there was an error
 	if db.Error != nil {
 		return
 	}
-	
+
 	// Cache the result
 	ttl := p.cache.defaultTTL
 	if customTTL, ok := db.InstanceGet("cache_ttl"); ok {
@@ -540,7 +539,7 @@ func (p *CachedGORMPlugin) afterQuery(db *gorm.DB) {
 			ttl = duration
 		}
 	}
-	
+
 	err := p.cache.Set(context.Background(), db.Statement.SQL.String(), db.Statement.Vars, db.Statement.Dest, ttl)
 	if err != nil {
 		// Log error but don't fail the query
@@ -553,11 +552,11 @@ func (p *CachedGORMPlugin) invalidateCache(db *gorm.DB) {
 	if db.Statement == nil || db.Statement.Table == "" {
 		return
 	}
-	
+
 	// Invalidate cache for the affected table
 	err := p.cache.InvalidateByTable(context.Background(), db.Statement.Table)
 	if err != nil {
-		p.cache.logger.Error("Failed to invalidate cache", 
+		p.cache.logger.Error("Failed to invalidate cache",
 			zap.String("table", db.Statement.Table),
 			zap.Error(err))
 	}

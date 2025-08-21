@@ -3,6 +3,7 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"

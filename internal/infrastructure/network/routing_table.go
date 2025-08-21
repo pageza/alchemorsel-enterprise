@@ -1,6 +1,8 @@
 package network
 
 import (
+	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
@@ -128,7 +130,7 @@ func (rt *RoutingTable) GetStats() RoutingTableStats {
 	}
 
 	return RoutingTableStats{
-		TotalEntries:  len(rt.entries),
+		TotalEntries:  int64(len(rt.entries)),
 		CacheHits:     rt.metrics.CacheHits,
 		CacheMisses:   rt.metrics.CacheMisses,
 		TotalLookups:  rt.metrics.TotalLookups,

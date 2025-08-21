@@ -3,13 +3,11 @@ package ai
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/alchemorsel/v3/internal/domain/ai"
 	"github.com/alchemorsel/v3/internal/domain/recipe"
 	"github.com/alchemorsel/v3/internal/infrastructure/ai/ollama"
 	"github.com/alchemorsel/v3/internal/infrastructure/ai/openai"
@@ -484,9 +482,6 @@ func (s *EnterpriseAIService) GenerateMealPlan(ctx context.Context, days int, di
 		return nil, fmt.Errorf("rate limit exceeded: %w", err)
 	}
 	
-	// Build meal plan prompt
-	prompt := s.buildMealPlanPrompt(days, dietary, budget)
-	
 	// Try cache first
 	cacheKey := s.buildCacheKey("meal_plan", fmt.Sprintf("days:%d", days), strings.Join(dietary, ","), fmt.Sprintf("budget:%.2f", budget))
 	if s.config.CacheEnabled {
@@ -523,7 +518,7 @@ func (s *EnterpriseAIService) GetCostAnalytics(ctx context.Context, period strin
 
 // GetQualityMetrics returns quality assessment metrics
 func (s *EnterpriseAIService) GetQualityMetrics(ctx context.Context, period string) (*QualityReport, error) {
-	return s.qualityMonitor.GenerateReport(ctx, period)
+	return s.qualityMonitor.GetQualityReport(period), nil
 }
 
 // GetRateLimitStatus returns current rate limit status for a user

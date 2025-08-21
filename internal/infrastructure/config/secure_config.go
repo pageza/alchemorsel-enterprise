@@ -12,8 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/viper"
-	"internal/infrastructure/security/secrets"
+	"github.com/alchemorsel/v3/internal/infrastructure/security/secrets"
 )
 
 // SecureConfig extends Config with secure secret management
@@ -233,9 +232,8 @@ func (sc *SecureConfig) loadSecrets(ctx context.Context) error {
 func (sc *SecureConfig) loadAndSetSecret(ctx context.Context, mapping SecretField) error {
 	// Create secret request
 	req := &secrets.SecretRequest{
-		Name:    mapping.SecretName,
-		Type:    mapping.SecretType,
-		Context: ctx,
+		Name: mapping.SecretName,
+		Type: mapping.SecretType,
 		Tags: map[string]string{
 			"config_path": mapping.ConfigPath,
 			"required":    fmt.Sprintf("%t", mapping.Required),
@@ -375,9 +373,8 @@ func (sc *SecureConfig) GetSecret(ctx context.Context, name string, secretType s
 	}
 
 	req := &secrets.SecretRequest{
-		Name:    name,
-		Type:    secretType,
-		Context: ctx,
+		Name: name,
+		Type: secretType,
 	}
 
 	response, err := sc.secretManager.GetSecret(ctx, req)

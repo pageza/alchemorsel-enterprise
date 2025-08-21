@@ -372,7 +372,11 @@ func (gno *GlobalNetworkOptimizer) calculatePerformanceScore(region *Region, req
 			gno.config.LatencyThresholds.Poor.Seconds()
 	}
 	
-	throughputScore := min(throughput / 1000.0 * 100.0, 100.0) // Normalize to 1000 RPS = 100%
+	throughputRaw := throughput / 1000.0 * 100.0
+	throughputScore := throughputRaw
+	if throughputScore > 100.0 {
+		throughputScore = 100.0
+	}
 	
 	// Weighted average
 	return (successScore*0.5 + responseTimeScore*0.3 + throughputScore*0.2)
@@ -477,9 +481,9 @@ func (gno *GlobalNetworkOptimizer) calculateDistance(loc1, loc2 *GeoLocation) fl
 	deltaLat := (loc2.Latitude - loc1.Latitude) * (3.14159 / 180)
 	deltaLng := (loc2.Longitude - loc1.Longitude) * (3.14159 / 180)
 
-	a := 0.5 - 0.5*((lat2-lat1)/2) + 
+	a := 0.5 - 0.5*(deltaLat/2) + 
 		0.5*lat1*0.5*lat2*
-		(1-((deltaLng)/2))
+		(1-(deltaLng/2))
 
 	return earthRadius * 2 * (a + (1-a))
 }

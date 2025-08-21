@@ -3,7 +3,6 @@ package cache
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -436,17 +435,10 @@ func (cm *CacheMonitor) collectMetrics() {
 }
 
 func (cm *CacheMonitor) collectRedisInfo(ctx context.Context) *RedisInfo {
-	// Collect Redis INFO command data
-	info, err := cm.redis.client.Info(ctx).Result()
-	if err != nil {
-		cm.logger.Error("Failed to collect Redis INFO", zap.Error(err))
-		return &RedisInfo{}
-	}
-	
 	// Parse Redis INFO (simplified parsing)
 	redisInfo := &RedisInfo{}
 	
-	// In a real implementation, you would parse the INFO string
+	// In a real implementation, you would collect and parse Redis INFO string
 	// For now, return basic info from Redis metrics
 	redisMetrics := cm.redis.GetMetrics()
 	redisInfo.TotalCommandsProcessed = redisMetrics.TotalCommands

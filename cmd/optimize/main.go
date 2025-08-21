@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alchemorsel/alchemorsel-v3/internal/infrastructure/performance"
+	"github.com/alchemorsel/v3/internal/infrastructure/performance"
 )
 
 const (

@@ -4,7 +4,6 @@ package cache
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"sync"
 	"time"
@@ -47,6 +46,7 @@ type HealthCheck struct {
 	timeout        time.Duration
 	checkTicker    *time.Ticker
 	stopChan       chan struct{}
+	mu             sync.RWMutex
 }
 
 // CircuitBreaker implements circuit breaker pattern for Redis
@@ -90,8 +90,8 @@ func NewRedisClient(cfg *config.RedisConfig, logger *zap.Logger) (*RedisClient, 
 		WriteTimeout: cfg.WriteTimeout,
 		
 		// Connection lifecycle
-		MaxConnAge:  cfg.ConnMaxLifetime,
-		IdleTimeout: time.Minute * 5,
+		ConnMaxLifetime: cfg.ConnMaxLifetime,
+		ConnMaxIdleTime: time.Minute * 5,
 		
 		// Connection pool settings
 		PoolTimeout: time.Second * 10,

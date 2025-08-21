@@ -517,7 +517,6 @@ func (acs *AICacheService) calculateRemainingTTL(cached *CachedAIResponse) time.
 
 func (acs *AICacheService) trackPromptUsage(ctx context.Context, prompt string, confidence float64) {
 	promptHash := acs.hashPrompt(prompt)
-	statsKey := acs.keyBuilder.BuildKey("ai_stats", promptHash)
 	
 	// This would update prompt usage statistics
 	// Implementation would depend on specific requirements

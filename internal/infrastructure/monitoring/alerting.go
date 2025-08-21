@@ -55,8 +55,8 @@ type ActiveAlert struct {
 	Metadata    map[string]interface{}
 }
 
-// Alert represents an alert to be sent
-type Alert struct {
+// AlertMessage represents an alert to be sent via alerting channels
+type AlertMessage struct {
 	ID          string                 `json:"id"`
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
@@ -81,7 +81,7 @@ func NewAlertManager(config AlertingConfig, logger *zap.Logger) *AlertManager {
 }
 
 // SendAlert sends an alert through configured channels
-func (am *AlertManager) SendAlert(ctx context.Context, alert Alert) error {
+func (am *AlertManager) SendAlert(ctx context.Context, alert AlertMessage) error {
 	am.logger.Info("Sending alert",
 		zap.String("alert_id", alert.ID),
 		zap.String("name", alert.Name),
@@ -138,7 +138,7 @@ func (am *AlertManager) SendAlert(ctx context.Context, alert Alert) error {
 }
 
 // sendSlackAlert sends alert to Slack
-func (am *AlertManager) sendSlackAlert(ctx context.Context, alert Alert, receivers []string) error {
+func (am *AlertManager) sendSlackAlert(ctx context.Context, alert AlertMessage, receivers []string) error {
 	color := am.getSlackColor(alert.Severity)
 	
 	payload := SlackPayload{
@@ -185,7 +185,7 @@ func (am *AlertManager) sendSlackAlert(ctx context.Context, alert Alert, receive
 }
 
 // sendPagerDutyAlert sends alert to PagerDuty
-func (am *AlertManager) sendPagerDutyAlert(ctx context.Context, alert Alert) error {
+func (am *AlertManager) sendPagerDutyAlert(ctx context.Context, alert AlertMessage) error {
 	payload := PagerDutyPayload{
 		RoutingKey:  am.config.PagerDutyKey,
 		EventAction: "trigger",
@@ -211,7 +211,7 @@ func (am *AlertManager) sendPagerDutyAlert(ctx context.Context, alert Alert) err
 }
 
 // sendEmailAlert sends alert via email
-func (am *AlertManager) sendEmailAlert(ctx context.Context, alert Alert, receivers []string) error {
+func (am *AlertManager) sendEmailAlert(ctx context.Context, alert AlertMessage, receivers []string) error {
 	subject := fmt.Sprintf("[%s] %s: %s", alert.Environment, alert.Severity, alert.Name)
 	body := am.formatEmailBody(alert)
 
@@ -236,7 +236,7 @@ func (am *AlertManager) ResolveAlert(ctx context.Context, alertID string) error 
 	activeAlert.Resolved = true
 	
 	// Send resolution notification
-	resolutionAlert := Alert{
+	resolutionAlert := AlertMessage{
 		ID:          alertID,
 		Name:        "RESOLVED: " + activeAlert.Name,
 		Description: fmt.Sprintf("Alert %s has been resolved", activeAlert.Name),
@@ -276,7 +276,7 @@ func (am *AlertManager) AcknowledgeAlert(ctx context.Context, alertID, acknowled
 	activeAlert.Acknowledged = true
 	
 	// Send acknowledgment notification
-	ackAlert := Alert{
+	ackAlert := AlertMessage{
 		ID:          alertID,
 		Name:        "ACKNOWLEDGED: " + activeAlert.Name,
 		Description: fmt.Sprintf("Alert %s acknowledged by %s", activeAlert.Name, acknowledger),
@@ -344,7 +344,7 @@ func (am *AlertManager) executeEscalationAction(alertID, action string) {
 }
 
 // determineReceivers determines who should receive the alert
-func (am *AlertManager) determineReceivers(alert Alert) []string {
+func (am *AlertManager) determineReceivers(alert AlertMessage) []string {
 	// Logic to determine receivers based on alert properties
 	receivers := am.config.DefaultReceivers
 
@@ -391,7 +391,7 @@ func mapSeverityToPagerDuty(severity string) string {
 	}
 }
 
-func (am *AlertManager) formatEmailBody(alert Alert) string {
+func (am *AlertManager) formatEmailBody(alert AlertMessage) string {
 	return fmt.Sprintf(`
 Alert: %s
 Severity: %s
