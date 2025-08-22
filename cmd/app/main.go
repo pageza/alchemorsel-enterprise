@@ -1042,11 +1042,31 @@ func setupRouter() *chi.Mux {
 	// HTMX endpoints
 	r.Route("/htmx", func(r chi.Router) {
 		r.Post("/recipes/search", handleRecipeSearch)
+		r.Get("/recipes/random", handleRandomRecipe)
+		r.Get("/recipes/view/grid", handleRecipeViewGrid)
+		r.Get("/recipes/view/list", handleRecipeViewList)
+		r.Post("/recipes/toggle-filters", handleToggleFilters)
+		r.Post("/recipes/filter", handleRecipeFilter)
+		r.Post("/recipes/clear-filters", handleClearFilters)
+		r.Post("/recipes/sort", handleRecipeSort)
+		r.Get("/recipes/load-more", handleRecipeLoadMore)
 		
 		// Protected HTMX endpoints
 		r.Group(func(r chi.Router) {
 			r.Use(requireAuth)
 			r.Post("/recipes/{id}/like", handleRecipeLike)
+			r.Post("/profile/upload-avatar", handleUploadAvatar)
+			r.Post("/users/{id}/follow", handleFollowUser)
+			r.Get("/collections/new-form", handleNewCollectionForm)
+			
+			// Dashboard HTMX endpoints
+			r.Get("/dashboard/recipes", handleDashboardRecipes)
+			r.Get("/dashboard/trending", handleDashboardTrending)
+			r.Get("/dashboard/collections", handleDashboardCollections)
+			r.Get("/dashboard/activity", handleDashboardActivity)
+			
+			// AI suggestions endpoint
+			r.Get("/ai/suggestions", handleAISuggestions)
 		})
 	})
 
@@ -2168,6 +2188,713 @@ func getPageContent(templateName string, data interface{}) string {
 	default:
 		return "<div class=\"card\"><p>Page content would go here.</p></div>"
 	}
+}
+
+// Dashboard HTMX handlers
+
+func handleDashboardRecipes(w http.ResponseWriter, r *http.Request) {
+	user := getUserFromContext(r.Context())
+	if user == nil {
+		renderHTMXError(w, "Please log in to view your recipes.")
+		return
+	}
+	
+	// Get user's recipes
+	var recipes []Recipe
+	err := db.Where("author_id = ?", user.ID).Order("created_at DESC").Find(&recipes).Error
+	if err != nil {
+		log.Printf("Failed to get user recipes: %v", err)
+		renderHTMXError(w, "Failed to load your recipes.")
+		return
+	}
+	
+	// Render simple HTML response (inline for now, can be moved to templates later)
+	html := `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`
+	
+	if len(recipes) > 0 {
+		for _, recipe := range recipes {
+			html += fmt.Sprintf(`
+				<div class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow">
+					<h3 class="font-semibold text-lg mb-2">%s</h3>
+					<p class="text-gray-600 text-sm mb-3">%s</p>
+					<div class="flex justify-between items-center text-sm text-gray-500">
+						<span>%s</span>
+						<span>%d min</span>
+					</div>
+					<div class="mt-3 flex justify-between items-center">
+						<a href="/recipes/%s" class="text-blue-600 hover:text-blue-800 font-medium">View Recipe</a>
+						<div class="flex items-center space-x-2">
+							<span class="flex items-center">❤️ %d</span>
+						</div>
+					</div>
+				</div>`,
+				escapeHTML(recipe.Title),
+				truncateString(recipe.Description, 100),
+				recipe.Difficulty,
+				recipe.PrepTimeMinutes+recipe.CookTimeMinutes,
+				recipe.ID,
+				recipe.LikesCount)
+		}
+	} else {
+		html += `
+			<div class="col-span-full text-center py-8">
+				<h3 class="text-lg font-medium text-gray-900 mb-2">No recipes yet</h3>
+				<p class="text-gray-500 mb-4">Get started by creating your first recipe!</p>
+				<a href="/recipes/new" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+					Create Recipe
+				</a>
+			</div>`
+	}
+	
+	html += `</div>`
+	
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleDashboardTrending(w http.ResponseWriter, r *http.Request) {
+	// Get trending recipes (top liked recipes)
+	var recipes []Recipe
+	err := db.Preload("Author").Order("likes_count DESC").Limit(5).Find(&recipes).Error
+	if err != nil {
+		log.Printf("Failed to get trending recipes: %v", err)
+		renderHTMXError(w, "Failed to load trending recipes.")
+		return
+	}
+	
+	html := `<div class="space-y-4">`
+	
+	if len(recipes) > 0 {
+		for _, recipe := range recipes {
+			html += fmt.Sprintf(`
+				<div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-500 hover:shadow-md transition-shadow">
+					<div class="flex items-center justify-between">
+						<div class="flex-1">
+							<h3 class="font-semibold text-lg mb-1">
+								<a href="/recipes/%s" class="text-gray-900 hover:text-blue-600">%s</a>
+							</h3>
+							<p class="text-gray-600 text-sm mb-2">%s</p>
+							<div class="flex items-center space-x-4 text-sm text-gray-500">
+								<span class="flex items-center">❤️ %d likes</span>
+								<span>%d min • %s</span>
+								<span>by %s</span>
+							</div>
+						</div>
+					</div>
+				</div>`,
+				recipe.ID,
+				escapeHTML(recipe.Title),
+				truncateString(recipe.Description, 80),
+				recipe.LikesCount,
+				recipe.PrepTimeMinutes+recipe.CookTimeMinutes,
+				recipe.Difficulty,
+				recipe.Author.Name)
+		}
+	} else {
+		html += `
+			<div class="text-center py-8">
+				<h3 class="text-lg font-medium text-gray-900 mb-2">No trending recipes</h3>
+				<p class="text-gray-500">Check back later for popular recipes from the community!</p>
+			</div>`
+	}
+	
+	html += `</div>`
+	
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleDashboardCollections(w http.ResponseWriter, r *http.Request) {
+	user := getUserFromContext(r.Context())
+	if user == nil {
+		renderHTMXError(w, "Please log in to view your collections.")
+		return
+	}
+	
+	// TODO: Implement collections feature
+	// For now, show placeholder
+	html := `
+		<div class="text-center py-8">
+			<h3 class="text-lg font-medium text-gray-900 mb-2">No collections yet</h3>
+			<p class="text-gray-500 mb-4">Organize your favorite recipes into collections!</p>
+			<button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+				Create Collection
+			</button>
+		</div>`
+	
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleDashboardActivity(w http.ResponseWriter, r *http.Request) {
+	user := getUserFromContext(r.Context())
+	if user == nil {
+		renderHTMXError(w, "Please log in to view your activity.")
+		return
+	}
+	
+	// Get recent activity (recently created recipes by user)
+	var recipes []Recipe
+	err := db.Where("author_id = ?", user.ID).Order("created_at DESC").Limit(3).Find(&recipes).Error
+	if err != nil {
+		log.Printf("Failed to get user activity: %v", err)
+		renderHTMXError(w, "Failed to load your activity.")
+		return
+	}
+	
+	html := `<div class="space-y-3">`
+	
+	if len(recipes) > 0 {
+		for _, recipe := range recipes {
+			html += fmt.Sprintf(`
+				<div class="bg-white rounded-lg shadow-sm p-4 border hover:shadow-md transition-shadow">
+					<div class="flex items-center justify-between">
+						<div class="flex-1 min-w-0">
+							<p class="text-sm font-medium text-gray-900">
+								Created recipe: <a href="/recipes/%s" class="text-blue-600 hover:text-blue-800">%s</a>
+							</p>
+							<p class="text-sm text-gray-500">%s</p>
+						</div>
+						<div class="flex items-center text-sm text-gray-500">
+							<span>❤️ %d</span>
+						</div>
+					</div>
+				</div>`,
+				recipe.ID,
+				escapeHTML(recipe.Title),
+				recipe.CreatedAt.Format("Jan 2, 2006 at 3:04 PM"),
+				recipe.LikesCount)
+		}
+	} else {
+		html += `
+			<div class="text-center py-8">
+				<h3 class="text-lg font-medium text-gray-900 mb-2">No recent activity</h3>
+				<p class="text-gray-500">Your recipe activities will appear here once you start creating and interacting!</p>
+			</div>`
+	}
+	
+	html += `</div>`
+	
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleAISuggestions(w http.ResponseWriter, r *http.Request) {
+	user := getUserFromContext(r.Context())
+	if user == nil {
+		renderHTMXError(w, "Please log in to get AI suggestions.")
+		return
+	}
+	
+	// AI suggestions based on user preferences and recent activity
+	suggestions := []string{
+		"Quick 15-minute pasta with seasonal vegetables",
+		"Healthy protein bowl with quinoa and grilled chicken",
+		"One-pot comfort food perfect for tonight",
+		"Fresh salad with ingredients you probably have",
+	}
+	
+	html := `<div class="space-y-3">`
+	
+	for _, suggestion := range suggestions {
+		html += fmt.Sprintf(`
+			<div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border hover:shadow-md transition-all cursor-pointer" 
+				 hx-post="/ai/chat" 
+				 hx-vals='{"message":"%s"}' 
+				 hx-target="#chat-messages" 
+				 hx-swap="beforeend">
+				<div class="flex items-start space-x-3">
+					<div class="flex-1">
+						<p class="text-sm font-medium text-gray-900">%s</p>
+						<p class="text-xs text-gray-500 mt-1">Click to start cooking with AI assistance</p>
+					</div>
+					<div class="text-blue-500">💡</div>
+				</div>
+			</div>`, suggestion, escapeHTML(suggestion))
+	}
+	
+	html += `
+		</div>
+		
+		<div class="mt-6 pt-4 border-t">
+			<div class="bg-white rounded-lg p-4 border">
+				<h4 class="font-medium text-gray-900 mb-2">Need something specific?</h4>
+				<form hx-post="/ai/chat" hx-target="#chat-messages" hx-swap="beforeend" class="flex space-x-2">
+					<input 
+						type="text" 
+						name="message" 
+						placeholder="Tell me what you'd like to cook..." 
+						class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+						required
+					>
+					<button 
+						type="submit" 
+						class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+					>
+						Send
+					</button>
+				</form>
+			</div>
+		</div>`
+	
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+// New HTMX handlers for missing routes
+
+func handleRandomRecipe(w http.ResponseWriter, r *http.Request) {
+	// Get a random recipe from the database
+	var recipe Recipe
+	err := db.Preload("Author").Order("RANDOM()").First(&recipe).Error
+	if err != nil {
+		renderHTMXError(w, "No recipes found")
+		return
+	}
+
+	html := fmt.Sprintf(`
+		<div class="recipe-suggestion">
+			<h3 class="text-lg font-semibold mb-2">Random Recipe Suggestion</h3>
+			<div class="bg-white rounded-lg border p-4">
+				<h4 class="font-medium text-gray-900">%s</h4>
+				<p class="text-sm text-gray-600 mt-1">%s</p>
+				<div class="mt-3 flex justify-between items-center">
+					<div class="text-sm text-gray-500">
+						By %s • %d servings
+					</div>
+					<a href="/recipes/%s" class="btn btn-primary btn-sm">View Recipe</a>
+				</div>
+			</div>
+		</div>`, 
+		escapeHTML(recipe.Title), 
+		escapeHTML(truncateString(recipe.Description, 100)), 
+		escapeHTML(recipe.Author.Name), 
+		recipe.Servings, 
+		recipe.ID)
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleRecipeViewGrid(w http.ResponseWriter, r *http.Request) {
+	// Get recipes and render in grid view
+	var recipes []Recipe
+	db.Preload("Author").Limit(12).Find(&recipes)
+
+	html := `<div class="recipe-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">`
+	
+	for _, recipe := range recipes {
+		html += fmt.Sprintf(`
+			<div class="recipe-card bg-white rounded-lg border shadow-sm hover:shadow-md transition-shadow">
+				<div class="p-4">
+					<h3 class="font-semibold text-lg mb-2">%s</h3>
+					<p class="text-gray-600 text-sm mb-3">%s</p>
+					<div class="flex justify-between items-center">
+						<span class="text-sm text-gray-500">By %s</span>
+						<a href="/recipes/%s" class="btn btn-primary btn-sm">View</a>
+					</div>
+				</div>
+			</div>`,
+			escapeHTML(recipe.Title),
+			escapeHTML(truncateString(recipe.Description, 80)),
+			escapeHTML(recipe.Author.Name),
+			recipe.ID)
+	}
+	
+	html += `</div>`
+	
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleRecipeViewList(w http.ResponseWriter, r *http.Request) {
+	// Get recipes and render in list view
+	var recipes []Recipe
+	db.Preload("Author").Limit(12).Find(&recipes)
+
+	html := `<div class="recipe-list space-y-4">`
+	
+	for _, recipe := range recipes {
+		html += fmt.Sprintf(`
+			<div class="recipe-list-item bg-white rounded-lg border p-4 flex items-center space-x-4">
+				<div class="flex-1">
+					<h3 class="font-semibold text-lg">%s</h3>
+					<p class="text-gray-600 text-sm mt-1">%s</p>
+					<div class="mt-2 text-sm text-gray-500">
+						By %s • %d servings • %d min
+					</div>
+				</div>
+				<div class="flex items-center space-x-2">
+					<div class="text-sm text-gray-500">
+						❤️ %d
+					</div>
+					<a href="/recipes/%s" class="btn btn-primary">View Recipe</a>
+				</div>
+			</div>`,
+			escapeHTML(recipe.Title),
+			escapeHTML(truncateString(recipe.Description, 120)),
+			escapeHTML(recipe.Author.Name),
+			recipe.Servings,
+			recipe.PrepTimeMinutes + recipe.CookTimeMinutes,
+			recipe.LikesCount,
+			recipe.ID)
+	}
+	
+	html += `</div>`
+	
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleToggleFilters(w http.ResponseWriter, r *http.Request) {
+	// Toggle filter panel visibility
+	show := r.FormValue("show") == "true"
+	
+	if show {
+		html := `
+			<div id="filter-panel" class="filter-panel bg-white border rounded-lg p-4 mb-4">
+				<h3 class="font-semibold mb-3">Filter Recipes</h3>
+				<form hx-post="/htmx/recipes/filter" hx-target="#recipe-results" class="space-y-3">
+					<div>
+						<label class="block text-sm font-medium mb-1">Cuisine</label>
+						<select name="cuisine" class="w-full border rounded px-3 py-2">
+							<option value="">All Cuisines</option>
+							<option value="italian">Italian</option>
+							<option value="asian">Asian</option>
+							<option value="mexican">Mexican</option>
+							<option value="american">American</option>
+						</select>
+					</div>
+					<div>
+						<label class="block text-sm font-medium mb-1">Difficulty</label>
+						<select name="difficulty" class="w-full border rounded px-3 py-2">
+							<option value="">All Levels</option>
+							<option value="easy">Easy</option>
+							<option value="medium">Medium</option>
+							<option value="hard">Hard</option>
+						</select>
+					</div>
+					<div>
+						<label class="block text-sm font-medium mb-1">Max Cook Time (minutes)</label>
+						<input type="number" name="max_time" class="w-full border rounded px-3 py-2" placeholder="e.g. 30">
+					</div>
+					<div class="flex space-x-2">
+						<button type="submit" class="btn btn-primary flex-1">Apply Filters</button>
+						<button type="button" hx-post="/htmx/recipes/clear-filters" hx-target="#recipe-results" class="btn btn-secondary">Clear</button>
+					</div>
+				</form>
+			</div>`
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(html))
+	} else {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<div id="filter-panel" class="hidden"></div>`))
+	}
+}
+
+func handleRecipeFilter(w http.ResponseWriter, r *http.Request) {
+	cuisine := r.FormValue("cuisine")
+	difficulty := r.FormValue("difficulty")
+	maxTime := r.FormValue("max_time")
+
+	query := db.Preload("Author")
+	
+	if cuisine != "" {
+		query = query.Where("cuisine ILIKE ?", "%"+cuisine+"%")
+	}
+	if difficulty != "" {
+		query = query.Where("difficulty = ?", difficulty)
+	}
+	if maxTime != "" {
+		query = query.Where("(prep_time_minutes + cook_time_minutes) <= ?", maxTime)
+	}
+
+	var recipes []Recipe
+	query.Find(&recipes)
+
+	if len(recipes) == 0 {
+		html := `<div class="text-center py-8">
+			<p class="text-gray-500">No recipes match your filters.</p>
+			<button hx-post="/htmx/recipes/clear-filters" hx-target="#recipe-results" class="btn btn-secondary mt-2">Clear Filters</button>
+		</div>`
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(html))
+		return
+	}
+
+	html := `<div class="recipe-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">`
+	
+	for _, recipe := range recipes {
+		html += fmt.Sprintf(`
+			<div class="recipe-card bg-white rounded-lg border shadow-sm hover:shadow-md transition-shadow">
+				<div class="p-4">
+					<h3 class="font-semibold text-lg mb-2">%s</h3>
+					<p class="text-gray-600 text-sm mb-3">%s</p>
+					<div class="text-xs text-gray-500 mb-3">
+						%s • %s • %d min
+					</div>
+					<div class="flex justify-between items-center">
+						<span class="text-sm text-gray-500">By %s</span>
+						<a href="/recipes/%s" class="btn btn-primary btn-sm">View</a>
+					</div>
+				</div>
+			</div>`,
+			escapeHTML(recipe.Title),
+			escapeHTML(truncateString(recipe.Description, 80)),
+			escapeHTML(recipe.Cuisine),
+			escapeHTML(recipe.Difficulty),
+			recipe.PrepTimeMinutes + recipe.CookTimeMinutes,
+			escapeHTML(recipe.Author.Name),
+			recipe.ID)
+	}
+	
+	html += `</div>`
+	
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleClearFilters(w http.ResponseWriter, r *http.Request) {
+	// Get all recipes without filters
+	var recipes []Recipe
+	db.Preload("Author").Limit(12).Find(&recipes)
+
+	html := `<div class="recipe-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">`
+	
+	for _, recipe := range recipes {
+		html += fmt.Sprintf(`
+			<div class="recipe-card bg-white rounded-lg border shadow-sm hover:shadow-md transition-shadow">
+				<div class="p-4">
+					<h3 class="font-semibold text-lg mb-2">%s</h3>
+					<p class="text-gray-600 text-sm mb-3">%s</p>
+					<div class="flex justify-between items-center">
+						<span class="text-sm text-gray-500">By %s</span>
+						<a href="/recipes/%s" class="btn btn-primary btn-sm">View</a>
+					</div>
+				</div>
+			</div>`,
+			escapeHTML(recipe.Title),
+			escapeHTML(truncateString(recipe.Description, 80)),
+			escapeHTML(recipe.Author.Name),
+			recipe.ID)
+	}
+	
+	html += `</div>`
+	
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleRecipeSort(w http.ResponseWriter, r *http.Request) {
+	sortBy := r.FormValue("sort")
+	
+	query := db.Preload("Author")
+	
+	switch sortBy {
+	case "newest":
+		query = query.Order("created_at DESC")
+	case "oldest":
+		query = query.Order("created_at ASC")
+	case "popular":
+		query = query.Order("likes_count DESC")
+	case "rating":
+		query = query.Order("average_rating DESC")
+	case "title":
+		query = query.Order("title ASC")
+	default:
+		query = query.Order("created_at DESC")
+	}
+
+	var recipes []Recipe
+	query.Limit(12).Find(&recipes)
+
+	html := `<div class="recipe-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">`
+	
+	for _, recipe := range recipes {
+		html += fmt.Sprintf(`
+			<div class="recipe-card bg-white rounded-lg border shadow-sm hover:shadow-md transition-shadow">
+				<div class="p-4">
+					<h3 class="font-semibold text-lg mb-2">%s</h3>
+					<p class="text-gray-600 text-sm mb-3">%s</p>
+					<div class="flex justify-between items-center">
+						<span class="text-sm text-gray-500">By %s</span>
+						<div class="flex items-center space-x-2">
+							<span class="text-xs text-gray-500">❤️ %d</span>
+							<a href="/recipes/%s" class="btn btn-primary btn-sm">View</a>
+						</div>
+					</div>
+				</div>
+			</div>`,
+			escapeHTML(recipe.Title),
+			escapeHTML(truncateString(recipe.Description, 80)),
+			escapeHTML(recipe.Author.Name),
+			recipe.LikesCount,
+			recipe.ID)
+	}
+	
+	html += `</div>`
+	
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleRecipeLoadMore(w http.ResponseWriter, r *http.Request) {
+	offset := r.URL.Query().Get("offset")
+	if offset == "" {
+		offset = "0"
+	}
+
+	var recipes []Recipe
+	db.Preload("Author").Offset(12).Limit(12).Find(&recipes)
+
+	if len(recipes) == 0 {
+		html := `<div class="text-center py-4">
+			<p class="text-gray-500">No more recipes to load.</p>
+		</div>`
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(html))
+		return
+	}
+
+	html := ""
+	for _, recipe := range recipes {
+		html += fmt.Sprintf(`
+			<div class="recipe-card bg-white rounded-lg border shadow-sm hover:shadow-md transition-shadow">
+				<div class="p-4">
+					<h3 class="font-semibold text-lg mb-2">%s</h3>
+					<p class="text-gray-600 text-sm mb-3">%s</p>
+					<div class="flex justify-between items-center">
+						<span class="text-sm text-gray-500">By %s</span>
+						<a href="/recipes/%s" class="btn btn-primary btn-sm">View</a>
+					</div>
+				</div>
+			</div>`,
+			escapeHTML(recipe.Title),
+			escapeHTML(truncateString(recipe.Description, 80)),
+			escapeHTML(recipe.Author.Name),
+			recipe.ID)
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleUploadAvatar(w http.ResponseWriter, r *http.Request) {
+	user := getUserFromContext(r.Context())
+	if user == nil {
+		renderHTMXError(w, "Please log in to upload an avatar.")
+		return
+	}
+
+	// In a real application, you would handle file upload here
+	// For now, just return a success message
+	html := `
+		<div class="upload-success">
+			<div class="alert alert-success">
+				✅ Avatar uploaded successfully! 
+			</div>
+			<div class="mt-2">
+				<img src="/static/img/default-avatar.jpg" alt="Avatar" class="w-16 h-16 rounded-full border">
+			</div>
+		</div>`
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleFollowUser(w http.ResponseWriter, r *http.Request) {
+	currentUser := getUserFromContext(r.Context())
+	if currentUser == nil {
+		renderHTMXError(w, "Please log in to follow users.")
+		return
+	}
+
+	targetUserID := chi.URLParam(r, "id")
+	if targetUserID == currentUser.ID {
+		renderHTMXError(w, "You cannot follow yourself.")
+		return
+	}
+
+	// Check if target user exists
+	var targetUser User
+	err := db.Where("id = ?", targetUserID).First(&targetUser).Error
+	if err != nil {
+		renderHTMXError(w, "User not found.")
+		return
+	}
+
+	// In a real application, you would create a follow relationship
+	// For now, just return a success button
+	html := fmt.Sprintf(`
+		<button class="btn btn-secondary" disabled>
+			Following %s ✓
+		</button>`, escapeHTML(targetUser.Name))
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func handleNewCollectionForm(w http.ResponseWriter, r *http.Request) {
+	user := getUserFromContext(r.Context())
+	if user == nil {
+		renderHTMXError(w, "Please log in to create collections.")
+		return
+	}
+
+	html := `
+		<div class="new-collection-form">
+			<h3 class="text-lg font-semibold mb-4">Create New Collection</h3>
+			<form hx-post="/collections" hx-target="#collections-list" class="space-y-4">
+				<div>
+					<label class="block text-sm font-medium mb-1">Collection Name</label>
+					<input 
+						type="text" 
+						name="name" 
+						required 
+						placeholder="e.g. Quick Weeknight Dinners"
+						class="w-full border rounded px-3 py-2"
+					>
+				</div>
+				<div>
+					<label class="block text-sm font-medium mb-1">Description</label>
+					<textarea 
+						name="description" 
+						rows="3" 
+						placeholder="Describe your collection..."
+						class="w-full border rounded px-3 py-2"
+					></textarea>
+				</div>
+				<div class="flex items-center space-x-2">
+					<input type="checkbox" name="is_public" id="is_public" class="rounded">
+					<label for="is_public" class="text-sm">Make this collection public</label>
+				</div>
+				<div class="flex space-x-2">
+					<button type="submit" class="btn btn-primary">Create Collection</button>
+					<button type="button" hx-get="/collections" hx-target="#collection-modal" class="btn btn-secondary">Cancel</button>
+				</div>
+			</form>
+		</div>`
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+// Helper function to truncate strings
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
+// Helper function to escape HTML
+func escapeHTML(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	s = strings.ReplaceAll(s, "'", "&#x27;")
+	return s
 }
 
 func renderError(w http.ResponseWriter, message string) {

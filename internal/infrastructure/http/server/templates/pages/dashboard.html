@@ -2,7 +2,7 @@
 {{template "base" .}}
 {{end}}
 
-{{define "content"}}
+{{define "dashboard-content"}}
 <div class="container">
     <!-- Welcome Section -->
     <section class="card" style="margin-bottom: 2rem;">
@@ -77,7 +77,12 @@
                     <a href="/recipes?author={{.Data.User.ID}}" style="color: #4f46e5; text-decoration: none;">View all</a>
                 </div>
                 
-                <div id="user-recipes">
+                <div 
+                    id="user-recipes" 
+                    hx-get="/htmx/dashboard/recipes" 
+                    hx-trigger="load delay:100ms"
+                    hx-swap="innerHTML"
+                >
                     {{if .Data.UserRecipes}}
                     <div class="recipe-grid">
                         {{range .Data.UserRecipes}}
@@ -100,7 +105,12 @@
             <!-- Recent Activity -->
             <section class="card">
                 <h2 style="margin-bottom: 1.5rem;">Recent Activity</h2>
-                <div id="recent-activity">
+                <div 
+                    id="recent-activity" 
+                    hx-get="/htmx/dashboard/activity" 
+                    hx-trigger="load delay:200ms, every 30s"
+                    hx-swap="innerHTML"
+                >
                     {{if .Data.RecentActivity}}
                     <div style="display: flex; flex-direction: column; gap: 1rem;">
                         {{range .Data.RecentActivity}}
@@ -138,7 +148,12 @@
             <!-- Trending Recipes -->
             <section class="card" style="margin-bottom: 2rem;">
                 <h3 style="margin-bottom: 1rem;">Trending This Week</h3>
-                <div id="trending-recipes">
+                <div 
+                    id="trending-recipes" 
+                    hx-get="/htmx/dashboard/trending" 
+                    hx-trigger="load delay:300ms"
+                    hx-swap="innerHTML"
+                >
                     {{if .Data.TrendingRecipes}}
                     <div style="display: flex; flex-direction: column; gap: 1rem;">
                         {{range .Data.TrendingRecipes}}
@@ -177,7 +192,12 @@
                     </button>
                 </div>
                 
-                <div id="user-collections">
+                <div 
+                    id="user-collections" 
+                    hx-get="/htmx/dashboard/collections" 
+                    hx-trigger="load delay:400ms"
+                    hx-swap="innerHTML"
+                >
                     {{if .Data.UserCollections}}
                     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                         {{range .Data.UserCollections}}
@@ -201,25 +221,4 @@
 <!-- Modal for new collection -->
 <div id="new-collection-modal"></div>
 
-<script>
-// Auto-refresh activity feed every 30 seconds
-setInterval(function() {
-    const activityElement = document.getElementById('recent-activity');
-    if (activityElement) {
-        htmx.ajax('GET', '/htmx/dashboard/activity', {target: '#recent-activity'});
-    }
-}, 30000);
-
-// Load dashboard data on page load
-document.addEventListener('DOMContentLoaded', function() {
-    // Load user recipes
-    htmx.ajax('GET', '/htmx/dashboard/recipes', {target: '#user-recipes'});
-    
-    // Load trending recipes
-    htmx.ajax('GET', '/htmx/dashboard/trending', {target: '#trending-recipes'});
-    
-    // Load user collections
-    htmx.ajax('GET', '/htmx/dashboard/collections', {target: '#user-collections'});
-});
-</script>
 {{end}}

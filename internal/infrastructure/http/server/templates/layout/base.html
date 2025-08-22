@@ -82,7 +82,15 @@
         {{end}}
         
         <!-- Page Content -->
-        {{template "content" .}}
+        {{if eq .TemplateName "dashboard"}}
+            {{template "dashboard-content" .}}
+        {{else if eq .TemplateName "recipes"}}
+            {{template "recipes-content" .}}
+        {{else if eq .TemplateName "profile"}}
+            {{template "profile-content" .}}
+        {{else}}
+            {{template "content" .}}
+        {{end}}
     </main>
     
     <!-- Footer -->
