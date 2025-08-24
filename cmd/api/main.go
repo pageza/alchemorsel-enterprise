@@ -1,5 +1,5 @@
-// Package main provides the main entry point for the Alchemorsel API server
-// This demonstrates clean architecture with proper dependency injection
+// Package main provides the pure JSON API server for Alchemorsel v3
+// This service provides REST endpoints for web, mobile, and other clients
 package main
 
 import (
@@ -15,17 +15,17 @@ import (
 	"go.uber.org/fx"
 )
 
-// @title Alchemorsel API v3
+// @title Alchemorsel API v3 - Pure Backend
 // @version 3.0.0
-// @description Enterprise-grade recipe management platform with AI capabilities
+// @description Enterprise-grade recipe management REST API - Pure JSON Backend for web, mobile, and integrations
 // @termsOfService https://alchemorsel.com/terms
 // @contact.name API Support
 // @contact.url https://alchemorsel.com/support
 // @contact.email support@alchemorsel.com
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT
-// @host localhost:8080
-// @BasePath /api/v3
+// @host localhost:3013
+// @BasePath /api/v1
 // @schemes http https
 // @securityDefinitions.apikey BearerAuth
 // @in header
@@ -49,8 +49,12 @@ func main() {
 ██╔══██║██║     ██║     ██╔══██║██╔══╝  ██║╚██╔╝██║██║   ██║██╔══██╗╚════██║██╔══╝  ██║     
 ██║  ██║███████╗╚██████╗██║  ██║███████╗██║ ╚═╝ ██║╚██████╔╝██║  ██║███████║███████╗███████╗
 ╚═╝  ╚═╝╚══════╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
-                                      v3.0.0 - Enterprise Recipe Platform                                      
+                              v3.0.0 - Pure JSON API Backend (No Frontend/Templates)                                      
 			`)
+			fmt.Println("🔌 JSON API Server - RESTful endpoints for all clients")
+			fmt.Println("📱 Serves Web, Mobile, and Integration clients") 
+			fmt.Println("🚫 No HTML templates - Pure JSON responses only")
+			fmt.Println("🔒 JWT authentication, Rate limiting, Health checks")
 		}),
 	)
 	
