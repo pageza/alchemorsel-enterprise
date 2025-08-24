@@ -10,6 +10,12 @@ RUN apk add --no-cache \
     gcc \
     musl-dev
 
+# Set security labels
+LABEL maintainer="Alchemorsel Team <devops@alchemorsel.com>"
+LABEL org.opencontainers.image.source="https://github.com/alchemorsel/v3"
+LABEL org.opencontainers.image.description="Alchemorsel v3 HTMX Web Frontend"
+LABEL org.opencontainers.image.licenses="MIT"
+
 # Set working directory
 WORKDIR /app
 
@@ -34,7 +40,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -installsuffix cgo \
     -ldflags='-w -s -extldflags "-static"' \
     -tags netgo \
-    -o main cmd/app/main.go
+    -o main cmd/web/main.go
 
 # Compress binary
 RUN upx --best --lzma main

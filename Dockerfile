@@ -13,7 +13,7 @@ RUN apk add --no-cache \
 # Set security labels
 LABEL maintainer="Alchemorsel Team <devops@alchemorsel.com>"
 LABEL org.opencontainers.image.source="https://github.com/alchemorsel/v3"
-LABEL org.opencontainers.image.description="Alchemorsel v3 API Server"
+LABEL org.opencontainers.image.description="Alchemorsel v3 Pure JSON API Server"
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Set working directory
@@ -35,13 +35,13 @@ RUN go mod tidy
 # RUN go vet ./...
 # RUN go test -race -short ./...
 
-# Build optimized binary with security flags
+# Build optimized binary with security flags  
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -a \
     -installsuffix cgo \
     -ldflags='-w -s -extldflags "-static"' \
     -tags netgo \
-    -o main cmd/api-pure/main.go
+    -o main cmd/api/main.go
 
 # Compress binary
 RUN upx --best --lzma main
@@ -57,10 +57,6 @@ COPY --from=builder /app/main /app/main
 
 # Copy configuration files
 COPY --from=builder /app/config /app/config
-
-# Copy static files and templates
-COPY --from=builder /app/internal/infrastructure/http/server/static /app/static
-COPY --from=builder /app/internal/infrastructure/http/server/templates /app/templates
 
 # Copy migration files
 COPY --from=builder /app/internal/infrastructure/persistence/migrations /app/migrations
