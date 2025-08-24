@@ -27,7 +27,7 @@ import (
 // @contact.email support@alchemorsel.com
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-// @host localhost:8080
+// @host localhost:3014
 // @BasePath /
 
 func main() {
@@ -42,9 +42,10 @@ func main() {
                                    v3.0.0 - Web Frontend Service                                      
 	`)
 
-	fmt.Println("🌐 Web Frontend Service - HTMX Templates")
-	fmt.Println("📡 Communicates with Pure API Backend")
-	fmt.Println("🚀 Enterprise Architecture with Service Separation")
+	fmt.Println("🌐 Web Frontend Service - HTMX Templates & Interactive UI")
+	fmt.Println("📡 Communicates with API Backend at http://api:8080")
+	fmt.Println("🚀 Enterprise Architecture: Separated Frontend Service")
+	fmt.Println("🎨 Serves HTML, CSS, JS - No business logic (API calls only)")
 	fmt.Println()
 
 	// Create FX application for web frontend
@@ -151,13 +152,13 @@ func parsePort(portStr string) int {
 }
 
 func getAPIURL(cfg *config.Config) string {
-	// Check environment variable first
+	// Check environment variable first (set in docker-compose.yml)
 	if apiURL := os.Getenv("API_URL"); apiURL != "" {
 		return apiURL
 	}
 	
-	// Default to localhost with API port
-	return fmt.Sprintf("http://localhost:3000")
+	// Default for Docker Compose (api service name)
+	return "http://api:8080"
 }
 
 // initializeWebHealthChecks registers health checks for the web service
