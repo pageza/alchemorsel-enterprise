@@ -97,6 +97,7 @@ coverage/
 *.bak
 go.mod.backup
 go.mod.minimal
+backups/
 
 # Session files and temporary data
 THIS_IS_MY_MAIN_SESSION.txt
