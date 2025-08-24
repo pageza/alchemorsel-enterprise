@@ -27,7 +27,7 @@ func NewAPIClient(cfg *config.Config, logger *zap.Logger) *APIClient {
 	// Get API URL from environment or config
 	apiURL := os.Getenv("API_URL")
 	if apiURL == "" {
-		apiURL = fmt.Sprintf("http://localhost:3000")
+		apiURL = fmt.Sprintf("http://localhost:8080")
 	}
 
 	return &APIClient{
