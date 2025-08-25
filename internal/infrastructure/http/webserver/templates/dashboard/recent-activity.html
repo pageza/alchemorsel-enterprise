@@ -1,0 +1,48 @@
+{{if .Activities}}
+<div class="space-y-3">
+  {{range .Activities}}
+  <div class="bg-white rounded-lg shadow-sm p-4 border hover:shadow-md transition-shadow">
+    <div class="flex items-center justify-between">
+      <div class="flex items-start space-x-3">
+        <div class="flex-shrink-0">
+          <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
+          </div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-900">
+            Created recipe: <a href="/recipes/{{.ID}}" class="text-blue-600 hover:text-blue-800">{{.Title}}</a>
+          </p>
+          <p class="text-sm text-gray-500">{{formatTime .CreatedAt}}</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2 text-sm text-gray-500">
+        <span class="flex items-center">
+          <svg class="w-4 h-4 text-red-500 mr-1" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"/>
+          </svg>
+          {{.LikesCount}}
+        </span>
+        <span class="flex items-center">
+          <svg class="w-4 h-4 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
+          {{.ViewsCount}}
+        </span>
+      </div>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{else}}
+<div class="text-center py-8">
+  <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <h3 class="mt-4 text-lg font-medium text-gray-900">No recent activity</h3>
+  <p class="mt-2 text-gray-500">Your recipe activities will appear here once you start creating and interacting!</p>
+</div>
+{{end}}

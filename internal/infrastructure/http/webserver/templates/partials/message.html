@@ -1,0 +1,46 @@
+{{define "message"}}
+<div class="alert alert-{{.type}}" role="alert" style="animation: fadeIn 0.3s ease-in;">
+    {{if eq .type "success"}}
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="float: left; margin-right: 0.5rem;">
+        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+    </svg>
+    {{else if eq .type "error"}}
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="float: left; margin-right: 0.5rem;">
+        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+    </svg>
+    {{else if eq .type "warning"}}
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="float: left; margin-right: 0.5rem;">
+        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+    </svg>
+    {{else}}
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="float: left; margin-right: 0.5rem;">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+    </svg>
+    {{end}}
+    
+    <div style="overflow: hidden;">
+        {{.message}}
+    </div>
+    
+    <button 
+        type="button" 
+        onclick="this.closest('.alert').remove()"
+        style="position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; color: inherit; opacity: 0.7; cursor: pointer; font-size: 1.2rem; line-height: 1;"
+        aria-label="Close message"
+    >
+        ×
+    </button>
+</div>
+
+<style>
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.alert {
+    position: relative;
+    padding-right: 2.5rem;
+}
+</style>
+{{end}}

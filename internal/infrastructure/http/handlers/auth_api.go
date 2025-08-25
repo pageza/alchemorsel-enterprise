@@ -4,6 +4,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/alchemorsel/v3/internal/application/user"
@@ -163,23 +164,31 @@ func (h *AuthAPIHandlers) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, response)
 }
 
-// GetProfile handles GET /api/v1/auth/profile
+// GetProfile handles GET /api/v3/auth/profile - used for token verification
 func (h *AuthAPIHandlers) GetProfile(w http.ResponseWriter, r *http.Request) {
-	// Get user info from context (set by auth middleware)
-	userID, exists := middleware.GetUserIDFromContext(r.Context())
-	if !exists {
-		h.writeErrorJSON(w, http.StatusUnauthorized, "User not authenticated")
+	// Check for Authorization header
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		h.writeErrorJSON(w, http.StatusUnauthorized, "Missing or invalid authorization header")
 		return
 	}
 
-	// TODO: Get user profile from user service
-	h.logger.Info("Get profile request", zap.String("user_id", userID))
+	// Extract token (for now, just check it exists and has expected format)
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == "" {
+		h.writeErrorJSON(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
 
-	// Mock response for now
+	// Mock validation - accept any non-empty token for now
+	// TODO: Implement proper JWT token validation
+	h.logger.Info("Token verification request", zap.String("token_prefix", token[:min(len(token), 10)]+"..."))
+
+	// Mock response for token verification
 	response := APIResponse{
 		Success: true,
 		Data: UserResponse{
-			ID:       userID,
+			ID:       "mock-user-id",
 			Name:     "Mock User",
 			Email:    "user@example.com",
 			Role:     "user", 

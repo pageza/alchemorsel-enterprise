@@ -27,9 +27,15 @@
     "serve": "live-server internal/infrastructure/http/server/static --port=3001 --watch=internal/infrastructure/http/server/static",
     "analyze": "webpack-bundle-analyzer dist/js/bundle.js",
     "test:e2e": "node test/e2e/comprehensive_puppeteer_test.js",
+    "test:e2e:docker": "node test/e2e/docker_deployment_e2e_test.js",
     "test:api": "node test/e2e/api_test.js",
+    "test:api:docker": "node test/e2e/api_integration_test.js",
     "test:performance": "node test/e2e/performance_test.js",
-    "test:all": "npm run test:api && npm run test:e2e && npm run test:performance"
+    "test:docker": "./test/e2e/run-docker-tests.sh",
+    "test:docker:api": "./test/e2e/run-docker-tests.sh --api-only",
+    "test:docker:e2e": "./test/e2e/run-docker-tests.sh --e2e-only",
+    "test:all": "npm run test:api && npm run test:e2e && npm run test:performance",
+    "test:all:docker": "npm run test:docker"
   },
   "dependencies": {
     "htmx.org": "^1.9.6"

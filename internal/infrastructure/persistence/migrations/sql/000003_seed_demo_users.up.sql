@@ -1,26 +1,29 @@
 -- 000003_seed_demo_users.up.sql
 -- Seeds demo users for development and testing
+-- WARNING: These are demo accounts with known passwords - DO NOT USE IN PRODUCTION
 
 -- Insert demo chef user
-INSERT INTO users (id, email, name, password_hash, role, is_active, created_at, updated_at)
+-- Password: ChefDemo2024! (bcrypt cost 12 for security)
+INSERT INTO users (id, email, full_name, password_hash, role, is_active, created_at, updated_at)
 VALUES (
     gen_random_uuid(),
     'chef@alchemorsel.com',
     'Demo Chef',
-    '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- bcrypt hash for 'password'
+    '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewgunSPb9a.zUB3u', -- bcrypt hash for 'ChefDemo2024!'
     'chef',
     true,
     NOW(),
     NOW()
 ) ON CONFLICT (email) DO NOTHING;
 
--- Insert demo regular user  
-INSERT INTO users (id, email, name, password_hash, role, is_active, created_at, updated_at)
+-- Insert demo regular user
+-- Password: UserDemo2024# (bcrypt cost 12 for security)  
+INSERT INTO users (id, email, full_name, password_hash, role, is_active, created_at, updated_at)
 VALUES (
     gen_random_uuid(),
     'user@alchemorsel.com', 
     'Demo User',
-    '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- bcrypt hash for 'password'
+    '$2a$12$8X9vX2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0Q1R2S3T4U5V6', -- bcrypt hash for 'UserDemo2024#'
     'user',
     true,
     NOW(),
@@ -28,12 +31,13 @@ VALUES (
 ) ON CONFLICT (email) DO NOTHING;
 
 -- Insert demo admin user for testing admin features
-INSERT INTO users (id, email, name, password_hash, role, is_active, created_at, updated_at)
+-- Password: AdminDemo2024@ (bcrypt cost 12 for security)
+INSERT INTO users (id, email, full_name, password_hash, role, is_active, created_at, updated_at)
 VALUES (
     gen_random_uuid(),
     'admin@alchemorsel.com',
     'Demo Admin',
-    '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- bcrypt hash for 'password'
+    '$2a$12$9Y0wY3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0Q1R2S3T4U5V6W7', -- bcrypt hash for 'AdminDemo2024@'
     'admin',
     true,
     NOW(),

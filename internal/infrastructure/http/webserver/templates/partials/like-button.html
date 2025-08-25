@@ -1,0 +1,16 @@
+{{define "like-button"}}
+<button 
+    class="btn btn-secondary like-button {{if .liked}}liked{{end}}"
+    hx-post="/htmx/recipes/{{.id}}/like"
+    hx-target="this"
+    hx-swap="outerHTML"
+    hx-vals='{"liked": "{{.liked}}"}'
+    title="{{if .liked}}Unlike{{else}}Like{{end}} this recipe"
+    aria-label="{{if .liked}}Unlike{{else}}Like{{end}} this recipe"
+    data-announce="Recipe {{if .liked}}unliked{{else}}liked{{end}}"
+    style="{{if .liked}}background: #e53e3e; color: white;{{end}}"
+>
+    {{if .liked}}❤️{{else}}🤍{{end}}
+    {{if .count}}<span style="margin-left: 0.25rem;">{{.count}}</span>{{end}}
+</button>
+{{end}}

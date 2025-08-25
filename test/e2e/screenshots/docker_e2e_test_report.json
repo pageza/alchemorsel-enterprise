@@ -1,0 +1,1162 @@
+{
+  "timestamp": "2025-08-24T23:39:22.660Z",
+  "summary": {
+    "total": 11,
+    "passed": 10,
+    "failed": 1,
+    "warnings": 0,
+    "successRate": "90.9%",
+    "testDurationSeconds": "26.3"
+  },
+  "performance": {
+    "networkRequests": 39,
+    "totalResponseTime": 0,
+    "firstPacketSizes": [
+      {
+        "url": "http://localhost:3014/",
+        "size": 1717,
+        "withinTarget": true
+      },
+      {
+        "url": "http://localhost:3014/",
+        "size": 1717,
+        "withinTarget": true
+      },
+      {
+        "url": "http://localhost:3014/recipes",
+        "size": 1345,
+        "withinTarget": true
+      },
+      {
+        "url": "http://localhost:3014/",
+        "size": 1717,
+        "withinTarget": true
+      },
+      {
+        "url": "http://localhost:3014/",
+        "size": 1717,
+        "withinTarget": true
+      },
+      {
+        "url": "http://localhost:3014/",
+        "size": 1717,
+        "withinTarget": true
+      },
+      {
+        "url": "http://localhost:3014/",
+        "size": 1717,
+        "withinTarget": true
+      },
+      {
+        "url": "http://localhost:3014/",
+        "size": 1717,
+        "withinTarget": true
+      }
+    ],
+    "failedRequests": 0,
+    "apiEndpoints": [
+      {
+        "endpoint": "/health",
+        "status": 200,
+        "responseTime": "unknown",
+        "healthy": true
+      },
+      {
+        "endpoint": "/api/v1/recipes",
+        "status": 200,
+        "responseTime": "unknown",
+        "healthy": true
+      }
+    ],
+    "webPageMetrics": [
+      {
+        "page": "homepage",
+        "loadTime": 2961,
+        "metrics": {
+          "domContentLoaded": 2.699999999254942,
+          "loadComplete": 0.10000000149011612,
+          "totalTime": null
+        }
+      }
+    ],
+    "apiResponseTimes": [
+      {
+        "endpoint": "/health",
+        "responseTime": 5,
+        "status": 200,
+        "withinThreshold": true
+      },
+      {
+        "endpoint": "/api/v1/recipes",
+        "responseTime": 3,
+        "status": 200,
+        "withinThreshold": true
+      }
+    ]
+  },
+  "details": {
+    "passed": [
+      {
+        "name": "API Health Check",
+        "duration": 24,
+        "timestamp": "2025-08-24T23:38:56.627Z"
+      },
+      {
+        "name": "API Recipes Endpoint",
+        "duration": 4,
+        "timestamp": "2025-08-24T23:38:56.633Z"
+      },
+      {
+        "name": "Web Frontend Navigation",
+        "duration": 6930,
+        "timestamp": "2025-08-24T23:39:11.531Z"
+      },
+      {
+        "name": "14KB First Packet Optimization",
+        "duration": 2025,
+        "timestamp": "2025-08-24T23:39:13.557Z"
+      },
+      {
+        "name": "API Response Time Performance",
+        "duration": 8,
+        "timestamp": "2025-08-24T23:39:13.566Z"
+      },
+      {
+        "name": "Basic User Journey - Browse Recipes",
+        "duration": 4058,
+        "timestamp": "2025-08-24T23:39:17.625Z"
+      },
+      {
+        "name": "Responsive Design - Desktop",
+        "duration": 969,
+        "timestamp": "2025-08-24T23:39:18.595Z"
+      },
+      {
+        "name": "Responsive Design - Tablet",
+        "duration": 1057,
+        "timestamp": "2025-08-24T23:39:19.652Z"
+      },
+      {
+        "name": "Responsive Design - Mobile",
+        "duration": 1897,
+        "timestamp": "2025-08-24T23:39:21.549Z"
+      },
+      {
+        "name": "Security Headers Validation",
+        "duration": 1107,
+        "timestamp": "2025-08-24T23:39:22.658Z"
+      }
+    ],
+    "failed": [
+      {
+        "test": "Web Frontend Initial Load",
+        "error": "Element 'title' not found within 5000ms",
+        "duration": 7965,
+        "timestamp": "2025-08-24T23:39:04.599Z"
+      }
+    ],
+    "warnings": [],
+    "performance": {
+      "networkRequests": 39,
+      "totalResponseTime": 0,
+      "firstPacketSizes": [
+        {
+          "url": "http://localhost:3014/",
+          "size": 1717,
+          "withinTarget": true
+        },
+        {
+          "url": "http://localhost:3014/",
+          "size": 1717,
+          "withinTarget": true
+        },
+        {
+          "url": "http://localhost:3014/recipes",
+          "size": 1345,
+          "withinTarget": true
+        },
+        {
+          "url": "http://localhost:3014/",
+          "size": 1717,
+          "withinTarget": true
+        },
+        {
+          "url": "http://localhost:3014/",
+          "size": 1717,
+          "withinTarget": true
+        },
+        {
+          "url": "http://localhost:3014/",
+          "size": 1717,
+          "withinTarget": true
+        },
+        {
+          "url": "http://localhost:3014/",
+          "size": 1717,
+          "withinTarget": true
+        },
+        {
+          "url": "http://localhost:3014/",
+          "size": 1717,
+          "withinTarget": true
+        }
+      ],
+      "failedRequests": 0,
+      "apiEndpoints": [
+        {
+          "endpoint": "/health",
+          "status": 200,
+          "responseTime": "unknown",
+          "healthy": true
+        },
+        {
+          "endpoint": "/api/v1/recipes",
+          "status": 200,
+          "responseTime": "unknown",
+          "healthy": true
+        }
+      ],
+      "webPageMetrics": [
+        {
+          "page": "homepage",
+          "loadTime": 2961,
+          "metrics": {
+            "domContentLoaded": 2.699999999254942,
+            "loadComplete": 0.10000000149011612,
+            "totalTime": null
+          }
+        }
+      ],
+      "apiResponseTimes": [
+        {
+          "endpoint": "/health",
+          "responseTime": 5,
+          "status": 200,
+          "withinThreshold": true
+        },
+        {
+          "endpoint": "/api/v1/recipes",
+          "responseTime": 3,
+          "status": 200,
+          "withinThreshold": true
+        }
+      ]
+    }
+  },
+  "networkActivity": [
+    {
+      "type": "request",
+      "url": "http://localhost:3014/",
+      "method": "GET",
+      "headers": {
+        "upgrade-insecure-requests": "1",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+      },
+      "timestamp": 1756078751534,
+      "resourceType": "document"
+    },
+    {
+      "type": "response",
+      "url": "http://localhost:3014/",
+      "status": 200,
+      "headers": {
+        "access-control-allow-headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+        "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "content-encoding": "gzip",
+        "content-length": "1717",
+        "content-type": "text/html; charset=utf-8",
+        "date": "Sun, 24 Aug 2025 23:39:11 GMT",
+        "vary": "Accept-Encoding"
+      },
+      "timestamp": 1756078751536,
+      "size": 1717
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "method": "GET",
+      "headers": {
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "referer": "http://localhost:3014/",
+        "sec-ch-ua-mobile": "?0",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "*/*"
+      },
+      "timestamp": 1756078751542,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "status": 301,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "x-content-type-options": "nosniff",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "content-type": "text/plain;charset=UTF-8",
+        "location": "/htmx.org@1.9.6/dist/htmx.min.js",
+        "access-control-allow-origin": "*",
+        "cross-origin-resource-policy": "cross-origin",
+        "cf-ray": "9746afabfdf7b16b-LHR",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "content-length": "47"
+      },
+      "timestamp": 1756078751544,
+      "size": 47
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "method": "GET",
+      "headers": {
+        "referer": "http://localhost:3014/",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "accept": "*/*",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\""
+      },
+      "timestamp": 1756078751544,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "status": 200,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "content-encoding": "gzip",
+        "via": "1.1 fly.io, 1.1 fly.io, 1.1 fly.io",
+        "cf-cache-status": "HIT",
+        "x-content-type-options": "nosniff",
+        "age": "1665056",
+        "content-digest": "sha256=:y7cjwwXPbWMVyJCQmBVSNYhQni4JKln4z8SohYKWidU=:",
+        "cross-origin-resource-policy": "cross-origin",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "last-modified": "Tue, 29 Apr 2025 17:18:52 GMT",
+        "fly-request-id": "01JT18XEZXXE4WM87APJ42C57H-yyz",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "access-control-allow-methods": "GET, HEAD, OPTIONS",
+        "content-type": "text/javascript; charset=utf-8",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "cache-control": "public, max-age=31536000",
+        "cf-ray": "9746afad1f07b16b-LHR",
+        "access-control-allow-headers": "*",
+        "expires": "Mon, 24 Aug 2026 23:38:57 GMT"
+      },
+      "timestamp": 1756078751546,
+      "size": 46044
+    },
+    {
+      "type": "request",
+      "url": "http://localhost:3014/",
+      "method": "GET",
+      "headers": {
+        "upgrade-insecure-requests": "1",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+      },
+      "timestamp": 1756078753569,
+      "resourceType": "document"
+    },
+    {
+      "type": "response",
+      "url": "http://localhost:3014/",
+      "status": 200,
+      "headers": {
+        "access-control-allow-headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+        "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "content-encoding": "gzip",
+        "content-length": "1717",
+        "content-type": "text/html; charset=utf-8",
+        "date": "Sun, 24 Aug 2025 23:39:13 GMT",
+        "vary": "Accept-Encoding"
+      },
+      "timestamp": 1756078753572,
+      "size": 1717
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "method": "GET",
+      "headers": {
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "referer": "http://localhost:3014/",
+        "sec-ch-ua-mobile": "?0",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "*/*"
+      },
+      "timestamp": 1756078753576,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "status": 301,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "x-content-type-options": "nosniff",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "content-type": "text/plain;charset=UTF-8",
+        "location": "/htmx.org@1.9.6/dist/htmx.min.js",
+        "access-control-allow-origin": "*",
+        "cross-origin-resource-policy": "cross-origin",
+        "cf-ray": "9746afabfdf7b16b-LHR",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "content-length": "47"
+      },
+      "timestamp": 1756078753578,
+      "size": 47
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "method": "GET",
+      "headers": {
+        "referer": "http://localhost:3014/",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "accept": "*/*",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\""
+      },
+      "timestamp": 1756078753578,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "status": 200,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "content-encoding": "gzip",
+        "via": "1.1 fly.io, 1.1 fly.io, 1.1 fly.io",
+        "cf-cache-status": "HIT",
+        "x-content-type-options": "nosniff",
+        "age": "1665056",
+        "content-digest": "sha256=:y7cjwwXPbWMVyJCQmBVSNYhQni4JKln4z8SohYKWidU=:",
+        "cross-origin-resource-policy": "cross-origin",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "last-modified": "Tue, 29 Apr 2025 17:18:52 GMT",
+        "fly-request-id": "01JT18XEZXXE4WM87APJ42C57H-yyz",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "access-control-allow-methods": "GET, HEAD, OPTIONS",
+        "content-type": "text/javascript; charset=utf-8",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "cache-control": "public, max-age=31536000",
+        "cf-ray": "9746afad1f07b16b-LHR",
+        "access-control-allow-headers": "*",
+        "expires": "Mon, 24 Aug 2026 23:38:57 GMT"
+      },
+      "timestamp": 1756078753579,
+      "size": 46044
+    },
+    {
+      "type": "request",
+      "url": "http://localhost:3014/recipes",
+      "method": "GET",
+      "headers": {
+        "upgrade-insecure-requests": "1",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+      },
+      "timestamp": 1756078754629,
+      "resourceType": "document"
+    },
+    {
+      "type": "response",
+      "url": "http://localhost:3014/recipes",
+      "status": 200,
+      "headers": {
+        "access-control-allow-headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+        "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "content-encoding": "gzip",
+        "content-length": "1345",
+        "content-type": "text/html; charset=utf-8",
+        "date": "Sun, 24 Aug 2025 23:39:14 GMT",
+        "vary": "Accept-Encoding"
+      },
+      "timestamp": 1756078754634,
+      "size": 1345
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "method": "GET",
+      "headers": {
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "referer": "http://localhost:3014/",
+        "sec-ch-ua-mobile": "?0",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "*/*"
+      },
+      "timestamp": 1756078754639,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "status": 301,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "x-content-type-options": "nosniff",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "content-type": "text/plain;charset=UTF-8",
+        "location": "/htmx.org@1.9.6/dist/htmx.min.js",
+        "access-control-allow-origin": "*",
+        "cross-origin-resource-policy": "cross-origin",
+        "cf-ray": "9746afabfdf7b16b-LHR",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "content-length": "47"
+      },
+      "timestamp": 1756078754641,
+      "size": 47
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "method": "GET",
+      "headers": {
+        "referer": "http://localhost:3014/",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "accept": "*/*",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\""
+      },
+      "timestamp": 1756078754641,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "status": 200,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "content-encoding": "gzip",
+        "via": "1.1 fly.io, 1.1 fly.io, 1.1 fly.io",
+        "cf-cache-status": "HIT",
+        "x-content-type-options": "nosniff",
+        "age": "1665056",
+        "content-digest": "sha256=:y7cjwwXPbWMVyJCQmBVSNYhQni4JKln4z8SohYKWidU=:",
+        "cross-origin-resource-policy": "cross-origin",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "last-modified": "Tue, 29 Apr 2025 17:18:52 GMT",
+        "fly-request-id": "01JT18XEZXXE4WM87APJ42C57H-yyz",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "access-control-allow-methods": "GET, HEAD, OPTIONS",
+        "content-type": "text/javascript; charset=utf-8",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "cache-control": "public, max-age=31536000",
+        "cf-ray": "9746afad1f07b16b-LHR",
+        "access-control-allow-headers": "*",
+        "expires": "Mon, 24 Aug 2026 23:38:57 GMT"
+      },
+      "timestamp": 1756078754644,
+      "size": 46044
+    },
+    {
+      "type": "request",
+      "url": "http://localhost:3014/",
+      "method": "GET",
+      "headers": {
+        "upgrade-insecure-requests": "1",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+      },
+      "timestamp": 1756078756517,
+      "resourceType": "document"
+    },
+    {
+      "type": "response",
+      "url": "http://localhost:3014/",
+      "status": 200,
+      "headers": {
+        "access-control-allow-headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+        "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "content-encoding": "gzip",
+        "content-length": "1717",
+        "content-type": "text/html; charset=utf-8",
+        "date": "Sun, 24 Aug 2025 23:39:16 GMT",
+        "vary": "Accept-Encoding"
+      },
+      "timestamp": 1756078756519,
+      "size": 1717
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "method": "GET",
+      "headers": {
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "referer": "http://localhost:3014/",
+        "sec-ch-ua-mobile": "?0",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "*/*"
+      },
+      "timestamp": 1756078756524,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "status": 301,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "x-content-type-options": "nosniff",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "content-type": "text/plain;charset=UTF-8",
+        "location": "/htmx.org@1.9.6/dist/htmx.min.js",
+        "access-control-allow-origin": "*",
+        "cross-origin-resource-policy": "cross-origin",
+        "cf-ray": "9746afabfdf7b16b-LHR",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "content-length": "47"
+      },
+      "timestamp": 1756078756530,
+      "size": 47
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "method": "GET",
+      "headers": {
+        "referer": "http://localhost:3014/",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "accept": "*/*",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\""
+      },
+      "timestamp": 1756078756530,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "status": 200,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "content-encoding": "gzip",
+        "via": "1.1 fly.io, 1.1 fly.io, 1.1 fly.io",
+        "cf-cache-status": "HIT",
+        "x-content-type-options": "nosniff",
+        "age": "1665056",
+        "content-digest": "sha256=:y7cjwwXPbWMVyJCQmBVSNYhQni4JKln4z8SohYKWidU=:",
+        "cross-origin-resource-policy": "cross-origin",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "last-modified": "Tue, 29 Apr 2025 17:18:52 GMT",
+        "fly-request-id": "01JT18XEZXXE4WM87APJ42C57H-yyz",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "access-control-allow-methods": "GET, HEAD, OPTIONS",
+        "content-type": "text/javascript; charset=utf-8",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "cache-control": "public, max-age=31536000",
+        "cf-ray": "9746afad1f07b16b-LHR",
+        "access-control-allow-headers": "*",
+        "expires": "Mon, 24 Aug 2026 23:38:57 GMT"
+      },
+      "timestamp": 1756078756532,
+      "size": 46044
+    },
+    {
+      "type": "request",
+      "url": "http://localhost:3014/",
+      "method": "GET",
+      "headers": {
+        "upgrade-insecure-requests": "1",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+      },
+      "timestamp": 1756078757629,
+      "resourceType": "document"
+    },
+    {
+      "type": "response",
+      "url": "http://localhost:3014/",
+      "status": 200,
+      "headers": {
+        "access-control-allow-headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+        "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "content-encoding": "gzip",
+        "content-length": "1717",
+        "content-type": "text/html; charset=utf-8",
+        "date": "Sun, 24 Aug 2025 23:39:17 GMT",
+        "vary": "Accept-Encoding"
+      },
+      "timestamp": 1756078757631,
+      "size": 1717
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "method": "GET",
+      "headers": {
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "referer": "http://localhost:3014/",
+        "sec-ch-ua-mobile": "?0",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "*/*"
+      },
+      "timestamp": 1756078757637,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "status": 301,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "x-content-type-options": "nosniff",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "content-type": "text/plain;charset=UTF-8",
+        "location": "/htmx.org@1.9.6/dist/htmx.min.js",
+        "access-control-allow-origin": "*",
+        "cross-origin-resource-policy": "cross-origin",
+        "cf-ray": "9746afabfdf7b16b-LHR",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "content-length": "47"
+      },
+      "timestamp": 1756078757639,
+      "size": 47
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "method": "GET",
+      "headers": {
+        "referer": "http://localhost:3014/",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "accept": "*/*",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\""
+      },
+      "timestamp": 1756078757639,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "status": 200,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "content-encoding": "gzip",
+        "via": "1.1 fly.io, 1.1 fly.io, 1.1 fly.io",
+        "cf-cache-status": "HIT",
+        "x-content-type-options": "nosniff",
+        "age": "1665056",
+        "content-digest": "sha256=:y7cjwwXPbWMVyJCQmBVSNYhQni4JKln4z8SohYKWidU=:",
+        "cross-origin-resource-policy": "cross-origin",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "last-modified": "Tue, 29 Apr 2025 17:18:52 GMT",
+        "fly-request-id": "01JT18XEZXXE4WM87APJ42C57H-yyz",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "access-control-allow-methods": "GET, HEAD, OPTIONS",
+        "content-type": "text/javascript; charset=utf-8",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "cache-control": "public, max-age=31536000",
+        "cf-ray": "9746afad1f07b16b-LHR",
+        "access-control-allow-headers": "*",
+        "expires": "Mon, 24 Aug 2026 23:38:57 GMT"
+      },
+      "timestamp": 1756078757643,
+      "size": 46044
+    },
+    {
+      "type": "request",
+      "url": "http://localhost:3014/",
+      "method": "GET",
+      "headers": {
+        "upgrade-insecure-requests": "1",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+      },
+      "timestamp": 1756078758601,
+      "resourceType": "document"
+    },
+    {
+      "type": "response",
+      "url": "http://localhost:3014/",
+      "status": 200,
+      "headers": {
+        "access-control-allow-headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+        "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "content-encoding": "gzip",
+        "content-length": "1717",
+        "content-type": "text/html; charset=utf-8",
+        "date": "Sun, 24 Aug 2025 23:39:18 GMT",
+        "vary": "Accept-Encoding"
+      },
+      "timestamp": 1756078758611,
+      "size": 1717
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "method": "GET",
+      "headers": {
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "referer": "http://localhost:3014/",
+        "sec-ch-ua-mobile": "?0",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "*/*"
+      },
+      "timestamp": 1756078758622,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "status": 301,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "x-content-type-options": "nosniff",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "content-type": "text/plain;charset=UTF-8",
+        "location": "/htmx.org@1.9.6/dist/htmx.min.js",
+        "access-control-allow-origin": "*",
+        "cross-origin-resource-policy": "cross-origin",
+        "cf-ray": "9746afabfdf7b16b-LHR",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "content-length": "47"
+      },
+      "timestamp": 1756078758627,
+      "size": 47
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "method": "GET",
+      "headers": {
+        "referer": "http://localhost:3014/",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "accept": "*/*",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\""
+      },
+      "timestamp": 1756078758627,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "status": 200,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "content-encoding": "gzip",
+        "via": "1.1 fly.io, 1.1 fly.io, 1.1 fly.io",
+        "cf-cache-status": "HIT",
+        "x-content-type-options": "nosniff",
+        "age": "1665056",
+        "content-digest": "sha256=:y7cjwwXPbWMVyJCQmBVSNYhQni4JKln4z8SohYKWidU=:",
+        "cross-origin-resource-policy": "cross-origin",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "last-modified": "Tue, 29 Apr 2025 17:18:52 GMT",
+        "fly-request-id": "01JT18XEZXXE4WM87APJ42C57H-yyz",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "access-control-allow-methods": "GET, HEAD, OPTIONS",
+        "content-type": "text/javascript; charset=utf-8",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "cache-control": "public, max-age=31536000",
+        "cf-ray": "9746afad1f07b16b-LHR",
+        "access-control-allow-headers": "*",
+        "expires": "Mon, 24 Aug 2026 23:38:57 GMT"
+      },
+      "timestamp": 1756078758632,
+      "size": 46044
+    },
+    {
+      "type": "request",
+      "url": "http://localhost:3014/",
+      "method": "GET",
+      "headers": {
+        "upgrade-insecure-requests": "1",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+      },
+      "timestamp": 1756078759655,
+      "resourceType": "document"
+    },
+    {
+      "type": "response",
+      "url": "http://localhost:3014/",
+      "status": 200,
+      "headers": {
+        "access-control-allow-headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+        "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "content-encoding": "gzip",
+        "content-length": "1717",
+        "content-type": "text/html; charset=utf-8",
+        "date": "Sun, 24 Aug 2025 23:39:19 GMT",
+        "vary": "Accept-Encoding"
+      },
+      "timestamp": 1756078759658,
+      "size": 1717
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "method": "GET",
+      "headers": {
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "referer": "http://localhost:3014/",
+        "sec-ch-ua-mobile": "?0",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "*/*"
+      },
+      "timestamp": 1756078759663,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "status": 301,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "x-content-type-options": "nosniff",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "content-type": "text/plain;charset=UTF-8",
+        "location": "/htmx.org@1.9.6/dist/htmx.min.js",
+        "access-control-allow-origin": "*",
+        "cross-origin-resource-policy": "cross-origin",
+        "cf-ray": "9746afabfdf7b16b-LHR",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "content-length": "47"
+      },
+      "timestamp": 1756078759664,
+      "size": 47
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "method": "GET",
+      "headers": {
+        "referer": "http://localhost:3014/",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "accept": "*/*",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\""
+      },
+      "timestamp": 1756078759664,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "status": 200,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "content-encoding": "gzip",
+        "via": "1.1 fly.io, 1.1 fly.io, 1.1 fly.io",
+        "cf-cache-status": "HIT",
+        "x-content-type-options": "nosniff",
+        "age": "1665056",
+        "content-digest": "sha256=:y7cjwwXPbWMVyJCQmBVSNYhQni4JKln4z8SohYKWidU=:",
+        "cross-origin-resource-policy": "cross-origin",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "last-modified": "Tue, 29 Apr 2025 17:18:52 GMT",
+        "fly-request-id": "01JT18XEZXXE4WM87APJ42C57H-yyz",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "access-control-allow-methods": "GET, HEAD, OPTIONS",
+        "content-type": "text/javascript; charset=utf-8",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "cache-control": "public, max-age=31536000",
+        "cf-ray": "9746afad1f07b16b-LHR",
+        "access-control-allow-headers": "*",
+        "expires": "Mon, 24 Aug 2026 23:38:57 GMT"
+      },
+      "timestamp": 1756078759666,
+      "size": 46044
+    },
+    {
+      "type": "request",
+      "url": "http://localhost:3014/",
+      "method": "GET",
+      "headers": {
+        "upgrade-insecure-requests": "1",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+      },
+      "timestamp": 1756078761554,
+      "resourceType": "document"
+    },
+    {
+      "type": "response",
+      "url": "http://localhost:3014/",
+      "status": 200,
+      "headers": {
+        "access-control-allow-headers": "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+        "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "access-control-allow-origin": "*",
+        "content-encoding": "gzip",
+        "content-length": "1717",
+        "content-type": "text/html; charset=utf-8",
+        "date": "Sun, 24 Aug 2025 23:39:21 GMT",
+        "vary": "Accept-Encoding"
+      },
+      "timestamp": 1756078761559,
+      "size": 1717
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "method": "GET",
+      "headers": {
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "referer": "http://localhost:3014/",
+        "sec-ch-ua-mobile": "?0",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "sec-ch-ua-platform": "\"Linux\"",
+        "accept": "*/*"
+      },
+      "timestamp": 1756078761563,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6",
+      "status": 301,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "x-content-type-options": "nosniff",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "content-type": "text/plain;charset=UTF-8",
+        "location": "/htmx.org@1.9.6/dist/htmx.min.js",
+        "access-control-allow-origin": "*",
+        "cross-origin-resource-policy": "cross-origin",
+        "cf-ray": "9746afabfdf7b16b-LHR",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "content-length": "47"
+      },
+      "timestamp": 1756078761565,
+      "size": 47
+    },
+    {
+      "type": "request",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "method": "GET",
+      "headers": {
+        "referer": "http://localhost:3014/",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/121.0.6167.85 Safari/537.36",
+        "accept": "*/*",
+        "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"HeadlessChrome\";v=\"121\", \"Chromium\";v=\"121\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\""
+      },
+      "timestamp": 1756078761565,
+      "resourceType": "script"
+    },
+    {
+      "type": "response",
+      "url": "https://unpkg.com/htmx.org@1.9.6/dist/htmx.min.js",
+      "status": 200,
+      "headers": {
+        "date": "Sun, 24 Aug 2025 23:38:57 GMT",
+        "content-encoding": "gzip",
+        "via": "1.1 fly.io, 1.1 fly.io, 1.1 fly.io",
+        "cf-cache-status": "HIT",
+        "x-content-type-options": "nosniff",
+        "age": "1665056",
+        "content-digest": "sha256=:y7cjwwXPbWMVyJCQmBVSNYhQni4JKln4z8SohYKWidU=:",
+        "cross-origin-resource-policy": "cross-origin",
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "last-modified": "Tue, 29 Apr 2025 17:18:52 GMT",
+        "fly-request-id": "01JT18XEZXXE4WM87APJ42C57H-yyz",
+        "server": "cloudflare",
+        "vary": "Accept-Encoding",
+        "access-control-allow-methods": "GET, HEAD, OPTIONS",
+        "content-type": "text/javascript; charset=utf-8",
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "*",
+        "cache-control": "public, max-age=31536000",
+        "cf-ray": "9746afad1f07b16b-LHR",
+        "access-control-allow-headers": "*",
+        "expires": "Mon, 24 Aug 2026 23:38:57 GMT"
+      },
+      "timestamp": 1756078761567,
+      "size": 46044
+    }
+  ],
+  "config": {
+    "baseUrl": "http://localhost:3014",
+    "apiUrl": "http://localhost:3013",
+    "screenshotDir": "./test/e2e/screenshots",
+    "testTimeout": 180000,
+    "performance": {
+      "firstPacketSize": 14336,
+      "responseTimeThreshold": 100,
+      "networkTimeout": 5000,
+      "maxRedirects": 5
+    },
+    "testUser": {
+      "username": "e2e_user_1756078736314",
+      "email": "e2e_test_1756078736314@alchemorsel.com",
+      "password": "E2ETestPassword123!",
+      "fullName": "E2E Test User"
+    }
+  }
+}

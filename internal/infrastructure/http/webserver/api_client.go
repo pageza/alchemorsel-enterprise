@@ -109,7 +109,7 @@ func (c *APIClient) Login(ctx context.Context, email, password string) (*LoginRe
 	}
 
 	var resp LoginResponse
-	err := c.post(ctx, "/api/v1/auth/login", req, &resp)
+	err := c.post(ctx, "/api/v3/auth/login", req, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (c *APIClient) VerifyToken(ctx context.Context, token string) bool {
 	}
 
 	// Call profile endpoint to verify token
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/api/v1/auth/profile", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/api/v3/auth/profile", nil)
 	if err != nil {
 		return false
 	}
@@ -218,7 +218,7 @@ func (c *APIClient) GetRecipes(ctx context.Context, token string) ([]RecipeRespo
 		Error   string           `json:"error,omitempty"`
 	}
 
-	err := c.getWithAuth(ctx, "/api/v1/recipes", token, &resp)
+	err := c.getWithAuth(ctx, "/api/v3/recipes", token, &resp)
 	if err != nil {
 		return nil, err
 	}

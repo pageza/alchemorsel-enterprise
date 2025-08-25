@@ -1,0 +1,60 @@
+{
+  "timestamp": "2025-08-24T23:38:55.994Z",
+  "apiUrl": "http://localhost:3013",
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "warnings": 0,
+    "successRate": "100.0%"
+  },
+  "performance": {
+    "endpoints": [],
+    "averageResponseTime": 19,
+    "slowestEndpoint": null,
+    "fastestEndpoint": null
+  },
+  "allMetrics": [
+    {
+      "endpoint": "/health",
+      "method": "GET",
+      "responseTime": 33,
+      "status": 200,
+      "timestamp": "2025-08-24T23:38:55.985Z"
+    },
+    {
+      "endpoint": "/api/v1/recipes",
+      "method": "GET",
+      "responseTime": 5,
+      "status": 200,
+      "timestamp": "2025-08-24T23:38:55.992Z"
+    }
+  ],
+  "details": {
+    "passed": [
+      {
+        "name": "Health Endpoint - Structure and Response",
+        "duration": 34,
+        "timestamp": "2025-08-24T23:38:55.987Z"
+      },
+      {
+        "name": "Recipes Endpoint - Get All Recipes",
+        "duration": 6,
+        "timestamp": "2025-08-24T23:38:55.993Z"
+      },
+      {
+        "name": "API Performance Analysis",
+        "duration": 0,
+        "timestamp": "2025-08-24T23:38:55.993Z"
+      }
+    ],
+    "failed": [],
+    "warnings": [],
+    "performance": {
+      "endpoints": [],
+      "averageResponseTime": 19,
+      "slowestEndpoint": null,
+      "fastestEndpoint": null
+    }
+  }
+}

@@ -1,0 +1,101 @@
+{{define "error"}}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} | Alchemorsel</title>
+    
+    <!-- Meta Information -->
+    <meta name="description" content="Error - Alchemorsel">
+    <meta name="keywords" content="error, alchemorsel">
+    <meta name="author" content="Alchemorsel">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    
+    <!-- Critical CSS (Inlined for 14KB optimization) -->
+    <style>
+        {{template "critical-css" .}}
+    </style>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/img/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/img/apple-touch-icon.png">
+</head>
+<body class="antialiased">
+    <!-- Skip Navigation -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <!-- Screen Reader Announcements -->
+    <div id="announcer" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+    
+    <!-- Header -->
+    {{template "header" .}}
+    
+    <!-- Main Content -->
+    <main id="main-content" class="main" role="main">
+        <div class="container">
+            <!-- Error Section -->
+            <section class="card" style="text-align: center; padding: 3rem 2rem;">
+                <div style="font-size: 4rem; margin-bottom: 2rem; color: #ef4444;">
+                    ⚠️
+                </div>
+                
+                <h1 style="font-size: 2rem; margin-bottom: 1rem; color: #1f2937;">
+                    Oops! Something went wrong
+                </h1>
+                
+                <p style="color: #718096; font-size: 1.125rem; margin-bottom: 2rem; max-width: 600px; margin-left: auto; margin-right: auto;">
+                    {{.Message | default "We encountered an unexpected error while processing your request. Please try again or contact support if the problem persists."}}
+                </p>
+                
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem;">
+                    <button 
+                        onclick="window.history.back()" 
+                        class="btn btn-secondary"
+                        style="min-width: 120px;"
+                    >
+                        ← Go Back
+                    </button>
+                    
+                    <a href="/" class="btn btn-primary" style="min-width: 120px;">
+                        🏠 Home
+                    </a>
+                    
+                    <a href="/recipes" class="btn btn-secondary" style="min-width: 120px;">
+                        📚 Recipes
+                    </a>
+                </div>
+                
+                <!-- Help Section -->
+                <div style="margin-top: 3rem; padding: 2rem; background: #f8f9fa; border-radius: 0.75rem; border: 1px solid #e2e8f0;">
+                    <h3 style="margin-bottom: 1rem; color: #374151;">Need help?</h3>
+                    <p style="color: #6b7280; margin-bottom: 1.5rem;">
+                        If you continue experiencing issues, here are some things you can try:
+                    </p>
+                    <ul style="text-align: left; color: #6b7280; max-width: 500px; margin: 0 auto;">
+                        <li style="margin-bottom: 0.5rem;">Refresh the page</li>
+                        <li style="margin-bottom: 0.5rem;">Clear your browser cache</li>
+                        <li style="margin-bottom: 0.5rem;">Check your internet connection</li>
+                        <li>Try again in a few minutes</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    {{template "footer" .}}
+    
+    <!-- HTMX Library -->
+    <script src="/static/js/htmx.min.js" defer></script>
+    
+    <!-- Application JavaScript -->
+    <script src="/static/js/app.js" defer></script>
+</body>
+</html>
+{{end}}

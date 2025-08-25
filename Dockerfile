@@ -70,9 +70,9 @@ USER nonroot:nonroot
 # Expose port
 EXPOSE 8080 9090
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD ["/app/main", "--health-check"]
+# Health check disabled for distroless - rely on external monitoring
+# HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+#     CMD ["curl", "-f", "http://localhost:8080/health"]
 
 # Run the application
 ENTRYPOINT ["/app/main"]

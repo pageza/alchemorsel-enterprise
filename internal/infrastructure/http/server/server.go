@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -108,6 +109,29 @@ func (s *Server) initTemplates() {
 		"formatTime": func(t time.Time) string {
 			return t.Format("Jan 2, 2006 at 3:04 PM")
 		},
+		"formatDate": func(t time.Time) string {
+			return t.Format("Jan 2, 2006")
+		},
+		"timeAgo": func(t time.Time) string {
+			duration := time.Since(t)
+			if duration < time.Minute {
+				return "just now"
+			} else if duration < time.Hour {
+				return fmt.Sprintf("%d minutes ago", int(duration.Minutes()))
+			} else if duration < 24*time.Hour {
+				return fmt.Sprintf("%d hours ago", int(duration.Hours()))
+			} else if duration < 7*24*time.Hour {
+				return fmt.Sprintf("%d days ago", int(duration.Hours()/24))
+			} else {
+				return t.Format("Jan 2")
+			}
+		},
+		"trimPrefix": func(prefix, s string) string {
+			return strings.TrimPrefix(s, prefix)
+		},
+		"urlQuery": func(s string) string {
+			return url.QueryEscape(s)
+		},
 		"truncate": func(s string, length int) string {
 			if len(s) <= length {
 				return s
@@ -119,9 +143,13 @@ func (s *Server) initTemplates() {
 		},
 		"toLower": strings.ToLower,
 		"toUpper": strings.ToUpper,
+		"title": strings.Title,
 		"join":    strings.Join,
 		"add": func(a, b int) int {
 			return a + b
+		},
+		"sub": func(a, b int) int {
+			return a - b
 		},
 		"seq": func(start, end int) []int {
 			seq := make([]int, end-start)
@@ -129,6 +157,13 @@ func (s *Server) initTemplates() {
 				seq[i] = start + i
 			}
 			return seq
+		},
+		"iterate": func(count int) []int {
+			var items []int
+			for i := 0; i < count; i++ {
+				items = append(items, i)
+			}
+			return items
 		},
 		"default": func(defaultValue interface{}, value interface{}) interface{} {
 			if value == nil || value == "" || value == 0 {
@@ -286,6 +321,17 @@ func (s *Server) setupFrontendRoutes(r chi.Router) {
 // setupAPIRoutes configures REST API routes
 func (s *Server) setupAPIRoutes(r chi.Router) {
 	h := handlers.NewAPIHandlers(s.recipeService, s.logger)
+	authHandler := handlers.NewAuthAPIHandlers(s.userService, s.authService, s.logger)
+
+	// Authentication routes
+	r.Route("/auth", func(r chi.Router) {
+		r.Post("/login", authHandler.Login)
+		r.Post("/register", authHandler.Register)
+		r.Post("/logout", authHandler.Logout)
+		r.Post("/refresh", authHandler.RefreshToken)
+		r.Get("/profile", authHandler.GetProfile)
+		r.Put("/profile", authHandler.UpdateProfile)
+	})
 
 	// Recipe CRUD
 	r.Route("/recipes", func(r chi.Router) {

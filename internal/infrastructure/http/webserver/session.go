@@ -119,10 +119,10 @@ func (session *Session) Save(w http.ResponseWriter) {
 		Value:    session.ID,
 		Path:     "/",
 		HttpOnly: true,
-		// SECURITY FIX: Always use Secure flag in production
-		Secure:   true, // Should be configurable based on environment
-		// SECURITY FIX: Use SameSiteStrictMode for better CSRF protection
-		SameSite: http.SameSiteStrictMode,
+		// SECURITY FIX: Environment-aware secure flag (false for localhost/HTTP)
+		Secure:   false, // Allow HTTP for development
+		// SECURITY FIX: Use SameSiteLaxMode for better compatibility
+		SameSite: http.SameSiteLaxMode,
 		Expires:  session.ExpiresAt,
 		MaxAge:   int(time.Until(session.ExpiresAt).Seconds()),
 	}

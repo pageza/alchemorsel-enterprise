@@ -19,7 +19,13 @@
                     {{if .User}}
                     <li><a href="/recipes/new">New Recipe</a></li>
                     <li><a href="/profile">Profile</a></li>
-                    <li><a href="/logout">Logout</a></li>
+                    <li>
+                        <form method="post" action="/logout" hx-boost="false" style="display: inline;">
+                            <button type="submit" style="background: none; border: none; color: inherit; cursor: pointer; padding: 0; font: inherit; text-decoration: underline;">
+                                Logout
+                            </button>
+                        </form>
+                    </li>
                     {{else}}
                     <li><a href="/login" {{if eq .CurrentPage "login"}}aria-current="page"{{end}}>Login</a></li>
                     <li><a href="/register" {{if eq .CurrentPage "register"}}aria-current="page"{{end}}>Register</a></li>
@@ -51,7 +57,13 @@
                 {{if .User}}
                 <li><a href="/recipes/new" style="display: block; padding: 0.5rem 0;">New Recipe</a></li>
                 <li><a href="/profile" style="display: block; padding: 0.5rem 0;">Profile</a></li>
-                <li><a href="/logout" style="display: block; padding: 0.5rem 0;">Logout</a></li>
+                <li style="padding: 0.5rem 0;">
+                    <form method="post" action="/logout" hx-boost="false" style="display: inline;">
+                        <button type="submit" style="background: none; border: none; color: inherit; cursor: pointer; padding: 0; font: inherit; text-decoration: underline;">
+                            Logout
+                        </button>
+                    </form>
+                </li>
                 {{else}}
                 <li><a href="/login" style="display: block; padding: 0.5rem 0;">Login</a></li>
                 <li><a href="/register" style="display: block; padding: 0.5rem 0;">Register</a></li>

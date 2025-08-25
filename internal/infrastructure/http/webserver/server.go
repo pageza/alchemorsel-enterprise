@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -43,9 +44,8 @@ type WebServer struct {
 	healthCheck    *healthcheck.EnterpriseHealthCheck
 	rateLimitStore *sync.Map // For rate limiting
 	csrfSecret     []byte    // For CSRF protection
-	// 14KB Optimization Components
-	orchestrator   *performance.OptimizationOrchestrator
-	httpIntegration *performance.HTTPIntegration
+	// Performance monitoring
+	perfMonitor    *performance.PerformanceMonitor
 }
 
 // NewWebServer creates a new web frontend server instance
@@ -65,29 +65,10 @@ func NewWebServer(
 	}
 	log.Info("Templates parsed successfully")
 
-	// Initialize 14KB optimization system
-	log.Info("Initializing 14KB optimization system...")
-	orchestratorConfig := performance.DefaultOrchestratorConfig()
-	orchestratorConfig.ProjectRoot = "."
-	orchestratorConfig.StaticDir = "web/static"
-	orchestratorConfig.TemplatesDir = "internal/infrastructure/http/server/templates"
-	orchestratorConfig.OutputDir = "web/static/dist"
-	
-	orchestrator, err := performance.NewOptimizationOrchestrator(orchestratorConfig)
-	if err != nil {
-		log.Error("Failed to initialize optimization orchestrator", zap.Error(err))
-		return nil, fmt.Errorf("failed to initialize optimization system: %w", err)
-	}
-
-	// Initialize HTTP integration
-	httpIntegrationConfig := performance.HTTPIntegrationConfig{
-		EnableMetrics:      true,
-		EnableDebugHeaders: !cfg.IsProduction(),
-		EnableAPIEndpoints: true,
-	}
-	httpIntegration := performance.NewHTTPIntegration(orchestrator, httpIntegrationConfig)
-	
-	log.Info("14KB optimization system initialized successfully")
+	// Initialize performance monitoring
+	log.Info("Initializing performance monitoring...")
+	perfMonitor := performance.NewPerformanceMonitor()
+	log.Info("Performance monitoring initialized successfully")
 
 	server := &WebServer{
 		config:         cfg,
@@ -98,8 +79,7 @@ func NewWebServer(
 		healthCheck:    healthCheck,
 		rateLimitStore: &sync.Map{},
 		csrfSecret:     []byte("secure-csrf-secret-key-32-chars"), // TODO: Generate from config
-		orchestrator:   orchestrator,
-		httpIntegration: httpIntegration,
+		perfMonitor:    perfMonitor,
 	}
 
 	server.router = server.setupRoutes()
@@ -123,28 +103,28 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	// 14KB OPTIMIZATION: Apply advanced compression middleware instead of basic compress
-	r.Use(s.httpIntegration.OptimizationMiddleware())
+	// Performance monitoring middleware
+	r.Use(s.perfMonitor.Middleware())
 	r.Use(s.securityHeadersMiddleware)
 	r.Use(s.sessionMiddleware)
 	r.Use(s.rateLimitMiddleware)
 
-	// Static files - serve with 14KB optimization
-	optimizedStaticHandler := s.httpIntegration.StaticOptimizationHandler("web/static")
-	r.Handle("/static/*", http.StripPrefix("/static/", optimizedStaticHandler))
-	
-	// Performance monitoring API endpoints
-	r.Mount("/api/performance", s.httpIntegration.PerformanceAPIHandler())
-	
-	// Development tools (only in non-production)
-	if !s.config.IsProduction() {
-		r.Mount("/dev", s.httpIntegration.DevModeHandler())
+	// Static files - serve from embedded static subdirectory
+	staticSubFS, err := fs.Sub(staticFS, "static")
+	if err != nil {
+		s.logger.Error("Failed to create static sub-filesystem", zap.Error(err))
+	} else {
+		r.Mount("/static", http.StripPrefix("/static", http.FileServer(http.FS(staticSubFS))))
 	}
 	
 	// Health check endpoints
 	r.Get("/health", s.handleHealthCheck)
 	r.Get("/ready", s.handleReadinessCheck)
 	r.Get("/live", s.handleLivenessCheck)
+	
+	// Debug endpoint to check embedded files
+	r.Get("/debug/static", s.handleDebugStatic)
+	r.Get("/debug/htmx", s.handleDebugHTMX)
 
 	// Public pages
 	r.Get("/", s.handleHome)
@@ -153,10 +133,13 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 	r.Get("/register", s.handleRegisterPage)
 	r.Post("/register", s.handleRegister)
 	r.Post("/logout", s.handleLogout)
-
+	
 	// Protected pages (require authentication)
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireAuth)
+		
+		// Dashboard (now properly protected)
+		r.Get("/dashboard", s.handleDashboard)
 		
 		// Recipe pages
 		r.Get("/recipes", s.handleRecipeList)
@@ -341,40 +324,33 @@ func parseTemplates() (*template.Template, error) {
 		},
 	}
 
-	// Parse templates from embedded filesystem
+	// Parse all templates together from embedded filesystem
+	// Walk through the embedded filesystem to find all .html files
 	tmpl := template.New("").Funcs(funcMap)
 	
-	// Walk through embedded template files
 	err := fs.WalkDir(templatesFS, "templates", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-
-		if d.IsDir() || !strings.HasSuffix(path, ".html") {
-			return nil
+		
+		if !d.IsDir() && strings.HasSuffix(path, ".html") {
+			content, err := templatesFS.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("failed to read template file %s: %w", path, err)
+			}
+			
+			// Get template name from filename (remove .html extension)
+			name := strings.TrimSuffix(filepath.Base(path), ".html")
+			_, err = tmpl.New(name).Parse(string(content))
+			if err != nil {
+				return fmt.Errorf("failed to parse template %s: %w", name, err)
+			}
 		}
-
-		// Read template content from embedded filesystem
-		content, err := templatesFS.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("failed to read template %s: %w", path, err)
-		}
-
-		// Create template name from path (relative to templates/)
-		name := strings.TrimPrefix(path, "templates/")
-		name = strings.TrimSuffix(name, ".html")
-
-		// Parse template
-		_, err = tmpl.New(name).Parse(string(content))
-		if err != nil {
-			return fmt.Errorf("failed to parse template %s: %w", name, err)
-		}
-
 		return nil
 	})
 	
 	if err != nil {
-		return nil, fmt.Errorf("failed to walk templates: %w", err)
+		return nil, fmt.Errorf("failed to walk template directory: %w", err)
 	}
 
 	// Debug: Log template names that were loaded
@@ -525,6 +501,39 @@ func (s *WebServer) handleLivenessCheck(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+func (s *WebServer) handleDebugStatic(w http.ResponseWriter, r *http.Request) {
+	// Debug endpoint to list embedded static files
+	files := make([]string, 0)
+	
+	err := fs.WalkDir(staticFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		files = append(files, path)
+		return nil
+	})
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"embedded_files": files,
+		"error":          err,
+	})
+}
+
+func (s *WebServer) handleDebugHTMX(w http.ResponseWriter, r *http.Request) {
+	// Serve HTMX file directly to test embedding
+	data, err := fs.ReadFile(staticFS, "static/js/htmx.min.js")
+	if err != nil {
+		http.Error(w, "HTMX file not found: "+err.Error(), http.StatusNotFound)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/javascript")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+}
+
 func (s *WebServer) handleHome(w http.ResponseWriter, r *http.Request) {
 	// Get session to check authentication state
 	session := r.Context().Value("session").(*Session)
@@ -629,17 +638,35 @@ func (s *WebServer) handleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *WebServer) handleLogout(w http.ResponseWriter, r *http.Request) {
-	// Clear session
-	session := r.Context().Value("session").(*Session)
-	session.Clear()
-	session.Save(w)
+	// Clear session if it exists
+	if sessionValue := r.Context().Value("session"); sessionValue != nil {
+		if session, ok := sessionValue.(*Session); ok {
+			// Delete from server store
+			s.sessionStore.Delete(session.ID)
+		}
+	}
 
-	// Redirect to home
+	// Always send deletion cookie to clear browser session
+	deletionCookie := &http.Cookie{
+		Name:     "alchemorsel-session",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false, // Allow HTTP for development
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1, // Delete immediately
+	}
+	http.SetCookie(w, deletionCookie)
+
+	// Always use standard redirect for logout
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (s *WebServer) handleRecipeList(w http.ResponseWriter, r *http.Request) {
 	session := r.Context().Value("session").(*Session)
+	
+	// Get user context for navigation
+	user, isAuthenticated := s.getUserContext(r)
 	
 	// Get recipes from API
 	recipes, err := s.apiClient.GetRecipes(r.Context(), session.AccessToken)
@@ -649,14 +676,21 @@ func (s *WebServer) handleRecipeList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.renderTemplate(w, "recipes", map[string]interface{}{
-		"Title":   "Recipes - Alchemorsel",
-		"Recipes": recipes,
+		"Title":           "Recipes - Alchemorsel",
+		"Recipes":         recipes,
+		"User":            user,
+		"IsAuthenticated": isAuthenticated,
 	})
 }
 
 func (s *WebServer) handleNewRecipePage(w http.ResponseWriter, r *http.Request) {
+	// Get user context for navigation
+	user, isAuthenticated := s.getUserContext(r)
+	
 	s.renderTemplate(w, "recipe-new", map[string]interface{}{
-		"Title": "New Recipe - Alchemorsel",
+		"Title":           "New Recipe - Alchemorsel",
+		"User":            user,
+		"IsAuthenticated": isAuthenticated,
 	})
 }
 
@@ -705,9 +739,80 @@ func (s *WebServer) handleAISuggest(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("<div>AI suggestions</div>"))
 }
 
+func (s *WebServer) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	// Get user context for navigation
+	user, isAuthenticated := s.getUserContext(r)
+	
+	// Mock dashboard data for template
+	createdAt := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
+	dashboardData := map[string]interface{}{
+		"User": map[string]interface{}{
+			"ID":        "user123",
+			"Name":      "John Doe",
+			"Username":  "johndoe",
+			"Email":     "john@example.com",
+			"Avatar":    "/static/img/default-avatar.jpg",
+			"CreatedAt": createdAt,
+		},
+		"Stats": map[string]interface{}{
+			"RecipeCount":   12,
+			"LikesReceived": 234,
+			"Followers":     45,
+			"Collections":   3,
+		},
+		"UserRecipes":       []interface{}{}, // Empty for now - will be loaded via HTMX
+		"RecentActivity":    []interface{}{}, // Empty for now - will be loaded via HTMX
+		"TrendingRecipes":   []interface{}{}, // Empty for now - will be loaded via HTMX
+		"UserCollections":   []interface{}{}, // Empty for now - will be loaded via HTMX
+	}
+	
+	s.renderTemplate(w, "dashboard", map[string]interface{}{
+		"Title":           "Dashboard - Alchemorsel",
+		"User":            user,
+		"IsAuthenticated": isAuthenticated,
+		"Data":            dashboardData,
+		"CurrentPage":     "dashboard",
+	})
+}
+
 func (s *WebServer) handleProfile(w http.ResponseWriter, r *http.Request) {
+	// Get user context for navigation
+	user, isAuthenticated := s.getUserContext(r)
+	
+	// Mock profile data for template
+	createdAt := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
+	profileData := map[string]interface{}{
+		"User": map[string]interface{}{
+			"ID":        "user123",
+			"Name":      "John Doe",
+			"Username":  "johndoe",
+			"Email":     "john@example.com",
+			"Avatar":    "/static/img/default-avatar.jpg",
+			"CreatedAt": createdAt,
+			"Profile": map[string]interface{}{
+				"Bio":          "Passionate home cook and recipe creator",
+				"Location":     "San Francisco, CA",
+				"Website":      "https://johndoe.com",
+				"CookingLevel": "intermediate",
+			},
+		},
+		"Stats": map[string]interface{}{
+			"RecipeCount":      12,
+			"FollowersCount":   45,
+			"FollowingCount":   67,
+			"LikesReceived":    234,
+			"CollectionsCount": 3,
+			"LikedCount":       89,
+		},
+		"IsOwnProfile": true,
+		"IsFollowing":  false,
+	}
+	
 	s.renderTemplate(w, "profile", map[string]interface{}{
-		"Title": "Profile - Alchemorsel",
+		"Title":           "Profile - Alchemorsel",
+		"User":            user,
+		"IsAuthenticated": isAuthenticated,
+		"Data":            profileData,
 	})
 }
 
@@ -907,6 +1012,15 @@ func (s *WebServer) renderTemplate(w http.ResponseWriter, name string, data inte
 	if templateData["BaseURL"] == nil {
 		templateData["BaseURL"] = "http://localhost:8080"
 	}
+	// Set template name for base template conditional logic
+	templateData["TemplateName"] = name
+	
+	// Add user context if not already provided and if we can access the request context
+	if templateData["User"] == nil || templateData["IsAuthenticated"] == nil {
+		// Try to get session from request context if available
+		// Note: This requires the request context to be available
+		// For now, we'll rely on handlers to explicitly pass User data
+	}
 	
 	// Debug: Log template execution
 	s.logger.Debug("Executing template", 
@@ -937,6 +1051,24 @@ func (s *WebServer) renderTemplate(w http.ResponseWriter, name string, data inte
 </body>
 </html>`, templateData["Title"], name, err.Error())
 	}
+}
+
+// getUserContext extracts user information from session for template rendering
+func (s *WebServer) getUserContext(r *http.Request) (user interface{}, isAuthenticated bool) {
+	session := r.Context().Value("session").(*Session)
+	
+	if session.UserID != "" && session.AccessToken != "" {
+		// Verify token is still valid with API
+		if s.apiClient.VerifyToken(r.Context(), session.AccessToken) {
+			isAuthenticated = true
+			user = map[string]interface{}{
+				"ID":   session.UserID,
+				"Name": "User", // Could fetch from API later
+			}
+		}
+	}
+	
+	return user, isAuthenticated
 }
 
 func (s *WebServer) renderError(w http.ResponseWriter, message string, err error) {

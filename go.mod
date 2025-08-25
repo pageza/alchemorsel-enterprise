@@ -1,6 +1,8 @@
 module github.com/alchemorsel/v3
 
-go 1.23
+go 1.23.0
+
+toolchain go1.23.2
 
 require (
 	github.com/andybalholm/brotli v1.0.4
@@ -41,7 +43,6 @@ require (
 	golang.org/x/time v0.12.0
 	google.golang.org/grpc v1.73.0
 	gorm.io/driver/postgres v1.4.5
-	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.30.0
 	gorm.io/plugin/dbresolver v1.6.2
 )
@@ -104,7 +105,6 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect

@@ -1,0 +1,259 @@
+{{define "recipe-card"}}
+<article class="recipe-card" itemscope itemtype="https://schema.org/Recipe" style="border-radius: 0.75rem; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s; background: white; position: relative;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)'">
+    
+    <!-- Image Container -->
+    <div style="position: relative; overflow: hidden;">
+        {{if .Images}}
+        <img 
+            src="{{index .Images 0}}" 
+            alt="{{.Title}}"
+            itemprop="image"
+            loading="lazy"
+            style="width: 100%; height: 200px; object-fit: cover; transition: transform 0.3s;"
+            onmouseover="this.style.transform='scale(1.05)'"
+            onmouseout="this.style.transform='scale(1)'"
+        >
+        {{else}}
+        <div style="width: 100%; height: 200px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white;">
+            <div style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 0.5rem;">🍽️</div>
+                <div style="font-size: 0.875rem; opacity: 0.8;">{{.Title}}</div>
+            </div>
+        </div>
+        {{end}}
+        
+        <!-- Recipe Badges -->
+        <div style="position: absolute; top: 0.75rem; left: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
+            {{if .AIGenerated}}
+            <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 600;">
+                🤖 AI
+            </span>
+            {{end}}
+            {{if .IsNew}}
+            <span style="background: #ef4444; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 600;">
+                NEW
+            </span>
+            {{end}}
+            {{if .IsTrending}}
+            <span style="background: #f59e0b; color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 600;">
+                🔥 HOT
+            </span>
+            {{end}}
+        </div>
+        
+        <!-- Quick Actions -->
+        <div style="position: absolute; top: 0.75rem; right: 0.75rem; display: flex; gap: 0.5rem; opacity: 0; transition: opacity 0.2s;" class="recipe-quick-actions">
+            <button 
+                class="btn btn-sm {{if .IsLiked}}btn-primary{{else}}btn-secondary{{end}}"
+                hx-post="/htmx/recipes/{{.ID}}/like"
+                hx-target="this"
+                hx-swap="outerHTML"
+                title="{{if .IsLiked}}Unlike{{else}}Like{{end}} recipe"
+                style="border-radius: 50%; width: 2.5rem; height: 2.5rem; padding: 0; backdrop-filter: blur(8px); background: rgba(255,255,255,0.9);"
+            >
+                {{if .IsLiked}}❤️{{else}}🤍{{end}}
+            </button>
+            <button 
+                class="btn btn-sm btn-secondary"
+                hx-get="/htmx/recipes/{{.ID}}/save"
+                hx-target="#save-modal"
+                title="Save recipe"
+                style="border-radius: 50%; width: 2.5rem; height: 2.5rem; padding: 0; backdrop-filter: blur(8px); background: rgba(255,255,255,0.9);"
+            >
+                📌
+            </button>
+        </div>
+        
+        <!-- Time Badge -->
+        {{if .TotalTimeMinutes}}
+        <div style="position: absolute; bottom: 0.75rem; left: 0.75rem; background: rgba(0,0,0,0.7); color: white; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; backdrop-filter: blur(8px);">
+            ⏱️ {{.TotalTimeMinutes}}m
+        </div>
+        {{end}}
+    </div>
+    
+    <div class="recipe-card-content" style="padding: 1.5rem;">
+        <!-- Recipe Title -->
+        <h3 itemprop="name" style="margin: 0 0 0.75rem 0; font-size: 1.25rem; font-weight: 700; line-height: 1.3;">
+            <a href="/recipes/{{.ID}}" style="text-decoration: none; color: inherit; transition: color 0.2s;" onmouseover="this.style.color='#4f46e5'" onmouseout="this.style.color='inherit'">
+                {{.Title}}
+            </a>
+        </h3>
+        
+        <!-- Recipe Description -->
+        {{if .Description}}
+        <p itemprop="description" style="color: #718096; margin-bottom: 1rem; font-size: 0.875rem; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+            {{.Description}}
+        </p>
+        {{end}}
+        
+        <!-- Recipe Quick Stats -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-radius: 0.5rem;">
+            <div style="text-align: center;">
+                <div style="font-size: 1rem; font-weight: 600; color: #4f46e5;">{{.Servings | default "—"}}</div>
+                <div style="font-size: 0.75rem; color: #718096;">Servings</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 1rem; font-weight: 600; color: #059669;">{{.TotalTimeMinutes | default "—"}}</div>
+                <div style="font-size: 0.75rem; color: #718096;">Total Min</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 1rem; font-weight: 600; color: {{if eq .Difficulty "easy"}}#059669{{else if eq .Difficulty "medium"}}#f59e0b{{else}}#dc2626{{end}};">
+                    {{if .Difficulty}}{{.Difficulty | title}}{{else}}—{{end}}
+                </div>
+                <div style="font-size: 0.75rem; color: #718096;">Difficulty</div>
+            </div>
+        </div>
+
+        <!-- Rating and Social Stats -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <!-- Rating -->
+            <div>
+                {{if .AverageRating}}
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <div class="rating-stars">
+                        {{range $i := iterate 5}}
+                        <span style="color: {{if lt $i $.AverageRating}}#f59e0b{{else}}#e5e7eb{{end}}; font-size: 0.875rem;">★</span>
+                        {{end}}
+                    </div>
+                    <span style="color: #718096; font-size: 0.75rem;">
+                        {{printf "%.1f" .AverageRating}} ({{.RatingsCount | default 0}})
+                    </span>
+                </div>
+                {{else}}
+                <div style="color: #9ca3af; font-size: 0.875rem;">No ratings yet</div>
+                {{end}}
+            </div>
+
+            <!-- Social Stats -->
+            <div style="display: flex; align-items: center; gap: 1rem; font-size: 0.75rem; color: #718096;">
+                <span>❤️ {{.Likes | default 0}}</span>
+                <span>👁️ {{.Views | default 0}}</span>
+            </div>
+        </div>
+        
+        <!-- Tags (first 2 only for space) -->
+        {{if .Tags}}
+        <div style="margin-bottom: 1rem;">
+            {{range $index, $tag := .Tags}}
+            {{if lt $index 2}}
+            <span style="background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%); color: #4a5568; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; margin-right: 0.5rem; border: 1px solid #e2e8f0;">
+                #{{$tag}}
+            </span>
+            {{end}}
+            {{end}}
+            {{if gt (len .Tags) 2}}
+            <span style="color: #9ca3af; font-size: 0.75rem;">+{{sub (len .Tags) 2}} more</span>
+            {{end}}
+        </div>
+        {{end}}
+        
+        <!-- Action Buttons -->
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+            <a href="/recipes/{{.ID}}" class="btn btn-primary" style="flex: 1; text-align: center; font-weight: 600;">
+                View Recipe
+            </a>
+            
+            <button 
+                class="btn {{if .IsLiked}}btn-primary{{else}}btn-secondary{{end}}"
+                hx-post="/htmx/recipes/{{.ID}}/like"
+                hx-target="this"
+                hx-swap="outerHTML"
+                title="{{if .IsLiked}}Unlike{{else}}Like{{end}} recipe"
+                style="width: 3rem; display: flex; align-items: center; justify-content: center;"
+            >
+                {{if .IsLiked}}❤️{{else}}🤍{{end}}
+            </button>
+            
+            <button 
+                class="btn btn-secondary"
+                hx-get="/htmx/recipes/{{.ID}}/save"
+                hx-target="#save-modal"
+                title="Save to collection"
+                style="width: 3rem; display: flex; align-items: center; justify-content: center;"
+            >
+                📌
+            </button>
+        </div>
+        
+        <!-- Author Info -->
+        {{if .Author}}
+        <div style="display: flex; align-items: center; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+            <img 
+                src="{{.Author.Avatar | default "/static/img/default-avatar.jpg"}}" 
+                alt="{{.Author.Name}}"
+                style="width: 2rem; height: 2rem; border-radius: 50%; object-fit: cover;"
+            >
+            <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 600; font-size: 0.875rem; color: #1a202c; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <a href="/profile/{{.Author.ID}}" style="text-decoration: none; color: inherit;" itemprop="author">
+                        {{.Author.Name}}
+                    </a>
+                </div>
+                <div style="color: #718096; font-size: 0.75rem;">
+                    {{if .Author.Profile.CookingLevel}}{{.Author.Profile.CookingLevel | title}} Chef{{else}}Home Cook{{end}}
+                </div>
+            </div>
+            <div style="color: #9ca3af; font-size: 0.75rem;">
+                {{.CreatedAt | timeAgo | default "Recently"}}
+            </div>
+        </div>
+        {{end}}
+    </div>
+    
+    <!-- JSON-LD structured data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org/",
+        "@type": "Recipe",
+        "name": "{{.Title}}",
+        {{if .Description}}"description": "{{.Description}}",{{end}}
+        {{if .Image}}"image": "{{.Image}}",{{end}}
+        {{if .Author}}"author": {
+            "@type": "Person",
+            "name": "{{.Author.Name}}"
+        },{{end}}
+        {{if .CookTime}}"totalTime": "PT{{.CookTime}}M",{{end}}
+        {{if .Servings}}"recipeYield": "{{.Servings}}",{{end}}
+        {{if .Rating}}"aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "{{.Rating.Average}}",
+            "reviewCount": "{{.Rating.Count}}"
+        },{{end}}
+        "url": "{{.BaseURL}}/recipes/{{.ID}}"
+    }
+    </script>
+</article>
+
+<style>
+.recipe-card:hover .recipe-quick-actions {
+    opacity: 1 !important;
+}
+
+.recipe-card .btn:hover {
+    transform: scale(1.05);
+}
+
+.recipe-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+    padding: 1rem 0;
+}
+
+@media (max-width: 640px) {
+    .recipe-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .recipe-card-content {
+        padding: 1rem !important;
+    }
+    
+    .recipe-quick-actions {
+        opacity: 1 !important; /* Always visible on mobile */
+    }
+}
+</style>
+{{end}}

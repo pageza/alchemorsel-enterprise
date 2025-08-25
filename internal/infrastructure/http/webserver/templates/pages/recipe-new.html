@@ -1,0 +1,190 @@
+{{define "recipe-new"}}
+{{template "base" .}}
+{{end}}
+
+{{define "recipe-new-content"}}
+<div class="container">
+    <!-- Page Header -->
+    <header style="margin-bottom: 2rem;">
+        <h1>Create New Recipe</h1>
+        <p style="color: #718096; margin-bottom: 1.5rem;">
+            Share your culinary creation with the Alchemorsel community.
+        </p>
+    </header>
+    
+    <!-- Recipe Form -->
+    <div class="card">
+        <form 
+            hx-post="/api/v1/recipes" 
+            hx-target="#form-messages" 
+            hx-swap="innerHTML"
+            hx-indicator="#submit-spinner"
+        >
+            <div id="form-messages"></div>
+            
+            <!-- Basic Information -->
+            <div class="form-section" style="margin-bottom: 2rem;">
+                <h2 style="margin-bottom: 1rem;">Basic Information</h2>
+                
+                <div class="form-group">
+                    <label for="title" class="form-label">Recipe Title *</label>
+                    <input 
+                        type="text" 
+                        id="title" 
+                        name="title" 
+                        class="form-input" 
+                        required 
+                        placeholder="e.g., Classic Chocolate Chip Cookies"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea 
+                        id="description" 
+                        name="description" 
+                        class="form-input" 
+                        rows="3"
+                        placeholder="Brief description of your recipe..."
+                    ></textarea>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="prep_time" class="form-label">Prep Time (minutes)</label>
+                        <input 
+                            type="number" 
+                            id="prep_time" 
+                            name="prep_time" 
+                            class="form-input" 
+                            min="0"
+                            placeholder="15"
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cook_time" class="form-label">Cook Time (minutes)</label>
+                        <input 
+                            type="number" 
+                            id="cook_time" 
+                            name="cook_time" 
+                            class="form-input" 
+                            min="0"
+                            placeholder="30"
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="servings" class="form-label">Servings</label>
+                        <input 
+                            type="number" 
+                            id="servings" 
+                            name="servings" 
+                            class="form-input" 
+                            min="1"
+                            placeholder="4"
+                        >
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="difficulty" class="form-label">Difficulty</label>
+                        <select id="difficulty" name="difficulty" class="form-input">
+                            <option value="">Select difficulty</option>
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cuisine" class="form-label">Cuisine</label>
+                        <input 
+                            type="text" 
+                            id="cuisine" 
+                            name="cuisine" 
+                            class="form-input" 
+                            placeholder="e.g., Italian, Mexican, Asian"
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="category" class="form-label">Category</label>
+                        <select id="category" name="category" class="form-input">
+                            <option value="">Select category</option>
+                            <option value="appetizer">Appetizer</option>
+                            <option value="main_course">Main Course</option>
+                            <option value="dessert">Dessert</option>
+                            <option value="beverage">Beverage</option>
+                            <option value="side_dish">Side Dish</option>
+                            <option value="snack">Snack</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Ingredients -->
+            <div class="form-section" style="margin-bottom: 2rem;">
+                <h2 style="margin-bottom: 1rem;">Ingredients</h2>
+                {{template "ingredients-form" .}}
+            </div>
+            
+            <!-- Instructions -->
+            <div class="form-section" style="margin-bottom: 2rem;">
+                <h2 style="margin-bottom: 1rem;">Instructions</h2>
+                {{template "instructions-form" .}}
+            </div>
+            
+            <!-- Image Upload -->
+            <div class="form-section" style="margin-bottom: 2rem;">
+                <h2 style="margin-bottom: 1rem;">Recipe Image</h2>
+                <div class="form-group">
+                    <label for="image" class="form-label">Upload Image</label>
+                    <input 
+                        type="file" 
+                        id="image" 
+                        name="image" 
+                        class="form-input" 
+                        accept="image/*"
+                    >
+                    <p style="font-size: 0.875rem; color: #718096; margin-top: 0.5rem;">
+                        Upload a photo of your finished recipe (optional)
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Submit Section -->
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                <a href="/recipes" class="btn btn-secondary">Cancel</a>
+                <button 
+                    type="submit" 
+                    class="btn btn-primary"
+                    style="min-width: 120px;"
+                >
+                    <span id="submit-spinner" class="htmx-indicator spinner" style="margin-right: 0.5rem;"></span>
+                    Create Recipe
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Auto-resize textareas
+document.addEventListener('input', function(e) {
+    if (e.target.tagName.toLowerCase() === 'textarea') {
+        e.target.style.height = 'auto';
+        e.target.style.height = e.target.scrollHeight + 'px';
+    }
+});
+
+// Form validation feedback
+document.body.addEventListener('htmx:afterRequest', function(event) {
+    if (event.detail.xhr.status === 201) {
+        // Recipe created successfully, redirect to recipe list
+        window.location.href = '/recipes';
+    }
+});
+</script>
+{{end}}

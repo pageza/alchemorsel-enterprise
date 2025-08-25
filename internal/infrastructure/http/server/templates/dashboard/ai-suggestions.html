@@ -1,0 +1,61 @@
+{{if .Suggestions}}
+<div class="space-y-3">
+  {{range $index, $suggestion := .Suggestions}}
+  <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border hover:shadow-md transition-all cursor-pointer" 
+       hx-post="/ai/chat" 
+       hx-vals='{"message":"{{$suggestion}}"}' 
+       hx-target="#chat-messages" 
+       hx-swap="beforeend">
+    <div class="flex items-start space-x-3">
+      <div class="flex-shrink-0">
+        <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+          </svg>
+        </div>
+      </div>
+      <div class="flex-1">
+        <p class="text-sm font-medium text-gray-900">{{$suggestion}}</p>
+        <p class="text-xs text-gray-500 mt-1">Click to start cooking with AI assistance</p>
+      </div>
+      <div class="flex-shrink-0">
+        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+  {{end}}
+</div>
+
+<div class="mt-6 pt-4 border-t">
+  <div class="bg-white rounded-lg p-4 border">
+    <h4 class="font-medium text-gray-900 mb-2">Need something specific?</h4>
+    <form hx-post="/ai/chat" hx-target="#chat-messages" hx-swap="beforeend" class="flex space-x-2">
+      <input 
+        type="text" 
+        name="message" 
+        placeholder="Tell me what you'd like to cook..." 
+        class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        required
+      >
+      <button 
+        type="submit" 
+        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+        </svg>
+      </button>
+    </form>
+  </div>
+</div>
+{{else}}
+<div class="text-center py-8">
+  <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+  </svg>
+  <h3 class="mt-4 text-lg font-medium text-gray-900">No AI suggestions available</h3>
+  <p class="mt-2 text-gray-500">Start cooking and we'll provide personalized suggestions!</p>
+</div>
+{{end}}
