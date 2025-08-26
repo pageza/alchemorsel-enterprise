@@ -18,8 +18,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alchemorsel/v3/internal/application/conversation"
+	"github.com/alchemorsel/v3/internal/infrastructure/ai"
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
+	"github.com/alchemorsel/v3/internal/infrastructure/http/handlers"
 	"github.com/alchemorsel/v3/internal/infrastructure/performance"
+	"github.com/alchemorsel/v3/internal/infrastructure/websocket"
 	"github.com/alchemorsel/v3/pkg/healthcheck"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -46,6 +50,10 @@ type WebServer struct {
 	csrfSecret     []byte    // For CSRF protection
 	// Performance monitoring
 	perfMonitor    *performance.PerformanceMonitor
+	// WebSocket and AI chat
+	wsManager      *websocket.Manager
+	convService    *conversation.Service
+	ollamaClient   *ai.OllamaClient
 }
 
 // NewWebServer creates a new web frontend server instance
@@ -70,6 +78,29 @@ func NewWebServer(
 	perfMonitor := performance.NewPerformanceMonitor()
 	log.Info("Performance monitoring initialized successfully")
 
+	// Initialize AI and WebSocket components
+	log.Info("Initializing Ollama client...")
+	ollamaHost := cfg.GetString("ALCHEMORSEL_OLLAMA_HOST")
+	if ollamaHost == "" {
+		ollamaHost = "http://ollama:11434" // Default for Docker
+	}
+	ollamaModel := cfg.GetString("ALCHEMORSEL_OLLAMA_CHAT_MODEL")
+	if ollamaModel == "" {
+		ollamaModel = "mistral:7b" // Default model
+	}
+	ollamaClient := ai.NewOllamaClient(ollamaHost, ollamaModel)
+	
+	log.Info("Initializing WebSocket manager...")
+	wsManager := websocket.NewManager()
+	
+	// Initialize chat message handler
+	chatHandler := handlers.NewChatMessageHandler(ollamaClient, wsManager)
+	wsManager.SetMessageHandler(chatHandler)
+	
+	// TODO: Initialize conversation service with proper repositories
+	// For now, we'll initialize it with nil and update later when we have database setup
+	var convService *conversation.Service
+
 	server := &WebServer{
 		config:         cfg,
 		logger:         log,
@@ -78,6 +109,9 @@ func NewWebServer(
 		templates:      templates,
 		healthCheck:    healthCheck,
 		rateLimitStore: &sync.Map{},
+		wsManager:      wsManager,
+		convService:    convService,
+		ollamaClient:   ollamaClient,
 		csrfSecret:     []byte("secure-csrf-secret-key-32-chars"), // TODO: Generate from config
 		perfMonitor:    perfMonitor,
 	}
@@ -90,6 +124,13 @@ func NewWebServer(
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
+
+	// Start WebSocket manager in background
+	go func() {
+		ctx := context.Background()
+		log.Info("Starting WebSocket manager...")
+		server.wsManager.Start(ctx)
+	}()
 
 	return server, nil
 }
@@ -152,6 +193,7 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 		
 		// AI features
 		r.Get("/ai/chat", s.handleAIChatPage)
+		r.Get("/ws", s.handleWebSocketUpgrade)
 		r.Post("/ai/generate", s.handleAIGenerate)
 		r.Post("/ai/suggest", s.handleAISuggest)
 		
@@ -1335,4 +1377,38 @@ func (s *WebServer) containsDangerousContent(input string) bool {
 	}
 	
 	return false
+}
+
+// handleWebSocketUpgrade handles WebSocket upgrade requests for real-time chat
+func (s *WebServer) handleWebSocketUpgrade(w http.ResponseWriter, r *http.Request) {
+	// Get user from session
+	session, err := s.sessionStore.Get(r, "session")
+	if err != nil {
+		s.logger.Error("Failed to get session for WebSocket", zap.Error(err))
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if session == nil || session.UserID == "" {
+		s.logger.Warn("No valid session for WebSocket connection")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	s.logger.Info("WebSocket connection attempt", 
+		zap.String("user_id", session.UserID),
+		zap.String("remote_addr", r.RemoteAddr))
+
+	// Upgrade to WebSocket
+	err = s.wsManager.HandleUpgrade(w, r, session.UserID)
+	if err != nil {
+		s.logger.Error("Failed to upgrade WebSocket connection", 
+			zap.Error(err),
+			zap.String("user_id", session.UserID))
+		http.Error(w, "Failed to upgrade connection", http.StatusInternalServerError)
+		return
+	}
+
+	s.logger.Info("WebSocket connection established successfully", 
+		zap.String("user_id", session.UserID))
 }

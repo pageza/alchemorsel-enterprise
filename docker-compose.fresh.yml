@@ -1,0 +1,97 @@
+# Alchemorsel v3 - Fresh Containerized Development Environment
+# Clean approach: Create container and clone project into it
+
+services:
+  # Development Environment Container - Fresh Start
+  alchemorsel-dev:
+    image: golang:1.23-bullseye
+    container_name: alchemorsel-dev-fresh
+    working_dir: /workspace
+    volumes:
+      # Mount Docker socket for container management
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persistent workspace (empty initially, we'll clone into it)
+      - alchemorsel_dev_workspace:/workspace
+      # Go module cache for faster builds
+      - go_mod_cache:/go/pkg/mod
+      # Build cache
+      - go_build_cache:/root/.cache/go-build
+    environment:
+      # Go configuration
+      CGO_ENABLED: "1"
+      GOOS: linux
+      GOARCH: amd64
+      GO111MODULE: "on"
+      
+      # Development configuration
+      APP_ENVIRONMENT: development
+      APP_DEBUG: "true"
+      APP_LOG_LEVEL: debug
+    ports:
+      # Development ports (allocated via portscan)
+      - "3020:8080"   # API server (portscan allocated)
+      - "3021:8081"   # Web server (portscan allocated)
+      - "3022:3012"   # Metrics (portscan allocated)
+      - "2345:2345"   # Debugger (dlv)
+      - "6060:6060"   # pprof profiler
+    networks:
+      - alchemorsel-dev-network
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    # Start with bash so we can clone and set up
+    command: /bin/bash
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: alchemorsel-postgres-fresh
+    environment:
+      POSTGRES_DB: alchemorsel_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_fresh_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d alchemorsel_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - alchemorsel-dev-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: alchemorsel-redis-fresh
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_fresh_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - alchemorsel-dev-network
+
+volumes:
+  alchemorsel_dev_workspace:
+    driver: local
+  postgres_fresh_data:
+    driver: local
+  redis_fresh_data:
+    driver: local
+  go_mod_cache:
+    driver: local
+  go_build_cache:
+    driver: local
+
+networks:
+  alchemorsel-dev-network:
+    driver: bridge
+    name: alchemorsel-dev-fresh

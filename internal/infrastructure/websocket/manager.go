@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -87,12 +88,13 @@ func (c *Connection) Close() {
 
 // Manager manages WebSocket connections
 type Manager struct {
-	connections map[string]*Connection
-	register    chan *Connection
-	unregister  chan *Connection
-	broadcast   chan Message
-	mutex       sync.RWMutex
-	upgrader    websocket.Upgrader
+	connections    map[string]*Connection
+	register       chan *Connection
+	unregister     chan *Connection
+	broadcast      chan Message
+	mutex          sync.RWMutex
+	upgrader       websocket.Upgrader
+	messageHandler MessageHandler
 }
 
 // NewManager creates a new WebSocket manager
@@ -362,6 +364,16 @@ func (m *Manager) writePump(conn *Connection) {
 	}
 }
 
+// MessageHandler interface for processing incoming messages
+type MessageHandler interface {
+	HandleMessage(ctx context.Context, userID string, message Message) error
+}
+
+// SetMessageHandler sets the message handler for processing incoming messages
+func (m *Manager) SetMessageHandler(handler MessageHandler) {
+	m.messageHandler = handler
+}
+
 // handleIncomingMessage handles incoming messages from clients
 func (m *Manager) handleIncomingMessage(conn *Connection, message Message) {
 	// Set message ID if not provided
@@ -372,8 +384,6 @@ func (m *Manager) handleIncomingMessage(conn *Connection, message Message) {
 	// Log the message
 	log.Printf("Received message from connection %s: %s", conn.ID, message.Type)
 	
-	// You would typically route this to a message handler service
-	// For now, we'll just echo it back or broadcast it
 	switch message.Type {
 	case "ping":
 		response := Message{
@@ -384,8 +394,43 @@ func (m *Manager) handleIncomingMessage(conn *Connection, message Message) {
 		conn.Send <- response
 		
 	case "chat_message":
-		// This would typically be handled by a conversation service
-		log.Printf("Chat message from user %s: %s", conn.UserID, message.Content)
+		// Process chat message with handler if available
+		if m.messageHandler != nil {
+			ctx := context.Background()
+			if err := m.messageHandler.HandleMessage(ctx, conn.UserID, message); err != nil {
+				log.Printf("Error handling message: %v", err)
+				
+				// Send error response to client
+				errorResponse := Message{
+					ID:        message.ID,
+					Type:      "error",
+					Error:     "Failed to process message",
+					Timestamp: time.Now(),
+				}
+				select {
+				case conn.Send <- errorResponse:
+				default:
+					log.Printf("Failed to send error response to connection %s", conn.ID)
+				}
+			}
+		} else {
+			log.Printf("No message handler configured - echoing message")
+			
+			// Simple echo response when no handler is available
+			echoResponse := Message{
+				ID:        message.ID,
+				Type:      "chat_response",
+				Content:   fmt.Sprintf("Echo: %s", message.Content),
+				Role:      "assistant",
+				Timestamp: time.Now(),
+			}
+			
+			select {
+			case conn.Send <- echoResponse:
+			default:
+				log.Printf("Failed to send echo response to connection %s", conn.ID)
+			}
+		}
 		
 	default:
 		log.Printf("Unknown message type: %s", message.Type)

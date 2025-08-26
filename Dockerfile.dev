@@ -1,47 +1,45 @@
-# Alchemorsel v3 Development Dockerfile
-# Optimized for hot reload development workflow with comprehensive tooling
+# Alchemorsel v3 Development Container
+# Addresses user request: "move this whole project inside of a container to be able to cut out these version issues"
+# Complete containerized development environment with Go 1.23 and all dependencies
 
-FROM golang:1.23-alpine AS dev-base
+FROM golang:1.23-bullseye AS dev-base
 
-# Install system dependencies and development tools
-RUN apk add --no-cache \
+# Install system dependencies and development tools  
+RUN apt-get update && apt-get install -y \
     git \
     ca-certificates \
-    tzdata \
     curl \
     wget \
     bash \
     make \
     gcc \
-    musl-dev \
-    sqlite \
+    build-essential \
+    sqlite3 \
     postgresql-client \
-    redis \
+    redis-tools \
     inotify-tools \
     nodejs \
-    npm
+    npm \
+    vim \
+    nano \
+    htop \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Go development tools
-RUN go install github.com/cosmtrek/air@latest && \
-    go install github.com/go-delve/delve/cmd/dlv@latest && \
-    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
-    go install golang.org/x/tools/cmd/goimports@latest && \
-    go install github.com/swaggo/swag/cmd/swag@latest && \
-    go install golang.org/x/vuln/cmd/govulncheck@latest && \
-    go install golang.org/x/perf/cmd/benchstat@latest && \
-    go install github.com/rakyll/hey@latest
+# Install essential Go development tools only (faster build)
+RUN go install github.com/go-delve/delve/cmd/dlv@latest && \
+    go install golang.org/x/tools/cmd/goimports@latest
 
 # Set working directory
-WORKDIR /app
+WORKDIR /workspace
 
 # Create development user (non-root for security)
-RUN addgroup -g 1000 developer && \
-    adduser -D -s /bin/bash -u 1000 -G developer developer && \
-    chown -R developer:developer /app
+RUN groupadd -g 1000 developer && \
+    useradd -m -s /bin/bash -u 1000 -g developer developer && \
+    chown -R developer:developer /workspace
 
 # Create necessary directories with proper permissions
 RUN mkdir -p tmp logs uploads data coverage .build-cache .gocache .gomodcache && \
-    chown -R developer:developer /app
+    chown -R developer:developer /workspace
 
 # Multi-stage cache optimization
 # Cache layer for Go modules
@@ -61,7 +59,7 @@ FROM dev-base AS development
 COPY --from=deps /go/pkg/mod /go/pkg/mod
 
 # Copy cached Node modules if they exist
-COPY --from=node-deps /app/node_modules ./node_modules 2>/dev/null || true
+COPY --from=node-deps /workspace/node_modules ./node_modules 2>/dev/null || true
 
 # Copy Air configuration
 COPY .air.toml .
@@ -77,8 +75,8 @@ ENV CGO_ENABLED=0
 ENV GOOS=linux
 ENV GOARCH=amd64
 ENV GO111MODULE=on
-ENV GOCACHE=/app/.gocache
-ENV GOMODCACHE=/app/.gomodcache
+ENV GOCACHE=/workspace/.gocache
+ENV GOMODCACHE=/workspace/.gomodcache
 ENV GOPATH=/go
 
 # Air environment variables
@@ -136,14 +134,14 @@ echo ""\n\
 mkdir -p tmp logs uploads\n\
 # Start Air with hot reload\n\
 exec air -c .air.toml\n\
-' > /app/start-dev.sh && chmod +x /app/start-dev.sh
+' > /workspace/start-dev.sh && chmod +x /workspace/start-dev.sh
 
 RUN echo '#!/bin/bash\n\
 echo "🧪 Running development tests with coverage"\n\
 go test -v -race -cover -coverprofile=coverage/coverage.out ./...\n\
 go tool cover -html=coverage/coverage.out -o coverage/coverage.html\n\
 echo "📊 Coverage report generated: coverage/coverage.html"\n\
-' > /app/test-dev.sh && chmod +x /app/test-dev.sh
+' > /workspace/test-dev.sh && chmod +x /workspace/test-dev.sh
 
 RUN echo '#!/bin/bash\n\
 echo "🔍 Running development quality checks"\n\
@@ -155,19 +153,19 @@ golangci-lint run ./...\n\
 echo "🛡️ Running security scan..."\n\
 govulncheck ./...\n\
 echo "✅ Quality checks complete"\n\
-' > /app/quality-dev.sh && chmod +x /app/quality-dev.sh
+' > /workspace/quality-dev.sh && chmod +x /workspace/quality-dev.sh
 
 RUN echo '#!/bin/bash\n\
 echo "📚 Generating development documentation"\n\
 swag init -g cmd/api/main.go -o api/openapi\n\
 echo "📖 Documentation available at: http://localhost:8080/swagger/index.html"\n\
-' > /app/docs-dev.sh && chmod +x /app/docs-dev.sh
+' > /workspace/docs-dev.sh && chmod +x /workspace/docs-dev.sh
 
 RUN echo '#!/bin/bash\n\
 echo "🔧 Starting development debugger"\n\
 echo "🎯 Attach your IDE to localhost:2345"\n\
 dlv debug ./cmd/api/main.go --headless --listen=:2345 --api-version=2 --accept-multiclient\n\
-' > /app/debug-dev.sh && chmod +x /app/debug-dev.sh
+' > /workspace/debug-dev.sh && chmod +x /workspace/debug-dev.sh
 
 # Web service variant
 RUN echo '#!/bin/bash\n\
@@ -178,7 +176,7 @@ export AIR_CMD="go build -gcflags='\''all=-N -l'\'' -o ./tmp/main-web ./cmd/web/
 export AIR_BIN="./tmp/main-web"\n\
 export PORT=8081\n\
 exec air -c .air.toml\n\
-' > /app/start-web-dev.sh && chmod +x /app/start-web-dev.sh
+' > /workspace/start-web-dev.sh && chmod +x /workspace/start-web-dev.sh
 
 # Multi-service development script
 RUN echo '#!/bin/bash\n\
@@ -221,10 +219,10 @@ air -c .air.toml &\n\
 # Wait for all background jobs\n\
 echo "⏳ Services starting... Press Ctrl+C to stop all services"\n\
 wait\n\
-' > /app/start-multi-dev.sh && chmod +x /app/start-multi-dev.sh
+' > /workspace/start-multi-dev.sh && chmod +x /workspace/start-multi-dev.sh
 
 # Default command runs the main development script
-CMD ["/app/start-dev.sh"]
+CMD ["/workspace/start-dev.sh"]
 
 # Development image variant for CI/testing
 FROM development AS testing
@@ -234,10 +232,10 @@ ENV APP_ENVIRONMENT=testing
 ENV DATABASE_NAME=alchemorsel_test
 
 # Run tests by default in testing variant
-CMD ["/app/test-dev.sh"]
+CMD ["/workspace/test-dev.sh"]
 
 # Debugging variant with delve ready
 FROM development AS debugging
 
 # Override default command for debugging
-CMD ["/app/debug-dev.sh"]
+CMD ["/workspace/debug-dev.sh"]

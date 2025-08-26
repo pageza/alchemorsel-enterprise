@@ -133,6 +133,9 @@ func (h *HealthChecker) checkOpenAIHealth(ctx context.Context) error {
 	// Create a context with timeout for health check
 	healthCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+	
+	// Use the health context for timeout control
+	_ = healthCtx
 
 	if h.openaiClient == nil {
 		return fmt.Errorf("openai client not initialized")

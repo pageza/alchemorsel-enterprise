@@ -121,14 +121,14 @@ func (c *CachedAIService) AnalyzeNutrition(ctx context.Context, ingredients []st
 	})
 }
 
-// Pass-through methods for non-cached operations
-func (c *CachedAIService) GenerateDescription(ctx context.Context, recipe *outbound.Recipe) (string, error) {
-	return c.client.GenerateDescription(ctx, recipe)
-}
+// Pass-through methods for non-cached operations - temporarily disabled for testing
+// func (c *CachedAIService) GenerateDescription(ctx context.Context, recipe *outbound.Recipe) (string, error) {
+// 	return c.client.GenerateDescription(ctx, recipe)
+// }
 
-func (c *CachedAIService) ClassifyRecipe(ctx context.Context, recipe *outbound.Recipe) (*outbound.RecipeClassification, error) {
-	return c.client.ClassifyRecipe(ctx, recipe)
-}
+// func (c *CachedAIService) ClassifyRecipe(ctx context.Context, recipe *outbound.Recipe) (*outbound.RecipeClassification, error) {
+// 	return c.client.ClassifyRecipe(ctx, recipe)
+// }
 
 // EnableCache enables or disables caching
 func (c *CachedAIService) EnableCache(enabled bool) {

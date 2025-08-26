@@ -414,3 +414,8 @@ func (c *Config) GetDSN() string {
 		c.Database.SSLMode,
 	)
 }
+
+// GetString returns a string configuration value using Viper
+func (c *Config) GetString(key string) string {
+	return viper.GetString(key)
+}

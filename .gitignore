@@ -105,4 +105,4 @@ Alchemorsel-v3.txt
 
 # Runtime and cache files
 .cache/
-runtime/
+runtime/data/

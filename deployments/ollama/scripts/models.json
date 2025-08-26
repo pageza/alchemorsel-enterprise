@@ -48,32 +48,48 @@
     },
     {
       "name": "mistral:7b",
-      "purpose": "alternative",
-      "priority": 4,
-      "preload": false,
-      "required": false,
-      "description": "Alternative model for diverse AI responses",
+      "purpose": "chat_primary",
+      "priority": 2,
+      "preload": true,
+      "required": true,
+      "description": "Primary model for interactive chat with 64GB RAM optimization",
       "use_cases": [
-        "creative_writing",
-        "alternative_responses",
-        "multilingual_support"
+        "interactive_chat",
+        "recipe_refinement",
+        "cooking_assistance",
+        "creative_writing"
       ],
       "estimated_size_gb": 4.1,
       "recommended_memory_gb": 8.0
+    },
+    {
+      "name": "llama2:13b",
+      "purpose": "complex_reasoning",
+      "priority": 3,
+      "preload": false,
+      "required": false,
+      "description": "Large model for complex reasoning with 64GB RAM capacity",
+      "use_cases": [
+        "complex_recipe_analysis",
+        "detailed_explanations",
+        "advanced_cooking_techniques"
+      ],
+      "estimated_size_gb": 7.3,
+      "recommended_memory_gb": 16.0
     }
   ],
   "environments": {
     "development": {
-      "default_models": ["llama3.2:3b"],
-      "optional_models": ["llama3.2:1b"],
-      "max_disk_usage_gb": 10,
-      "max_memory_usage_gb": 8
+      "default_models": ["mistral:7b", "llama3.2:3b"],
+      "optional_models": ["llama2:13b", "llama3.2:1b"],
+      "max_disk_usage_gb": 30,
+      "max_memory_usage_gb": 32
     },
     "production": {
-      "default_models": ["llama3.2:3b", "llama3.2:1b"],
-      "optional_models": ["codellama:7b", "mistral:7b"],
-      "max_disk_usage_gb": 50,
-      "max_memory_usage_gb": 32
+      "default_models": ["llama3.2:1b"],
+      "optional_models": ["llama3.2:3b"],
+      "max_disk_usage_gb": 10,
+      "max_memory_usage_gb": 4
     },
     "testing": {
       "default_models": ["llama3.2:1b"],

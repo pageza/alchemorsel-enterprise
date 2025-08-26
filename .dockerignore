@@ -1,0 +1,51 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Development files
+.env*
+docker-compose*.yml
+
+# Build artifacts
+*.so
+*.exe
+*.dll
+/tmp/
+/var/
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Dependencies
+node_modules/
+
+# Test files
+*_test.go
+**/*_test.go
+test/
+coverage.*
+
+# Large development folders that shouldn't be in container
+deployments/observability/
+deployments/volumes/
+
+# Container artifacts
+Dockerfile*
