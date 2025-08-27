@@ -48,4 +48,5 @@ deployments/observability/
 deployments/volumes/
 
 # Container artifacts
-Dockerfile*
+Dockerfile*data/
+.git/

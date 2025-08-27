@@ -114,3 +114,4 @@ runtime/data/
 
 # Archive directory (cleanup storage)
 .archive/
+data/
