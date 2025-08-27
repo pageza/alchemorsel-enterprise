@@ -43,7 +43,7 @@ type WebServer struct {
 	server         *http.Server
 	router         *chi.Mux
 	apiClient      *APIClient
-	sessionStore   *SessionStore
+	sessionManager *SessionManager
 	templates      *template.Template
 	healthCheck    *healthcheck.EnterpriseHealthCheck
 	rateLimitStore *sync.Map // For rate limiting
@@ -56,12 +56,12 @@ type WebServer struct {
 	ollamaClient   *ai.OllamaClient
 }
 
+
 // NewWebServer creates a new web frontend server instance
 func NewWebServer(
 	cfg *config.Config,
 	log *zap.Logger,
 	apiClient *APIClient,
-	sessionStore *SessionStore,
 	healthCheck *healthcheck.EnterpriseHealthCheck,
 ) (*WebServer, error) {
 	// Parse templates
@@ -97,6 +97,15 @@ func NewWebServer(
 	chatHandler := handlers.NewChatMessageHandler(ollamaClient, wsManager)
 	wsManager.SetMessageHandler(chatHandler)
 	
+	// Initialize SCS session manager
+	log.Info("Initializing session manager...")
+	sessionManager, err := NewSessionManager(cfg, log)
+	if err != nil {
+		log.Error("Failed to initialize session manager", zap.Error(err))
+		return nil, fmt.Errorf("failed to initialize session manager: %w", err)
+	}
+	log.Info("Session manager initialized successfully")
+
 	// TODO: Initialize conversation service with proper repositories
 	// For now, we'll initialize it with nil and update later when we have database setup
 	var convService *conversation.Service
@@ -105,7 +114,7 @@ func NewWebServer(
 		config:         cfg,
 		logger:         log,
 		apiClient:      apiClient,
-		sessionStore:   sessionStore,
+		sessionManager: sessionManager,
 		templates:      templates,
 		healthCheck:    healthCheck,
 		rateLimitStore: &sync.Map{},
@@ -147,7 +156,7 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 	// Performance monitoring middleware
 	r.Use(s.perfMonitor.Middleware())
 	r.Use(s.securityHeadersMiddleware)
-	r.Use(s.sessionMiddleware)
+	r.Use(s.sessionManager.LoadAndSave)
 	r.Use(s.rateLimitMiddleware)
 
 	// Static files - serve from embedded static subdirectory
@@ -157,6 +166,9 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 	} else {
 		r.Mount("/static", http.StripPrefix("/static", http.FileServer(http.FS(staticSubFS))))
 	}
+	
+	// Service Worker - serve from root for full scope control
+	r.Get("/sw.js", s.handleServiceWorker)
 	
 	// Health check endpoints
 	r.Get("/health", s.handleHealthCheck)
@@ -407,26 +419,14 @@ func parseTemplates() (*template.Template, error) {
 
 // Middleware
 
-func (s *WebServer) sessionMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Load session from cookie
-		session, err := s.sessionStore.Get(r, "alchemorsel-session")
-		if err != nil {
-			s.logger.Debug("Failed to get session", zap.Error(err))
-			// Create new session
-			session = s.sessionStore.New("alchemorsel-session")
-		}
-
-		// Add session to context
-		ctx := context.WithValue(r.Context(), "session", session)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
 
 func (s *WebServer) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		session := r.Context().Value("session").(*Session)
-		if session.UserID == "" || session.AccessToken == "" {
+		// Get authentication data from SCS session
+		userID := s.sessionManager.GetString(r.Context(), "user_id")
+		accessToken := s.sessionManager.GetString(r.Context(), "access_token")
+		
+		if userID == "" || accessToken == "" {
 			// Check if this is an HTMX request
 			if r.Header.Get("HX-Request") == "true" {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -439,10 +439,10 @@ func (s *WebServer) requireAuth(next http.Handler) http.Handler {
 		}
 
 		// Verify token is still valid with API
-		if !s.apiClient.VerifyToken(r.Context(), session.AccessToken) {
+		if !s.apiClient.VerifyToken(r.Context(), accessToken) {
 			// Token invalid, clear session
-			session.Clear()
-			session.Save(w)
+			s.sessionManager.Clear(r.Context())
+			s.sessionManager.RenewToken(r.Context())
 			
 			// Check if this is an HTMX request
 			if r.Header.Get("HX-Request") == "true" {
@@ -576,28 +576,29 @@ func (s *WebServer) handleDebugHTMX(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func (s *WebServer) handleHome(w http.ResponseWriter, r *http.Request) {
-	// Get session to check authentication state
-	session := r.Context().Value("session").(*Session)
-	
-	// Determine if user is authenticated and token is valid
-	var user interface{}
-	isAuthenticated := false
-	
-	if session.UserID != "" && session.AccessToken != "" {
-		// Verify token is still valid with API
-		if s.apiClient.VerifyToken(r.Context(), session.AccessToken) {
-			isAuthenticated = true
-			user = map[string]interface{}{
-				"ID":   session.UserID,
-				"Name": "User", // Could fetch from API later
-			}
-		} else {
-			// Token invalid, clear session
-			session.Clear()
-			session.Save(w)
-		}
+func (s *WebServer) handleServiceWorker(w http.ResponseWriter, r *http.Request) {
+	// Serve service worker from root for full scope control
+	data, err := staticFS.ReadFile("static/sw.js")
+	if err != nil {
+		s.logger.Error("Service worker not found", zap.Error(err))
+		http.Error(w, "Service worker not found", http.StatusNotFound)
+		return
 	}
+	
+	w.Header().Set("Content-Type", "application/javascript")
+	w.Header().Set("Cache-Control", "no-cache") // Service workers should not be cached
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+}
+
+func (s *WebServer) handleHome(w http.ResponseWriter, r *http.Request) {
+	// Use the same authentication method as other pages
+	user, isAuthenticated := s.getUserContext(r)
+	
+	s.logger.Info("Home page authentication check",
+		zap.Bool("is_authenticated", isAuthenticated),
+		zap.Any("user", user),
+	)
 	
 	// Render home page with user context
 	s.renderTemplate(w, "home", map[string]interface{}{
@@ -628,12 +629,19 @@ func (s *WebServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create session
-	session := r.Context().Value("session").(*Session)
-	session.UserID = resp.User.ID
-	session.AccessToken = resp.AccessToken
-	session.RefreshToken = resp.RefreshToken
-	session.Save(w)
+	// Store authentication data in SCS session
+	s.sessionManager.Put(r.Context(), "user_id", resp.User.ID)
+	s.sessionManager.Put(r.Context(), "access_token", resp.AccessToken)
+	s.sessionManager.Put(r.Context(), "refresh_token", resp.RefreshToken)
+	s.sessionManager.Put(r.Context(), "user_name", resp.User.Name)
+	s.sessionManager.Put(r.Context(), "user_email", resp.User.Email)
+	
+	s.logger.Info("Session data stored after login",
+		zap.String("user_id", resp.User.ID),
+		zap.String("user_name", resp.User.Name),
+		zap.String("user_email", resp.User.Email),
+		zap.String("session_token", s.sessionManager.Token(r.Context())),
+	)
 
 	// Redirect to home or requested page
 	redirect := r.URL.Query().Get("redirect")
@@ -668,11 +676,12 @@ func (s *WebServer) handleRegister(w http.ResponseWriter, r *http.Request) {
 	// Auto-login after registration
 	loginResp, err := s.apiClient.Login(r.Context(), email, password)
 	if err == nil {
-		session := r.Context().Value("session").(*Session)
-		session.UserID = resp.User.ID
-		session.AccessToken = loginResp.AccessToken
-		session.RefreshToken = loginResp.RefreshToken
-		session.Save(w)
+		// Store authentication data in SCS session
+		s.sessionManager.Put(r.Context(), "user_id", resp.User.ID)
+		s.sessionManager.Put(r.Context(), "access_token", loginResp.AccessToken)
+		s.sessionManager.Put(r.Context(), "refresh_token", loginResp.RefreshToken)
+		s.sessionManager.Put(r.Context(), "user_name", resp.User.Name)
+		s.sessionManager.Put(r.Context(), "user_email", resp.User.Email)
 	}
 
 	// Redirect to recipes
@@ -680,38 +689,26 @@ func (s *WebServer) handleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *WebServer) handleLogout(w http.ResponseWriter, r *http.Request) {
-	// Clear session if it exists
-	if sessionValue := r.Context().Value("session"); sessionValue != nil {
-		if session, ok := sessionValue.(*Session); ok {
-			// Delete from server store
-			s.sessionStore.Delete(session.ID)
-		}
+	// Clear SCS session data
+	err := s.sessionManager.Destroy(r.Context())
+	if err != nil {
+		s.logger.Error("Failed to destroy session", zap.Error(err))
 	}
 
-	// Always send deletion cookie to clear browser session
-	deletionCookie := &http.Cookie{
-		Name:     "alchemorsel-session",
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   false, // Allow HTTP for development
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1, // Delete immediately
-	}
-	http.SetCookie(w, deletionCookie)
 
-	// Always use standard redirect for logout
+	// Redirect to home page
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (s *WebServer) handleRecipeList(w http.ResponseWriter, r *http.Request) {
-	session := r.Context().Value("session").(*Session)
-	
 	// Get user context for navigation
 	user, isAuthenticated := s.getUserContext(r)
 	
+	// Get access token from SCS session
+	accessToken := s.sessionManager.GetString(r.Context(), "access_token")
+	
 	// Get recipes from API
-	recipes, err := s.apiClient.GetRecipes(r.Context(), session.AccessToken)
+	recipes, err := s.apiClient.GetRecipes(r.Context(), accessToken)
 	if err != nil {
 		s.renderError(w, "Failed to load recipes", err)
 		return
@@ -903,8 +900,8 @@ func (s *WebServer) handleHTMXNotifications(w http.ResponseWriter, r *http.Reque
 
 func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 	// CRITICAL SECURITY FIX ALV3-2025-001: Validate authentication (enforced by middleware)
-	session := r.Context().Value("session").(*Session)
-	if session.UserID == "" {
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("<div class=\"error\">Authentication required. Please <a href=\"/login\">login</a> to use AI features.</div>"))
 		return
@@ -928,7 +925,7 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 	// SECURITY: Sanitize user input to prevent XSS
 	message = html.EscapeString(message)
 
-	s.logger.Debug("AI Chat request", zap.String("message", message), zap.String("user_id", session.UserID))
+	s.logger.Debug("AI Chat request", zap.String("message", message), zap.String("user_id", userID))
 
 	// TODO: Call AI service to get response
 	// SECURITY NOTE: User message is now properly sanitized above
@@ -974,8 +971,8 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 
 func (s *WebServer) handleHTMXRecipeSearch(w http.ResponseWriter, r *http.Request) {
 	// SECURITY FIX ALV3-2025-005: Recipe Search now requires authentication (enforced by middleware)
-	session := r.Context().Value("session").(*Session)
-	if session.UserID == "" {
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("<div class=\"error\">Authentication required to search recipes.</div>"))
 		return
@@ -998,7 +995,7 @@ func (s *WebServer) handleHTMXRecipeSearch(w http.ResponseWriter, r *http.Reques
 	// SECURITY: Sanitize search query to prevent XSS and injection attacks
 	query = html.EscapeString(query)
 
-	s.logger.Debug("Recipe search", zap.String("query", query), zap.String("user_id", session.UserID))
+	s.logger.Debug("Recipe search", zap.String("query", query), zap.String("user_id", userID))
 
 	// TODO: Call API to search recipes
 	// For now, return mock search results
@@ -1095,19 +1092,40 @@ func (s *WebServer) renderTemplate(w http.ResponseWriter, name string, data inte
 	}
 }
 
-// getUserContext extracts user information from session for template rendering
+// getUserContext extracts user information from SCS session for template rendering
 func (s *WebServer) getUserContext(r *http.Request) (user interface{}, isAuthenticated bool) {
-	session := r.Context().Value("session").(*Session)
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	accessToken := s.sessionManager.GetString(r.Context(), "access_token")
+	userName := s.sessionManager.GetString(r.Context(), "user_name")
+	sessionToken := s.sessionManager.Token(r.Context())
 	
-	if session.UserID != "" && session.AccessToken != "" {
+	s.logger.Debug("getUserContext session data",
+		zap.String("user_id", userID),
+		zap.String("user_name", userName),
+		zap.String("access_token_prefix", func() string {
+			if len(accessToken) > 10 { return accessToken[:10] + "..." }
+			return accessToken
+		}()),
+		zap.String("session_token", sessionToken),
+	)
+	
+	if userID != "" && accessToken != "" {
 		// Verify token is still valid with API
-		if s.apiClient.VerifyToken(r.Context(), session.AccessToken) {
+		if s.apiClient.VerifyToken(r.Context(), accessToken) {
 			isAuthenticated = true
 			user = map[string]interface{}{
-				"ID":   session.UserID,
-				"Name": "User", // Could fetch from API later
+				"ID":   userID,
+				"Name": userName,
+				"Email": s.sessionManager.GetString(r.Context(), "user_email"),
 			}
+			s.logger.Debug("Token verification successful", zap.Bool("authenticated", true))
+		} else {
+			s.logger.Debug("Token verification failed", zap.Bool("authenticated", false))
 		}
+	} else {
+		s.logger.Debug("Missing session data", 
+			zap.Bool("has_user_id", userID != ""),
+			zap.Bool("has_access_token", accessToken != ""))
 	}
 	
 	return user, isAuthenticated
@@ -1224,8 +1242,9 @@ func (s *WebServer) csrfMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		
-		session := r.Context().Value("session").(*Session)
-		if session == nil {
+		// Check if user has a valid session for CSRF protection
+		userID := s.sessionManager.GetString(r.Context(), "user_id")
+		if userID == "" {
 			http.Error(w, "Session required", http.StatusForbidden)
 			return
 		}
@@ -1251,13 +1270,13 @@ func (s *WebServer) csrfMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		
-		// Validate CSRF token
-		expectedToken := s.generateCSRFToken(session.ID)
+		// Validate CSRF token using user ID (more secure than session ID)
+		expectedToken := s.generateCSRFToken(userID)
 		if !s.validateCSRFToken(token, expectedToken) {
 			s.logger.Warn("Invalid CSRF token",
 				zap.String("method", r.Method),
 				zap.String("path", r.URL.Path),
-				zap.String("session_id", session.ID),
+				zap.String("user_id", userID),
 				zap.String("ip", r.RemoteAddr),
 			)
 			if r.Header.Get("HX-Request") == "true" {
@@ -1381,34 +1400,28 @@ func (s *WebServer) containsDangerousContent(input string) bool {
 
 // handleWebSocketUpgrade handles WebSocket upgrade requests for real-time chat
 func (s *WebServer) handleWebSocketUpgrade(w http.ResponseWriter, r *http.Request) {
-	// Get user from session
-	session, err := s.sessionStore.Get(r, "session")
-	if err != nil {
-		s.logger.Error("Failed to get session for WebSocket", zap.Error(err))
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	if session == nil || session.UserID == "" {
+	// Get user ID from SCS session
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
 		s.logger.Warn("No valid session for WebSocket connection")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	s.logger.Info("WebSocket connection attempt", 
-		zap.String("user_id", session.UserID),
+		zap.String("user_id", userID),
 		zap.String("remote_addr", r.RemoteAddr))
 
 	// Upgrade to WebSocket
-	err = s.wsManager.HandleUpgrade(w, r, session.UserID)
+	err := s.wsManager.HandleUpgrade(w, r, userID)
 	if err != nil {
 		s.logger.Error("Failed to upgrade WebSocket connection", 
 			zap.Error(err),
-			zap.String("user_id", session.UserID))
+			zap.String("user_id", userID))
 		http.Error(w, "Failed to upgrade connection", http.StatusInternalServerError)
 		return
 	}
 
 	s.logger.Info("WebSocket connection established successfully", 
-		zap.String("user_id", session.UserID))
+		zap.String("user_id", userID))
 }

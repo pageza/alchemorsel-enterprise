@@ -319,7 +319,7 @@ func (m *Manager) readPump(conn *Connection) {
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 					log.Printf("WebSocket error: %v", err)
 				}
-				break
+				return
 			}
 			
 			conn.LastSeen = time.Now()

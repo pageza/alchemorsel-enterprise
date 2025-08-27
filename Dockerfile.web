@@ -58,7 +58,7 @@ COPY --from=builder /app/main /app/main
 COPY --from=builder /app/config /app/config
 
 # Copy static assets and templates
-COPY --from=builder /app/internal/infrastructure/http/server/static /app/static
+COPY --from=builder /app/internal/infrastructure/http/webserver/static /app/static
 COPY --from=builder /app/internal/infrastructure/http/webserver/templates /app/templates
 
 # Copy migrations

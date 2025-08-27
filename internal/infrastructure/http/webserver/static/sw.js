@@ -1,8 +1,7 @@
 /* Service Worker for Alchemorsel v3 */
 
-const CACHE_NAME = 'alchemorsel-v3-1.0.0';
+const CACHE_NAME = 'alchemorsel-v3-1.0.2';
 const STATIC_CACHE_URLS = [
-    '/',
     '/static/css/extended.css',
     '/static/css/accessibility.css',
     '/static/js/htmx.min.js',
@@ -51,7 +50,7 @@ self.addEventListener('activate', function(event) {
     );
 });
 
-// Fetch event - serve from cache with network fallback
+// Fetch event - network-first for HTML, cache-first for static assets
 self.addEventListener('fetch', function(event) {
     // Skip non-GET requests
     if (event.request.method !== 'GET') {
@@ -63,48 +62,60 @@ self.addEventListener('fetch', function(event) {
         return;
     }
     
-    event.respondWith(
-        caches.match(event.request).then(function(cachedResponse) {
-            // Return cached version if available
-            if (cachedResponse) {
-                console.log('Serving from cache:', event.request.url);
-                return cachedResponse;
-            }
-            
-            // Otherwise fetch from network
-            return fetch(event.request).then(function(response) {
-                // Only cache successful responses
-                if (response.status === 200) {
-                    const responseClone = response.clone();
-                    
-                    // Cache static assets and API responses
-                    if (event.request.url.includes('/static/') || 
-                        event.request.url.includes('/api/')) {
-                        caches.open(CACHE_NAME).then(function(cache) {
-                            cache.put(event.request, responseClone);
-                        });
-                    }
-                }
-                
+    // Check if this is an HTML page request
+    const isHTMLRequest = event.request.mode === 'navigate' || 
+                         event.request.headers.get('accept')?.includes('text/html');
+    
+    if (isHTMLRequest) {
+        // Network-first strategy for HTML pages
+        event.respondWith(
+            fetch(event.request).then(function(response) {
+                console.log('Serving HTML from network:', event.request.url);
                 return response;
             }).catch(function(error) {
-                console.error('Fetch failed:', error);
+                console.error('Network fetch failed for HTML:', error);
                 
-                // Return offline page for navigation requests
-                if (event.request.mode === 'navigate') {
-                    return caches.match('/').then(function(response) {
-                        return response || new Response('Offline - Please check your connection', {
-                            status: 503,
-                            statusText: 'Service Unavailable',
-                            headers: { 'Content-Type': 'text/plain' }
-                        });
-                    });
+                // Return proper offline message instead of cached page
+                return new Response('Offline - Please check your connection', {
+                    status: 503,
+                    statusText: 'Service Unavailable',
+                    headers: { 'Content-Type': 'text/html' }
+                });
+            })
+        );
+    } else {
+        // Cache-first strategy for static assets
+        event.respondWith(
+            caches.match(event.request).then(function(cachedResponse) {
+                // Return cached version if available
+                if (cachedResponse) {
+                    console.log('Serving from cache:', event.request.url);
+                    return cachedResponse;
                 }
                 
-                throw error;
-            });
-        })
-    );
+                // Otherwise fetch from network
+                return fetch(event.request).then(function(response) {
+                    // Only cache successful responses for static assets
+                    if (response.status === 200) {
+                        const responseClone = response.clone();
+                        
+                        // Cache static assets and API responses
+                        if (event.request.url.includes('/static/') || 
+                            event.request.url.includes('/api/')) {
+                            caches.open(CACHE_NAME).then(function(cache) {
+                                cache.put(event.request, responseClone);
+                            });
+                        }
+                    }
+                    
+                    return response;
+                }).catch(function(error) {
+                    console.error('Fetch failed:', error);
+                    throw error;
+                });
+            })
+        );
+    }
 });
 
 // Background sync for offline actions

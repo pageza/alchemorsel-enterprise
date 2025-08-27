@@ -9,6 +9,9 @@
 /api-pure
 /alchemorsel-enterprise
 /alchemorsel-fresh
+/alchemorsel
+/main
+/simple-server
 /web
 /test-server
 /test-api-server
@@ -95,6 +98,8 @@ coverage/
 # Backup files
 *.backup
 *.bak
+*.orig
+*.old
 go.mod.backup
 go.mod.minimal
 backups/
@@ -106,3 +111,6 @@ Alchemorsel-v3.txt
 # Runtime and cache files
 .cache/
 runtime/data/
+
+# Archive directory (cleanup storage)
+.archive/
