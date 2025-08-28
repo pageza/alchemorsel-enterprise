@@ -1,0 +1,138 @@
+# Docker Compose override for development with AI features
+# This file extends docker-compose.yml with development-specific settings
+
+services:
+  # API service with AI development configuration
+  api:
+    environment:
+      # Enhanced AI configuration for development
+      ALCHEMORSEL_AI_PROVIDER: ollama
+      ALCHEMORSEL_AI_OLLAMA_HOST: http://ollama:11434
+      ALCHEMORSEL_AI_OLLAMA_MODEL: llama3.1:8b-instruct-q4_K_M
+      ALCHEMORSEL_AI_OLLAMA_FALLBACK_MODEL: phi3:3.8b-mini-instruct-q4_0
+      ALCHEMORSEL_AI_CHAT_MODEL: llama3.1:8b-instruct-q4_K_M
+      ALCHEMORSEL_AI_RECIPE_MODEL: llama3.1:8b-instruct-q4_K_M
+      ALCHEMORSEL_AI_CODE_MODEL: codellama:7b-code-q4_K_M
+      ALCHEMORSEL_AI_HELP_MODEL: phi3:3.8b-mini-instruct-q4_0
+      ALCHEMORSEL_AI_MODEL_WARMUP_ENABLED: true
+      ALCHEMORSEL_AI_RESPONSE_STREAMING: true
+      ALCHEMORSEL_AI_ENABLE_CACHE: true
+      ALCHEMORSEL_AI_CACHE_TTL: 1h
+      ALCHEMORSEL_AI_CACHE_MAX_SIZE: 1000
+      ALCHEMORSEL_AI_QUALITY_THRESHOLD: 0.8
+      ALCHEMORSEL_AI_MAX_RESPONSE_TIME: 10s
+      ALCHEMORSEL_AI_RETRY_ATTEMPTS: 3
+      # Enable debug logging for AI components
+      ALCHEMORSEL_APP_LOG_LEVEL: debug
+
+  # Web service with AI development configuration
+  web:
+    environment:
+      # Same AI configuration for web frontend
+      ALCHEMORSEL_AI_PROVIDER: ollama
+      ALCHEMORSEL_AI_OLLAMA_HOST: http://ollama:11434
+      ALCHEMORSEL_AI_RESPONSE_STREAMING: true
+      ALCHEMORSEL_APP_LOG_LEVEL: debug
+
+  # Enhanced Ollama service for development
+  ollama:
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=4  # Allow more models in development
+      - OLLAMA_KEEP_ALIVE=10m       # Keep models loaded longer
+      - OLLAMA_MAX_QUEUE=10
+      - OLLAMA_DEBUG=1              # Enable debug logging
+    # Add volume binding for easier model management in development
+    volumes:
+      - ollama_models:/root/.ollama
+      - ./scripts:/scripts:ro       # Mount scripts for easy access
+    # Enable GPU if available (uncomment if you have NVIDIA GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # Add a helper service for model initialization
+  model-init:
+    image: curlimages/curl:latest
+    container_name: alchemorsel-model-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - ./scripts:/scripts:ro
+    networks:
+      - alchemorsel-network
+    # Run model initialization and exit
+    entrypoint: ["/scripts/init-models.sh"]
+    profiles:
+      - tools  # Only start with --profile tools
+
+  # Development monitoring service (Prometheus for metrics)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: alchemorsel-prometheus-dev
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--log.level=debug'
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_config:/etc/prometheus
+      - prometheus_data:/prometheus
+    networks:
+      - alchemorsel-network
+    profiles:
+      - monitoring
+
+volumes:
+  prometheus_config:
+  prometheus_data:
+
+# Development-specific configurations
+x-development-notes: |
+  Development AI Setup Instructions:
+  
+  1. Start the stack:
+     docker-compose up -d
+  
+  2. Initialize AI models (one-time setup):
+     docker-compose --profile tools run --rm model-init
+  
+  3. Or manually initialize models:
+     docker-compose exec ollama ollama pull phi3:3.8b-mini-instruct-q4_0
+     docker-compose exec ollama ollama pull llama3.1:8b-instruct-q4_K_M
+     docker-compose exec ollama ollama pull codellama:7b-code-q4_K_M
+  
+  4. Test model availability:
+     curl http://localhost:11434/api/tags
+  
+  5. Start with monitoring (optional):
+     docker-compose --profile monitoring up -d
+  
+  6. Access services:
+     - Web UI: http://localhost:3021
+     - API: http://localhost:3020
+     - Ollama: http://localhost:11434
+     - Prometheus: http://localhost:9090 (with monitoring profile)
+  
+  Resource Requirements:
+  - RAM: ~12GB for all models
+  - Disk: ~20GB for model storage
+  - CPU: 4+ cores recommended
+  
+  Model Performance (approximate):
+  - phi3:3.8b-mini: ~25 tokens/sec, 2.3GB RAM
+  - llama3.1:8b: ~15 tokens/sec, 4.7GB RAM
+  - codellama:7b: ~12 tokens/sec, 4.1GB RAM

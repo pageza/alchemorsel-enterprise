@@ -50,12 +50,16 @@ services:
       ALCHEMORSEL_DATABASE_PASSWORD: postgres
       ALCHEMORSEL_REDIS_HOST: redis
       ALCHEMORSEL_REDIS_PORT: 6379
+      ALCHEMORSEL_AI_OLLAMA_HOST: http://ollama:11434
+      ALCHEMORSEL_AI_PROVIDER: ollama
     ports:
       - "3020:8080"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
     networks:
       - alchemorsel-network
@@ -75,6 +79,7 @@ services:
       ALCHEMORSEL_DATABASE_PASSWORD: postgres
       ALCHEMORSEL_REDIS_HOST: redis
       ALCHEMORSEL_REDIS_PORT: 6379
+      ALCHEMORSEL_AI_OLLAMA_HOST: http://ollama:11434
       API_URL: http://api:8080
     ports:
       - "3021:8080"
@@ -85,12 +90,51 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ollama:
+        condition: service_healthy
     networks:
       - alchemorsel-network
+
+  # Ollama AI Service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: alchemorsel-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=3
+      - OLLAMA_KEEP_ALIVE=5m
+      - OLLAMA_MAX_QUEUE=10
+    networks:
+      - alchemorsel-network
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4'
+        reservations:
+          memory: 4G
+          cpus: '2'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    labels:
+      - "com.alchemorsel.service=ollama"
+      - "com.alchemorsel.tier=ai-inference"
 
 volumes:
   postgres_data:
   redis_data:
+  ollama_models:
 
 networks:
   alchemorsel-network:

@@ -123,16 +123,37 @@ type AIConfig struct {
 	AnthropicKey       string        `mapstructure:"anthropic_key"`
 	AnthropicModel     string        `mapstructure:"anthropic_model"`
 	
-	// Ollama configuration
+	// Enhanced Ollama configuration
 	OllamaHost         string        `mapstructure:"ollama_host"`
 	OllamaModel        string        `mapstructure:"ollama_model"`
 	OllamaTimeout      time.Duration `mapstructure:"ollama_timeout"`
+	OllamaFallbackModel string       `mapstructure:"ollama_fallback_model"`
 	
+	// Model-specific settings
+	ChatModel          string        `mapstructure:"chat_model"`
+	RecipeModel        string        `mapstructure:"recipe_model"`
+	CodeModel          string        `mapstructure:"code_model"`
+	HelpModel          string        `mapstructure:"help_model"`
+	ModelRotationEnabled bool        `mapstructure:"model_rotation_enabled"`
+	MaxContextLength   int           `mapstructure:"max_context_length"`
+	
+	// Performance tuning
+	ModelWarmupEnabled bool          `mapstructure:"model_warmup_enabled"`
+	ParallelInference  int           `mapstructure:"parallel_inference"`
+	ResponseStreaming  bool          `mapstructure:"response_streaming"`
+	
+	// Cache and quality settings
 	MaxTokens          int           `mapstructure:"max_tokens"`
 	Temperature        float64       `mapstructure:"temperature"`
 	TimeoutSeconds     int           `mapstructure:"timeout_seconds"`
 	EnableCache        bool          `mapstructure:"enable_cache"`
 	CacheTTL           time.Duration `mapstructure:"cache_ttl"`
+	CacheMaxSize       int           `mapstructure:"cache_max_size"`
+	
+	// Quality and performance thresholds
+	QualityThreshold   float64       `mapstructure:"quality_threshold"`
+	MaxResponseTime    time.Duration `mapstructure:"max_response_time"`
+	RetryAttempts      int           `mapstructure:"retry_attempts"`
 }
 
 // KafkaConfig contains Kafka configuration
@@ -351,13 +372,40 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("monitoring.health_check.metrics.enabled", true)
 	
 	// AI defaults
-	v.SetDefault("ai.provider", "openai")
+	v.SetDefault("ai.provider", "ollama")
 	v.SetDefault("ai.openai_model", "gpt-3.5-turbo")
+	
+	// Ollama defaults
+	v.SetDefault("ai.ollama_host", "http://localhost:11434")
+	v.SetDefault("ai.ollama_model", "llama3.1:8b-instruct-q4_K_M")
+	v.SetDefault("ai.ollama_timeout", "30s")
+	v.SetDefault("ai.ollama_fallback_model", "phi3:3.8b-mini-instruct-q4_0")
+	
+	// Model-specific defaults
+	v.SetDefault("ai.chat_model", "llama3.1:8b-instruct-q4_K_M")
+	v.SetDefault("ai.recipe_model", "llama3.1:8b-instruct-q4_K_M")
+	v.SetDefault("ai.code_model", "codellama:7b-code-q4_K_M")
+	v.SetDefault("ai.help_model", "phi3:3.8b-mini-instruct-q4_0")
+	v.SetDefault("ai.model_rotation_enabled", false)
+	v.SetDefault("ai.max_context_length", 4096)
+	
+	// Performance defaults
+	v.SetDefault("ai.model_warmup_enabled", true)
+	v.SetDefault("ai.parallel_inference", 2)
+	v.SetDefault("ai.response_streaming", true)
+	
+	// Cache and quality defaults
 	v.SetDefault("ai.max_tokens", 1500)
 	v.SetDefault("ai.temperature", 0.7)
 	v.SetDefault("ai.timeout_seconds", 30)
 	v.SetDefault("ai.enable_cache", true)
 	v.SetDefault("ai.cache_ttl", "1h")
+	v.SetDefault("ai.cache_max_size", 1000)
+	
+	// Quality and performance thresholds
+	v.SetDefault("ai.quality_threshold", 0.8)
+	v.SetDefault("ai.max_response_time", "10s")
+	v.SetDefault("ai.retry_attempts", 3)
 	
 	// Rate limit defaults
 	v.SetDefault("rate_limit.requests_per_min", 60)
