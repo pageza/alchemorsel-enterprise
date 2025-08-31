@@ -52,6 +52,7 @@ services:
       ALCHEMORSEL_REDIS_PORT: 6379
       ALCHEMORSEL_AI_OLLAMA_HOST: http://ollama:11434
       ALCHEMORSEL_AI_PROVIDER: ollama
+      ALCHEMORSEL_AUTH_JWT_SECRET: development-secret-key-change-in-production
     ports:
       - "3020:8080"
     depends_on:
@@ -80,6 +81,7 @@ services:
       ALCHEMORSEL_REDIS_HOST: redis
       ALCHEMORSEL_REDIS_PORT: 6379
       ALCHEMORSEL_AI_OLLAMA_HOST: http://ollama:11434
+      ALCHEMORSEL_AUTH_JWT_SECRET: development-secret-key-change-in-production
       API_URL: http://api:8080
     ports:
       - "3021:8080"

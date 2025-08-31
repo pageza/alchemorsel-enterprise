@@ -913,32 +913,88 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 	
+	h.logger.Info("Login attempt",
+		zap.String("email", email),
+		zap.String("remote_addr", r.RemoteAddr),
+		zap.String("user_agent", r.UserAgent()),
+	)
+	
 	if email == "" || password == "" {
+		h.logger.Warn("Login failed - missing credentials", zap.String("email", email))
 		h.renderError(w, "Email and password are required")
 		return
 	}
 	
 	// Authenticate user
-	authResponse, err := h.userService.Login(r.Context(), user.LoginCommand{
+	userDTO, err := h.userService.Login(r.Context(), user.LoginCommand{
 		Email:    email,
 		Password: password,
 	})
 	if err != nil {
+		h.logger.Error("Login failed - invalid credentials",
+			zap.Error(err),
+			zap.String("email", email),
+			zap.String("remote_addr", r.RemoteAddr),
+		)
 		h.renderError(w, "Invalid credentials")
 		return
 	}
 	
+	h.logger.Info("User authenticated successfully",
+		zap.String("user_id", userDTO.ID.String()),
+		zap.String("email", userDTO.Email),
+	)
+	
 	// Create session
 	session, err := h.authService.CreateSession(
-		authResponse.User.ID.String(),
+		userDTO.ID.String(),
 		r.RemoteAddr,
 		r.UserAgent(),
 	)
 	if err != nil {
-		h.logger.Error("Failed to create session", zap.Error(err))
+		h.logger.Error("Failed to create session", 
+			zap.Error(err),
+			zap.String("user_id", userDTO.ID.String()),
+		)
 		h.renderError(w, "Login failed")
 		return
 	}
+
+	h.logger.Debug("Session created successfully",
+		zap.String("session_id", session.SessionID),
+		zap.String("user_id", userDTO.ID.String()),
+	)
+	
+	// Generate access token
+	userRoles := []string{userDTO.Role}
+	h.logger.Debug("Generating access token for login",
+		zap.String("user_id", userDTO.ID.String()),
+		zap.Strings("roles", userRoles),
+		zap.String("session_id", session.SessionID),
+	)
+
+	accessToken, err := h.authService.GenerateAccessToken(
+		userDTO.ID.String(),
+		userDTO.Email,
+		userRoles,
+		session.SessionID,
+		r.RemoteAddr,
+		r.UserAgent(),
+	)
+	if err != nil {
+		h.logger.Error("Failed to generate access token", 
+			zap.Error(err),
+			zap.String("user_id", userDTO.ID.String()),
+			zap.String("session_id", session.SessionID),
+		)
+		h.renderError(w, "Login failed")
+		return
+	}
+
+	h.logger.Info("Access token generated successfully",
+		zap.String("user_id", userDTO.ID.String()),
+		zap.String("token_length", fmt.Sprintf("%d", len(accessToken))),
+	)
 	
 	// Set secure session cookie
 	http.SetCookie(w, &http.Cookie{
@@ -954,12 +1010,12 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 	// Set JWT token cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
-		Value:    authResponse.AccessToken,
+		Value:    accessToken,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true, // Enable in production with HTTPS
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   authResponse.ExpiresIn,
+		MaxAge:   3600, // 1 hour
 	})
 	
 	// Return HTMX redirect
@@ -991,7 +1047,7 @@ func (h *FrontendHandlers) HandleAuthRegister(w http.ResponseWriter, r *http.Req
 	}
 	
 	// Register user
-	authResponse, err := h.userService.Register(r.Context(), user.RegisterCommand{
+	userDTO, err := h.userService.Register(r.Context(), user.RegisterCommand{
 		Name:     name,
 		Email:    email,
 		Password: password,
@@ -1007,12 +1063,28 @@ func (h *FrontendHandlers) HandleAuthRegister(w http.ResponseWriter, r *http.Req
 	
 	// Create session
 	session, err := h.authService.CreateSession(
-		authResponse.User.ID.String(),
+		userDTO.ID.String(),
 		r.RemoteAddr,
 		r.UserAgent(),
 	)
 	if err != nil {
 		h.logger.Error("Failed to create session", zap.Error(err))
+		h.renderError(w, "Registration successful but login failed")
+		return
+	}
+	
+	// Generate access token
+	userRoles := []string{userDTO.Role}
+	accessToken, err := h.authService.GenerateAccessToken(
+		userDTO.ID.String(),
+		userDTO.Email,
+		userRoles,
+		session.SessionID,
+		r.RemoteAddr,
+		r.UserAgent(),
+	)
+	if err != nil {
+		h.logger.Error("Failed to generate access token", zap.Error(err))
 		h.renderError(w, "Registration successful but login failed")
 		return
 	}
@@ -1030,12 +1102,12 @@ func (h *FrontendHandlers) HandleAuthRegister(w http.ResponseWriter, r *http.Req
 	
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
-		Value:    authResponse.AccessToken,
+		Value:    accessToken,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true, // Enable in production with HTTPS
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   authResponse.ExpiresIn,
+		MaxAge:   3600, // 1 hour
 	})
 	
 	// Return HTMX redirect
@@ -1068,28 +1140,57 @@ func (h *FrontendHandlers) HandleAuthLogout(w http.ResponseWriter, r *http.Reque
 
 // getUserFromRequest extracts user information from request context or cookies
 func (h *FrontendHandlers) getUserFromRequest(r *http.Request) *user.UserDTO {
+	h.logger.Debug("Getting user from request",
+		zap.String("remote_addr", r.RemoteAddr),
+		zap.String("user_agent", r.UserAgent()),
+	)
+
 	// Try to get from context first (set by middleware)
 	if userID := r.Context().Value("user_id"); userID != nil {
 		if userIDStr, ok := userID.(string); ok {
+			h.logger.Debug("Found user_id in context", zap.String("user_id", userIDStr))
 			userDTO, err := h.userService.GetUserByID(r.Context(), parseUUID(userIDStr))
 			if err == nil {
+				h.logger.Debug("Successfully retrieved user from context",
+					zap.String("user_id", userDTO.ID.String()),
+					zap.String("email", userDTO.Email),
+				)
 				return userDTO
 			}
+			h.logger.Warn("Failed to get user by ID from context", 
+				zap.Error(err),
+				zap.String("user_id", userIDStr),
+			)
 		}
 	}
 	
 	// Fallback: try to validate token from cookie
 	cookie, err := r.Cookie("auth_token")
 	if err != nil {
+		h.logger.Debug("No auth_token cookie found", zap.Error(err))
 		return nil
 	}
 	
-	claims, err := h.userService.ValidateToken(cookie.Value)
+	h.logger.Debug("Found auth_token cookie, validating token",
+		zap.String("token_length", fmt.Sprintf("%d", len(cookie.Value))),
+	)
+
+	claims, err := h.authService.ValidateToken(cookie.Value, security.AccessToken)
+	if err != nil {
+		h.logger.Error("Token validation failed in getUserFromRequest",
+			zap.Error(err),
+			zap.String("remote_addr", r.RemoteAddr),
+		)
+		return nil
+	}
+	
+	// Parse user ID from string to UUID
+	userID, err := uuid.Parse(claims.UserID)
 	if err != nil {
 		return nil
 	}
 	
-	userDTO, err := h.userService.GetUserByID(r.Context(), claims.UserID)
+	userDTO, err := h.userService.GetUserByID(r.Context(), userID)
 	if err != nil {
 		return nil
 	}

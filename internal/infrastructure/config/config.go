@@ -129,6 +129,12 @@ type AIConfig struct {
 	OllamaTimeout      time.Duration `mapstructure:"ollama_timeout"`
 	OllamaFallbackModel string       `mapstructure:"ollama_fallback_model"`
 	
+	// DeepSeek API configuration
+	DeepSeekAPIKey     string        `mapstructure:"deepseek_api_key"`
+	DeepSeekModel      string        `mapstructure:"deepseek_model"`
+	DeepSeekBaseURL    string        `mapstructure:"deepseek_base_url"`
+	DeepSeekTimeout    time.Duration `mapstructure:"deepseek_timeout"`
+	
 	// Model-specific settings
 	ChatModel          string        `mapstructure:"chat_model"`
 	RecipeModel        string        `mapstructure:"recipe_model"`
@@ -342,6 +348,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("redis.pool_size", 10)
 	
 	// Auth defaults
+	v.SetDefault("auth.jwt_secret", "default-development-secret-please-change-in-production")
 	v.SetDefault("auth.jwt_expiration", "24h")
 	v.SetDefault("auth.refresh_expiration", "168h") // 7 days
 	v.SetDefault("auth.bcrypt_cost", 10)
@@ -380,6 +387,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("ai.ollama_model", "llama3.1:8b-instruct-q4_K_M")
 	v.SetDefault("ai.ollama_timeout", "30s")
 	v.SetDefault("ai.ollama_fallback_model", "phi3:3.8b-mini-instruct-q4_0")
+	
+	// DeepSeek defaults
+	v.SetDefault("ai.deepseek_model", "deepseek-chat")
+	v.SetDefault("ai.deepseek_base_url", "https://api.deepseek.com/v1")
+	v.SetDefault("ai.deepseek_timeout", "15s")
 	
 	// Model-specific defaults
 	v.SetDefault("ai.chat_model", "llama3.1:8b-instruct-q4_K_M")

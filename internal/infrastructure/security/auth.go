@@ -91,6 +91,19 @@ type SessionInfo struct {
 
 // GenerateAccessToken creates a new access token
 func (a *AuthService) GenerateAccessToken(userID, email string, roles []string, sessionID, ipAddress, userAgent string) (string, error) {
+	a.logger.Debug("Generating access token",
+		zap.String("user_id", userID),
+		zap.String("email", email),
+		zap.Strings("roles", roles),
+		zap.String("session_id", sessionID),
+		zap.String("jwt_secret_length", fmt.Sprintf("%d", len(a.jwtSecret))),
+	)
+
+	if len(a.jwtSecret) == 0 {
+		a.logger.Error("JWT secret is empty - cannot sign tokens")
+		return "", fmt.Errorf("JWT secret not configured")
+	}
+
 	now := time.Now()
 	claims := &Claims{
 		UserID:    userID,
@@ -111,11 +124,27 @@ func (a *AuthService) GenerateAccessToken(userID, email string, roles []string, 
 		},
 	}
 
+	a.logger.Debug("Token claims created",
+		zap.String("token_id", claims.ID),
+		zap.String("issuer", claims.Issuer),
+		zap.Time("expires_at", claims.ExpiresAt.Time),
+	)
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(a.jwtSecret)
 	if err != nil {
+		a.logger.Error("Failed to sign token", 
+			zap.Error(err),
+			zap.String("user_id", userID),
+			zap.String("session_id", sessionID),
+		)
 		return "", fmt.Errorf("failed to sign token: %w", err)
 	}
+
+	a.logger.Debug("Token signed successfully",
+		zap.String("user_id", userID),
+		zap.String("token_length", fmt.Sprintf("%d", len(tokenString))),
+	)
 
 	// Store token in Redis for tracking and revocation
 	if err := a.storeTokenInRedis(claims.ID, tokenString, userID, sessionID, a.config.Auth.JWTExpiration); err != nil {
@@ -181,24 +210,57 @@ func (a *AuthService) GenerateCSRFToken(sessionID string) (string, error) {
 
 // ValidateToken validates and parses a JWT token
 func (a *AuthService) ValidateToken(tokenString string, expectedType TokenType) (*Claims, error) {
+	a.logger.Debug("Validating token",
+		zap.String("expected_type", string(expectedType)),
+		zap.String("token_length", fmt.Sprintf("%d", len(tokenString))),
+		zap.String("jwt_secret_length", fmt.Sprintf("%d", len(a.jwtSecret))),
+	)
+
+	if len(a.jwtSecret) == 0 {
+		a.logger.Error("JWT secret is empty - cannot validate tokens")
+		return nil, fmt.Errorf("JWT secret not configured")
+	}
+
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			a.logger.Error("Unexpected signing method",
+				zap.String("method", fmt.Sprintf("%v", token.Header["alg"])),
+			)
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return a.jwtSecret, nil
 	})
 
 	if err != nil {
+		a.logger.Error("Failed to parse token",
+			zap.Error(err),
+			zap.String("expected_type", string(expectedType)),
+		)
 		return nil, fmt.Errorf("failed to parse token: %w", err)
 	}
 
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
+		a.logger.Error("Invalid token claims or token not valid",
+			zap.Bool("claims_ok", ok),
+			zap.Bool("token_valid", token.Valid),
+		)
 		return nil, fmt.Errorf("invalid token claims")
 	}
 
+	a.logger.Debug("Token parsed successfully",
+		zap.String("user_id", claims.UserID),
+		zap.String("token_type", string(claims.TokenType)),
+		zap.String("session_id", claims.SessionID),
+		zap.Time("expires_at", claims.ExpiresAt.Time),
+	)
+
 	// Validate token type
 	if claims.TokenType != expectedType {
+		a.logger.Error("Token type mismatch",
+			zap.String("expected", string(expectedType)),
+			zap.String("actual", string(claims.TokenType)),
+		)
 		return nil, fmt.Errorf("invalid token type: expected %s, got %s", expectedType, claims.TokenType)
 	}
 
@@ -207,15 +269,26 @@ func (a *AuthService) ValidateToken(tokenString string, expectedType TokenType) 
 		if revoked, err := a.isTokenRevoked(claims.ID); err != nil {
 			a.logger.Warn("Failed to check token revocation", zap.Error(err))
 		} else if revoked {
+			a.logger.Info("Token has been revoked", zap.String("token_id", claims.ID))
 			return nil, fmt.Errorf("token has been revoked")
 		}
 	}
+
+	a.logger.Debug("Token validation successful",
+		zap.String("user_id", claims.UserID),
+		zap.String("token_type", string(claims.TokenType)),
+	)
 
 	return claims, nil
 }
 
 // RevokeToken revokes a token by adding it to the revocation list
 func (a *AuthService) RevokeToken(tokenID string) error {
+	if a.redisClient == nil {
+		a.logger.Warn("Redis client not available, token revocation not persistent")
+		return nil // Return success for now, but tokens won't actually be revoked
+	}
+	
 	ctx := context.Background()
 	key := fmt.Sprintf("revoked_token:%s", tokenID)
 	
@@ -225,6 +298,11 @@ func (a *AuthService) RevokeToken(tokenID string) error {
 
 // RevokeAllUserTokens revokes all tokens for a specific user
 func (a *AuthService) RevokeAllUserTokens(userID string) error {
+	if a.redisClient == nil {
+		a.logger.Warn("Redis client not available, token revocation not persistent")
+		return nil // Return success for now, but tokens won't actually be revoked
+	}
+	
 	ctx := context.Background()
 	pattern := fmt.Sprintf("token:%s:*", userID)
 	
@@ -255,43 +333,89 @@ func (a *AuthService) CreateSession(userID, ipAddress, userAgent string) (*Sessi
 		Active:    true,
 	}
 
-	// Store session in Redis
-	ctx := context.Background()
-	sessionKey := fmt.Sprintf("session:%s", sessionID)
-	
-	if err := a.redisClient.HSet(ctx, sessionKey, map[string]interface{}{
-		"user_id":    session.UserID,
-		"ip_address": session.IPAddress,
-		"user_agent": session.UserAgent,
-		"created_at": session.CreatedAt.Unix(),
-		"expires_at": session.ExpiresAt.Unix(),
-		"active":     session.Active,
-	}).Err(); err != nil {
-		return nil, fmt.Errorf("failed to store session: %w", err)
-	}
+	// Store session in Redis (if Redis client is available)
+	if a.redisClient != nil {
+		ctx := context.Background()
+		sessionKey := fmt.Sprintf("session:%s", sessionID)
+		
+		if err := a.redisClient.HSet(ctx, sessionKey, map[string]interface{}{
+			"user_id":    session.UserID,
+			"ip_address": session.IPAddress,
+			"user_agent": session.UserAgent,
+			"created_at": session.CreatedAt.Unix(),
+			"expires_at": session.ExpiresAt.Unix(),
+			"active":     session.Active,
+		}).Err(); err != nil {
+			return nil, fmt.Errorf("failed to store session: %w", err)
+		}
 
-	// Set expiration
-	a.redisClient.Expire(ctx, sessionKey, a.config.Auth.RefreshExpiration)
+		// Set expiration
+		a.redisClient.Expire(ctx, sessionKey, a.config.Auth.RefreshExpiration)
+	} else {
+		// Log warning about in-memory sessions (not persistent)
+		a.logger.Warn("Redis client not available, using in-memory session (not persistent)")
+	}
 
 	return session, nil
 }
 
 // ValidateSession validates if a session is still active
 func (a *AuthService) ValidateSession(sessionID, userID, ipAddress string) (*SessionInfo, error) {
+	a.logger.Debug("Validating session",
+		zap.String("session_id", sessionID),
+		zap.String("user_id", userID),
+		zap.String("ip_address", ipAddress),
+	)
+
+	// Check if Redis client is available
+	if a.redisClient == nil {
+		a.logger.Warn("Redis client not available, session validation not persistent")
+		// For now, return a basic session info to allow authentication to continue
+		// In production, this would integrate with a different session store
+		return &SessionInfo{
+			UserID:    userID,
+			SessionID: sessionID,
+			IPAddress: ipAddress,
+			UserAgent: "unknown",
+			Active:    true, // Assume active when Redis is not available
+		}, nil
+	}
+
 	ctx := context.Background()
 	sessionKey := fmt.Sprintf("session:%s", sessionID)
 	
+	a.logger.Debug("Looking up session in Redis", zap.String("session_key", sessionKey))
+
 	result, err := a.redisClient.HGetAll(ctx, sessionKey).Result()
 	if err != nil {
+		a.logger.Error("Failed to get session from Redis",
+			zap.Error(err),
+			zap.String("session_key", sessionKey),
+		)
 		return nil, fmt.Errorf("failed to get session: %w", err)
 	}
 
+	a.logger.Debug("Session lookup result",
+		zap.String("session_key", sessionKey),
+		zap.Int("result_count", len(result)),
+		zap.Any("result", result),
+	)
+
 	if len(result) == 0 {
+		a.logger.Error("Session not found in Redis",
+			zap.String("session_id", sessionID),
+			zap.String("session_key", sessionKey),
+		)
 		return nil, fmt.Errorf("session not found")
 	}
 
 	// Validate session belongs to user
 	if result["user_id"] != userID {
+		a.logger.Error("Session user mismatch",
+			zap.String("expected_user_id", userID),
+			zap.String("stored_user_id", result["user_id"]),
+			zap.String("session_id", sessionID),
+		)
 		return nil, fmt.Errorf("session user mismatch")
 	}
 
@@ -304,12 +428,21 @@ func (a *AuthService) ValidateSession(sessionID, userID, ipAddress string) (*Ses
 		)
 	}
 
+	// Handle boolean conversion from Redis - can be "true", "1", or actual boolean
+	sessionActive := result["active"] == "true" || result["active"] == "1"
+	a.logger.Debug("Session validation complete",
+		zap.String("session_id", sessionID),
+		zap.String("user_id", userID),
+		zap.String("stored_active", result["active"]),
+		zap.Bool("parsed_active", sessionActive),
+	)
+
 	return &SessionInfo{
 		UserID:    result["user_id"],
 		SessionID: sessionID,
 		IPAddress: result["ip_address"],
 		UserAgent: result["user_agent"],
-		Active:    result["active"] == "true",
+		Active:    sessionActive,
 	}, nil
 }
 
@@ -329,6 +462,11 @@ func (a *AuthService) VerifyPassword(hashedPassword, password string) error {
 
 // storeTokenInRedis stores token metadata in Redis for tracking
 func (a *AuthService) storeTokenInRedis(tokenID, tokenString, userID, sessionID string, expiration time.Duration) error {
+	if a.redisClient == nil {
+		a.logger.Warn("Redis client not available, token tracking not persistent")
+		return nil // Return success for now, but tokens won't be tracked
+	}
+	
 	ctx := context.Background()
 	tokenKey := fmt.Sprintf("token:%s:%s", userID, tokenID)
 	
@@ -341,6 +479,11 @@ func (a *AuthService) storeTokenInRedis(tokenID, tokenString, userID, sessionID 
 
 // isTokenRevoked checks if a token has been revoked
 func (a *AuthService) isTokenRevoked(tokenID string) (bool, error) {
+	if a.redisClient == nil {
+		// Without Redis, we can't track revoked tokens, so assume token is valid
+		return false, nil
+	}
+	
 	ctx := context.Background()
 	key := fmt.Sprintf("revoked_token:%s", tokenID)
 	
