@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alchemorsel/v3/internal/infrastructure/security/secrets"
+	// "github.com/alchemorsel/v3/internal/infrastructure/security/secrets" // TODO: Fix package structure
 )
 
 // SecureConfig extends Config with secure secret management

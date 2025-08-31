@@ -14,7 +14,7 @@ import (
 	"github.com/alchemorsel/v3/internal/infrastructure/ai/openai"
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
 	"github.com/alchemorsel/v3/internal/infrastructure/http/apiserver"
-	"github.com/alchemorsel/v3/internal/infrastructure/http/server"
+	// "github.com/alchemorsel/v3/internal/infrastructure/http/server" // TODO: Fix package structure
 	gormRepo "github.com/alchemorsel/v3/internal/infrastructure/persistence/gorm"
 	"github.com/alchemorsel/v3/internal/infrastructure/persistence/memory"
 	"github.com/alchemorsel/v3/internal/infrastructure/persistence/postgres"
