@@ -2,12 +2,12 @@ name: Continuous Deployment
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
     tags: ['v*']
   workflow_run:
     workflows: ["Continuous Integration"]
     types: [completed]
-    branches: [main]
+    branches: [master, main]
   workflow_dispatch:
     inputs:
       environment:
@@ -35,7 +35,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success' && github.ref == 'refs/heads/main'
+    if: github.event.workflow_run.conclusion == 'success' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     environment:
       name: staging
       url: https://staging.alchemorsel.com
