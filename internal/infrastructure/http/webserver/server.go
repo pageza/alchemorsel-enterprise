@@ -86,7 +86,7 @@ func NewWebServer(
 	}
 	ollamaModel := cfg.GetString("ALCHEMORSEL_OLLAMA_CHAT_MODEL")
 	if ollamaModel == "" {
-		ollamaModel = "mistral:7b" // Default model
+		ollamaModel = "phi3:latest" // Default model
 	}
 	ollamaClient := ai.NewOllamaClient(ollamaHost, ollamaModel)
 	
@@ -927,9 +927,28 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 
 	s.logger.Debug("AI Chat request", zap.String("message", message), zap.String("user_id", userID))
 
-	// TODO: Call AI service to get response
-	// SECURITY NOTE: User message is now properly sanitized above
-	// For now, return a mock response with sanitized input
+	// Create chat history for AI context (similar to WebSocket implementation)
+	messages := []conversation.ChatMessage{
+		{
+			Role:    "system",
+			Content: "You are an expert AI chef assistant helping users with cooking and recipes. You are knowledgeable, friendly, and practical. Always provide helpful, accurate, and safe cooking advice.",
+		},
+		{
+			Role:    "user",
+			Content: message, // Already sanitized above
+		},
+	}
+
+	// Generate AI response using Ollama
+	aiResponseContent, err := s.ollamaClient.GenerateChatCompletion(r.Context(), messages)
+	if err != nil {
+		s.logger.Error("Ollama generation failed", zap.Error(err), zap.String("user_id", userID))
+		
+		// Send fallback response
+		aiResponseContent = "I'm having trouble connecting to my AI chef brain right now! 🧠 Could you try asking again in a moment? In the meantime, I'm here to help with any cooking questions you have!"
+	}
+
+	// Create formatted HTML response with both user message and AI response
 	aiResponse := `<div class="chat-message user-message" style="margin-bottom: 1rem;">
 		<div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
 			<div class="message-content" style="flex: 1; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 1rem; border-radius: 1rem; max-width: 80%;">
@@ -949,17 +968,7 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 			</div>
 			<div class="message-content" style="flex: 1; background: #ffffff; padding: 1rem; border-radius: 1rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
 				<div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.5rem;">AI Chef</div>
-				<div style="line-height: 1.6;">
-					Great question! For chicken and vegetables, I recommend trying a delicious **Chicken Stir-Fry**. Here's what you can make:
-					<br><br>
-					🍗 **Quick Chicken & Veggie Stir-Fry** (20 mins)<br>
-					• 1 lb chicken breast, sliced<br>
-					• 2 cups mixed vegetables (bell peppers, broccoli, carrots)<br>
-					• 2 tbsp soy sauce, 1 tbsp garlic, ginger<br>
-					• Serve over rice or noodles
-					<br><br>
-					Would you like the full recipe with step-by-step instructions?
-				</div>
+				<div style="line-height: 1.6;">` + html.EscapeString(aiResponseContent) + `</div>
 				<div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">Just now</div>
 			</div>
 		</div>

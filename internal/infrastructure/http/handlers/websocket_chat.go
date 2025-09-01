@@ -60,7 +60,7 @@ func (h *ChatMessageHandler) HandleMessage(ctx context.Context, userID string, m
 		Role:           "assistant",
 		Metadata:       map[string]interface{}{
 			"provider": "ollama",
-			"model":    "mistral:7b",
+			"model":    "phi3:latest",
 		},
 	}
 
