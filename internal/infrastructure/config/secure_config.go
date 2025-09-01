@@ -18,8 +18,8 @@ import (
 // SecureConfig extends Config with secure secret management
 type SecureConfig struct {
 	*Config
-	secretManager *secrets.SecretManager
-	secretLoader  *secrets.SecretLoader
+	secretManager secrets.SecretManager
+	secretLoader  secrets.SecretLoader
 	logger        *slog.Logger
 	initialized   bool
 }

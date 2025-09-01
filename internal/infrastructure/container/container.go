@@ -14,7 +14,7 @@ import (
 	"github.com/alchemorsel/v3/internal/infrastructure/ai/openai"
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
 	"github.com/alchemorsel/v3/internal/infrastructure/http/apiserver"
-	"github.com/alchemorsel/v3/internal/infrastructure/http/server"
+	"github.com/alchemorsel/v3/internal/infrastructure/http/webserver"
 	gormRepo "github.com/alchemorsel/v3/internal/infrastructure/persistence/gorm"
 	"github.com/alchemorsel/v3/internal/infrastructure/persistence/memory"
 	"github.com/alchemorsel/v3/internal/infrastructure/persistence/postgres"
@@ -313,7 +313,7 @@ var ServiceModule = fx.Provide(
 
 // HTTPModule provides HTTP server and handlers
 var HTTPModule = fx.Provide(
-	server.NewServer,
+	webserver.NewWebServer,
 )
 
 // EventModule provides event handling
@@ -334,7 +334,7 @@ func RegisterLifecycleHooks(
 	cfg *config.Config,
 	log *zap.Logger,
 	db *gorm.DB,
-	server *server.Server,
+	server *webserver.WebServer,
 ) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
