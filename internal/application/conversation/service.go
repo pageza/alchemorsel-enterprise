@@ -38,6 +38,8 @@ const (
 	IntentIngredientSubst     ConversationIntent = "ingredient_substitution"
 	IntentMealPlanning        ConversationIntent = "meal_planning"
 	IntentGeneralQuestion     ConversationIntent = "general_question"
+	IntentTechnicalSupport    ConversationIntent = "technical_support"
+	IntentGeneral             ConversationIntent = "general"
 )
 
 // Conversation represents a conversation
@@ -70,6 +72,7 @@ type ConversationContext struct {
 	ConversationID string                 `json:"conversation_id"`
 	ContextType    string                 `json:"context_type"`
 	ContextData    map[string]interface{} `json:"context_data"`
+	Complexity     string                 `json:"complexity"`
 	CreatedAt      time.Time              `json:"created_at"`
 	UpdatedAt      time.Time              `json:"updated_at"`
 }

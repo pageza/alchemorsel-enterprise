@@ -25,7 +25,7 @@ import (
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT
 // @host localhost:3013
-// @BasePath /api/v1
+// @BasePath /api/v3
 // @schemes http https
 // @securityDefinitions.apikey BearerAuth
 // @in header
@@ -37,8 +37,8 @@ func main() {
 		// Application metadata
 		fx.NopLogger, // Use our own logger instead of Fx's
 		
-		// Provide all dependencies
-		container.Module,
+		// Provide all dependencies for pure API server
+		container.PureAPIModule,
 		
 		// Invoke startup functions
 		fx.Invoke(func() {

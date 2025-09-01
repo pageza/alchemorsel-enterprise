@@ -153,10 +153,10 @@ func (mc *MetricsCollector) registerMetrics() {
 		mc.cacheMisses,
 	}
 	
-	for _, metric := range metrics {
+	for i, metric := range metrics {
 		if err := mc.registry.Register(metric); err != nil {
 			mc.logger.Warn("Failed to register metric",
-				zap.String("metric", metric.Desc().String()),
+				zap.Int("metric_index", i),
 				zap.Error(err))
 		}
 	}
@@ -279,9 +279,9 @@ func (mc *MetricsCollector) RecordCacheMiss(model string) {
 
 // updateCacheHitRatio calculates and updates the cache hit ratio
 func (mc *MetricsCollector) updateCacheHitRatio(model string) {
-	// Get current values
-	cacheHitMetric := mc.cacheHits.With(prometheus.Labels{"model": model})
-	cacheMissMetric := mc.cacheMisses.With(prometheus.Labels{"model": model})
+	// Get current values (metrics will be used later for ratio calculation)
+	_ = mc.cacheHits.With(prometheus.Labels{"model": model})
+	_ = mc.cacheMisses.With(prometheus.Labels{"model": model})
 	
 	// For simplicity, we'll calculate ratio based on counters
 	// In production, you might want to use a sliding window approach

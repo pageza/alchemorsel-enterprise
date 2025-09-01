@@ -130,7 +130,7 @@ func (c *APIClient) Register(ctx context.Context, name, email, password string) 
 	}
 
 	var resp RegisterResponse
-	err := c.post(ctx, "/api/v1/auth/register", req, &resp)
+	err := c.post(ctx, "/api/v3/auth/register", req, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +196,7 @@ func (c *APIClient) GetProfile(ctx context.Context, token string) (*UserResponse
 		Error   string       `json:"error,omitempty"`
 	}
 
-	err := c.getWithAuth(ctx, "/api/v1/auth/profile", token, &resp)
+	err := c.getWithAuth(ctx, "/api/v3/auth/profile", token, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +238,7 @@ func (c *APIClient) GetRecipe(ctx context.Context, token, recipeID string) (*Rec
 		Error   string         `json:"error,omitempty"`
 	}
 
-	err := c.getWithAuth(ctx, "/api/v1/recipes/"+recipeID, token, &resp)
+	err := c.getWithAuth(ctx, "/api/v3/recipes/"+recipeID, token, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +258,7 @@ func (c *APIClient) CreateRecipe(ctx context.Context, token string, recipe Recip
 		Error   string         `json:"error,omitempty"`
 	}
 
-	err := c.postWithAuth(ctx, "/api/v1/recipes", token, recipe, &resp)
+	err := c.postWithAuth(ctx, "/api/v3/recipes", token, recipe, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +284,7 @@ func (c *APIClient) GenerateRecipe(ctx context.Context, token, prompt string) (*
 		Error   string         `json:"error,omitempty"`
 	}
 
-	err := c.postWithAuth(ctx, "/api/v1/ai/generate-recipe", token, req, &resp)
+	err := c.postWithAuth(ctx, "/api/v3/ai/generate-recipe", token, req, &resp)
 	if err != nil {
 		return nil, err
 	}

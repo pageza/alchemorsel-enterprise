@@ -4,11 +4,21 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Alchemorsel v3 initialized');
     
-    // Initialize HTMX if available
+    // Debug HTMX availability and initialization
+    console.log('=== HTMX DEBUGGING ===');
+    console.log('HTMX loaded:', typeof htmx !== 'undefined');
     if (typeof htmx !== 'undefined') {
+        console.log('HTMX object:', htmx);
+        console.log('HTMX properties:', Object.keys(htmx));
+        console.log('HTMX.process available:', typeof htmx.process === 'function');
+        
+        // Process the document to ensure HTMX attributes are recognized
         htmx.process(document.body);
-        console.log('HTMX processed');
+        console.log('HTMX processed document body');
+    } else {
+        console.error('HTMX not loaded!');
     }
+    console.log('======================')
     
     // Mobile menu functionality
     const menuButton = document.querySelector('.mobile-menu-button');

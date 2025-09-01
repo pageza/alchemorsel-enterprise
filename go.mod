@@ -1,8 +1,12 @@
 module github.com/alchemorsel/v3
 
-go 1.23
+go 1.23.0
+
+toolchain go1.23.2
 
 require (
+	github.com/alexedwards/scs/redisstore v0.0.0-20250417082927-ab20b3feb5e9
+	github.com/alexedwards/scs/v2 v2.9.0
 	github.com/andybalholm/brotli v1.0.4
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/brianvoe/gofakeit/v6 v6.28.0
@@ -15,6 +19,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/golang-migrate/migrate/v4 v4.18.3
+	github.com/gomodule/redigo v1.9.2
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.5

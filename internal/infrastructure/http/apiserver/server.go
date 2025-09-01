@@ -91,22 +91,22 @@ func (s *PureAPIServer) setupRoutes() *chi.Mux {
 	r.Get("/live", s.handleLivenessCheck)
 
 	// OpenAPI Documentation endpoints
-	r.Get("/api/v1/openapi.yaml", s.openAPIHandler.ServeOpenAPISpec)
-	r.Get("/api/v1/openapi.json", s.openAPIHandler.ServeOpenAPIJSON)
-	r.Get("/api/v1/docs", s.openAPIHandler.ServeSwaggerUI)
-	r.Get("/api/v1/docs/swagger", s.openAPIHandler.ServeSwaggerUI)
-	r.Get("/api/v1/docs/redoc", s.openAPIHandler.ServeRedocUI)
+	r.Get("/api/v3/openapi.yaml", s.openAPIHandler.ServeOpenAPISpec)
+	r.Get("/api/v3/openapi.json", s.openAPIHandler.ServeOpenAPIJSON)
+	r.Get("/api/v3/docs", s.openAPIHandler.ServeSwaggerUI)
+	r.Get("/api/v3/docs/swagger", s.openAPIHandler.ServeSwaggerUI)
+	r.Get("/api/v3/docs/redoc", s.openAPIHandler.ServeRedocUI)
 
-	// API v1 routes
-	r.Route("/api/v1", func(r chi.Router) {
-		s.setupAPIV1Routes(r)
+	// API v3 routes
+	r.Route("/api/v3", func(r chi.Router) {
+		s.setupAPIV3Routes(r)
 	})
 
 	return r
 }
 
-// setupAPIV1Routes configures API v1 endpoints
-func (s *PureAPIServer) setupAPIV1Routes(r chi.Router) {
+// setupAPIV3Routes configures API v3 endpoints
+func (s *PureAPIServer) setupAPIV3Routes(r chi.Router) {
 	h := handlers.NewAPIHandlers(s.recipeService, s.logger)
 	authH := handlers.NewAuthAPIHandlers(s.userService, s.authService, s.logger)
 	aiH := handlers.NewAIAPIHandlers(s.aiService, s.logger)

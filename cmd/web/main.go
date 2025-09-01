@@ -69,8 +69,8 @@ func main() {
 		// API Client for backend communication
 		fx.Provide(webserver.NewAPIClient),
 		
-		// Session Store
-		fx.Provide(webserver.NewSessionStore),
+		// Session Manager
+		fx.Provide(webserver.NewSessionManager),
 		
 		// Health Check
 		fx.Provide(func(cfg *config.Config, log *zap.Logger) *healthcheck.EnterpriseHealthCheck {

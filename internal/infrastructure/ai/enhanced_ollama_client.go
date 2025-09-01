@@ -164,7 +164,8 @@ func (c *EnhancedOllamaClient) generateWithModel(
 	startTime := time.Now()
 	
 	// Call the base client
-	response, err := c.baseClient.GenerateCompletion(ctx, prompt)
+	promptMessages := []conversation.ChatMessage{{Role: "user", Content: prompt}}
+	response, err := c.baseClient.GenerateChatCompletion(ctx, promptMessages)
 	if err != nil {
 		c.logger.Error("Generation failed",
 			zap.String("model", model),

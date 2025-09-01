@@ -88,6 +88,8 @@
             {{template "recipes-content" .}}
         {{else if eq .TemplateName "profile"}}
             {{template "profile-content" .}}
+        {{else if eq .TemplateName "login"}}
+            {{template "login-content" .}}
         {{else}}
             {{template "content" .}}
         {{end}}
@@ -112,7 +114,7 @@
     </script>
     
     <!-- HTMX Library -->
-    <script src="/static/js/htmx.min.js" defer></script>
+    <script src="/static/js/htmx.min.js"></script>
     
     <!-- Application JavaScript -->
     <script src="/static/js/app.js" defer></script>

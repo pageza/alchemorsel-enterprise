@@ -648,6 +648,16 @@ func (s *WebServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if redirect == "" {
 		redirect = "/recipes"
 	}
+	
+	// Check if this is an HTMX request
+	if r.Header.Get("HX-Request") == "true" {
+		// For HTMX requests, use HX-Redirect header
+		w.Header().Set("HX-Redirect", redirect)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	
+	// For regular requests, use standard redirect
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 

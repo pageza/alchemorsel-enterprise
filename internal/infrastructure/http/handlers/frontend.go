@@ -941,20 +941,20 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 	}
 	
 	h.logger.Info("User authenticated successfully",
-		zap.String("user_id", userDTO.ID.String()),
-		zap.String("email", userDTO.Email),
+		zap.String("user_id", userDTO.User.ID.String()),
+		zap.String("email", userDTO.User.Email),
 	)
 	
 	// Create session
 	session, err := h.authService.CreateSession(
-		userDTO.ID.String(),
+		userDTO.User.ID.String(),
 		r.RemoteAddr,
 		r.UserAgent(),
 	)
 	if err != nil {
 		h.logger.Error("Failed to create session", 
 			zap.Error(err),
-			zap.String("user_id", userDTO.ID.String()),
+			zap.String("user_id", userDTO.User.ID.String()),
 		)
 		h.renderError(w, "Login failed")
 		return
@@ -962,20 +962,20 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 
 	h.logger.Debug("Session created successfully",
 		zap.String("session_id", session.SessionID),
-		zap.String("user_id", userDTO.ID.String()),
+		zap.String("user_id", userDTO.User.ID.String()),
 	)
 	
 	// Generate access token
-	userRoles := []string{userDTO.Role}
+	userRoles := []string{userDTO.User.Role}
 	h.logger.Debug("Generating access token for login",
-		zap.String("user_id", userDTO.ID.String()),
+		zap.String("user_id", userDTO.User.ID.String()),
 		zap.Strings("roles", userRoles),
 		zap.String("session_id", session.SessionID),
 	)
 
 	accessToken, err := h.authService.GenerateAccessToken(
-		userDTO.ID.String(),
-		userDTO.Email,
+		userDTO.User.ID.String(),
+		userDTO.User.Email,
 		userRoles,
 		session.SessionID,
 		r.RemoteAddr,
@@ -984,7 +984,7 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		h.logger.Error("Failed to generate access token", 
 			zap.Error(err),
-			zap.String("user_id", userDTO.ID.String()),
+			zap.String("user_id", userDTO.User.ID.String()),
 			zap.String("session_id", session.SessionID),
 		)
 		h.renderError(w, "Login failed")
@@ -992,7 +992,7 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 	}
 
 	h.logger.Info("Access token generated successfully",
-		zap.String("user_id", userDTO.ID.String()),
+		zap.String("user_id", userDTO.User.ID.String()),
 		zap.String("token_length", fmt.Sprintf("%d", len(accessToken))),
 	)
 	
@@ -1063,7 +1063,7 @@ func (h *FrontendHandlers) HandleAuthRegister(w http.ResponseWriter, r *http.Req
 	
 	// Create session
 	session, err := h.authService.CreateSession(
-		userDTO.ID.String(),
+		userDTO.User.ID.String(),
 		r.RemoteAddr,
 		r.UserAgent(),
 	)
@@ -1074,10 +1074,10 @@ func (h *FrontendHandlers) HandleAuthRegister(w http.ResponseWriter, r *http.Req
 	}
 	
 	// Generate access token
-	userRoles := []string{userDTO.Role}
+	userRoles := []string{userDTO.User.Role}
 	accessToken, err := h.authService.GenerateAccessToken(
-		userDTO.ID.String(),
-		userDTO.Email,
+		userDTO.User.ID.String(),
+		userDTO.User.Email,
 		userRoles,
 		session.SessionID,
 		r.RemoteAddr,
