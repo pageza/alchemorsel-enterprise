@@ -1003,9 +1003,17 @@ func (s *WebServer) handleHTMXNotifications(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+	s.logger.Info("AI Chat request started", 
+		zap.String("method", r.Method),
+		zap.String("path", r.URL.Path),
+		zap.String("timestamp", startTime.Format("15:04:05.000")),
+	)
+	
 	// CRITICAL SECURITY FIX ALV3-2025-001: Validate authentication (enforced by middleware)
 	userID := s.sessionManager.GetString(r.Context(), "user_id")
 	if userID == "" {
+		s.logger.Warn("Unauthorized AI chat request", zap.Duration("duration", time.Since(startTime)))
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("<div class=\"error\">Authentication required. Please <a href=\"/login\">login</a> to use AI features.</div>"))
 		return
@@ -1014,6 +1022,7 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 	// CRITICAL SECURITY FIX ALV3-2025-002: XSS Protection - Sanitize input
 	message := strings.TrimSpace(r.FormValue("message"))
 	if message == "" {
+		s.logger.Warn("Empty message in AI chat", zap.String("user_id", userID), zap.Duration("duration", time.Since(startTime)))
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("<div class=\"error\">Message is required</div>"))
 		return
@@ -1021,6 +1030,7 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 
 	// SECURITY: Validate message length and content
 	if len(message) > 1000 {
+		s.logger.Warn("Message too long in AI chat", zap.String("user_id", userID), zap.Int("length", len(message)), zap.Duration("duration", time.Since(startTime)))
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("<div class=\"error\">Message too long (max 1000 characters)</div>"))
 		return
@@ -1029,7 +1039,13 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 	// SECURITY: Sanitize user input to prevent XSS
 	message = html.EscapeString(message)
 
-	s.logger.Debug("AI Chat request", zap.String("message", message), zap.String("user_id", userID))
+	validationTime := time.Since(startTime)
+	s.logger.Info("AI Chat validation completed", 
+		zap.String("user_id", userID),
+		zap.String("message_preview", message[:min(50, len(message))]),
+		zap.Int("message_length", len(message)),
+		zap.Duration("validation_duration", validationTime),
+	)
 
 	// Create chat history for AI context (similar to WebSocket implementation)
 	messages := []conversation.ChatMessage{
@@ -1044,16 +1060,38 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate AI response using Ollama
+	ollamaStartTime := time.Now()
+	s.logger.Info("Starting Ollama AI generation", 
+		zap.String("user_id", userID),
+		zap.String("timestamp", ollamaStartTime.Format("15:04:05.000")),
+	)
+	
 	aiResult, err := s.ollamaClient.GenerateChatCompletion(r.Context(), messages, 0.7, 2048)
+	
+	ollmaDuration := time.Since(ollamaStartTime)
 	var aiResponseContent string
 	if err != nil {
-		s.logger.Error("Ollama generation failed", zap.Error(err), zap.String("user_id", userID))
+		s.logger.Error("Ollama generation failed", 
+			zap.Error(err), 
+			zap.String("user_id", userID),
+			zap.Duration("ollama_duration", ollmaDuration),
+			zap.Duration("total_duration", time.Since(startTime)),
+		)
 		
 		// Send fallback response
 		aiResponseContent = "I'm having trouble connecting to my AI chef brain right now! 🧠 Could you try asking again in a moment? In the meantime, I'm here to help with any cooking questions you have!"
 	} else {
+		s.logger.Info("Ollama generation completed successfully", 
+			zap.String("user_id", userID),
+			zap.Duration("ollama_duration", ollmaDuration),
+			zap.Duration("total_duration_so_far", time.Since(startTime)),
+			zap.Int("response_length", len(aiResult.Content)),
+		)
 		aiResponseContent = aiResult.Content
 	}
+	
+	// Format AI response for better readability
+	formattedAIResponse := s.formatAIResponse(aiResponseContent)
 
 	// Create formatted HTML response with both user message and AI response
 	aiResponse := `<div class="chat-message user-message" style="margin-bottom: 1rem;">
@@ -1075,12 +1113,25 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 			</div>
 			<div class="message-content" style="flex: 1; background: #ffffff; padding: 1rem; border-radius: 1rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
 				<div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.5rem;">AI Chef</div>
-				<div style="line-height: 1.6;">` + html.EscapeString(aiResponseContent) + `</div>
+				<div style="line-height: 1.6;">` + formattedAIResponse + `</div>
 				<div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">Just now</div>
 			</div>
 		</div>
 	</div>`
 
+	totalDuration := time.Since(startTime)
+	s.logger.Info("AI Chat response completed", 
+		zap.String("user_id", userID),
+		zap.Duration("total_duration", totalDuration),
+		zap.Duration("ollama_duration", ollmaDuration),
+		zap.Duration("validation_duration", validationTime),
+		zap.Int("response_html_length", len(aiResponse)),
+		zap.String("performance_summary", fmt.Sprintf("validation: %dms, ollama: %dms, total: %dms", 
+			validationTime.Milliseconds(), 
+			ollmaDuration.Milliseconds(), 
+			totalDuration.Milliseconds())),
+	)
+	
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(aiResponse))
 }
@@ -1542,6 +1593,44 @@ func (s *WebServer) containsDangerousContent(input string) bool {
 	}
 	
 	return false
+}
+
+// formatAIResponse formats AI response text to preserve formatting and improve readability
+func (s *WebServer) formatAIResponse(text string) string {
+	// Escape HTML first to prevent XSS
+	text = html.EscapeString(text)
+	
+	// Convert double line breaks to paragraphs
+	text = regexp.MustCompile(`\n\s*\n`).ReplaceAllString(text, "</p><p>")
+	
+	// Convert single line breaks to <br> tags
+	text = strings.ReplaceAll(text, "\n", "<br>")
+	
+	// Format bullet points
+	bulletPattern := regexp.MustCompile(`(?m)^[\s]*[-•*]\s+(.+)$`)
+	text = bulletPattern.ReplaceAllString(text, `<div style="margin-left: 1rem; margin-bottom: 0.5rem;">• $1</div>`)
+	
+	// Format numbered lists
+	numberedPattern := regexp.MustCompile(`(?m)^[\s]*(\d+)\.\s+(.+)$`)
+	text = numberedPattern.ReplaceAllString(text, `<div style="margin-left: 1rem; margin-bottom: 0.5rem;">$1. $2</div>`)
+	
+	// Format bold text (basic markdown-style)
+	boldPattern := regexp.MustCompile(`\*\*([^*]+)\*\*`)
+	text = boldPattern.ReplaceAllString(text, `<strong>$1</strong>`)
+	
+	// Format italic text (basic markdown-style)
+	italicPattern := regexp.MustCompile(`\*([^*]+)\*`)
+	text = italicPattern.ReplaceAllString(text, `<em>$1</em>`)
+	
+	// Wrap in paragraphs if not already wrapped
+	if !strings.Contains(text, "<p>") && !strings.Contains(text, "<div") {
+		text = "<p>" + text + "</p>"
+	} else if strings.HasPrefix(text, "</p>") {
+		// Fix leading paragraph close tag
+		text = "<p>" + strings.TrimPrefix(text, "</p>")
+	}
+	
+	return text
 }
 
 // Dashboard HTMX handlers
