@@ -14,6 +14,7 @@
             <div class="nav-links">
                 <ul style="display: flex; list-style: none; gap: 0.5rem; margin: 0; padding: 0;">
                     <li><a href="/" {{if eq .CurrentPage "home"}}aria-current="page"{{end}}>Home</a></li>
+                    <li><a href="/" {{if eq .CurrentPage "ai-chat"}}aria-current="page"{{end}}>AI Chat</a></li>
                     <li><a href="/recipes" {{if eq .CurrentPage "recipes"}}aria-current="page"{{end}}>Recipes</a></li>
                     <li><a href="/dashboard" {{if eq .CurrentPage "dashboard"}}aria-current="page"{{end}}>Dashboard</a></li>
                     {{if .User}}
@@ -51,6 +52,7 @@
         <div id="mobile-menu" class="mobile-menu" style="display: none;">
             <ul style="list-style: none; padding: 1rem 0; margin: 0;">
                 <li><a href="/" style="display: block; padding: 0.5rem 0;">Home</a></li>
+                <li><a href="/" style="display: block; padding: 0.5rem 0;">AI Chat</a></li>
                 <li><a href="/recipes" style="display: block; padding: 0.5rem 0;">Recipes</a></li>
                 <li><a href="/dashboard" style="display: block; padding: 0.5rem 0;">Dashboard</a></li>
                 {{if .User}}

@@ -27,7 +27,7 @@
     </style>
     
     <!-- Preload Critical Resources -->
-    <link rel="preload" href="/static/js/htmx.min.js" as="script">
+    <!-- Remove HTMX preload since we're using CDN -->
     <link rel="preload" href="/static/js/app.js" as="script">
     
     <!-- Favicon -->
@@ -189,6 +189,11 @@
                         onkeydown="handleChatKeyDown(event)"
                         oninput="autoResizeTextarea(this)"
                     ></textarea>
+                    
+                    {{if .IsAuthenticated}}
+                    <!-- CSRF Token -->
+                    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                    {{end}}
                     
                     <!-- Suggested Prompts -->
                     <div id="suggested-prompts" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 0.5rem 0.5rem; z-index: 10; display: none;">
@@ -635,11 +640,116 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     </script>
     
-    <!-- HTMX Library -->
-    <script src="/static/js/htmx.min.js" defer></script>
+    <!-- HTMX Library - Load synchronously to avoid race conditions -->
+    <script>
+        window.addEventListener('error', function(e) {
+            console.error('JavaScript Error:', e.error, 'Source:', e.filename, 'Line:', e.lineno);
+        });
+        
+        // Listen for CSP violations
+        document.addEventListener('securitypolicyviolation', function(e) {
+            console.error('CSP Violation:', e.violatedDirective, 'Blocked URI:', e.blockedURI);
+        });
+        
+        // Check if we can access external scripts
+        console.log('Testing external script access from:', window.location.origin);
+    </script>
+    <!-- Try CDN version directly -->
+    <script src="https://unpkg.com/htmx.org@1.9.10/dist/htmx.min.js"></script>
+    <script>
+        // Force HTMX initialization immediately after loading
+        console.log('HTMX immediately after load:', {
+            htmx: typeof htmx,
+            htmxKeys: typeof htmx !== 'undefined' ? Object.keys(htmx) : 'undefined',
+            htmxPrototype: typeof htmx !== 'undefined' && htmx.constructor ? Object.getOwnPropertyNames(htmx.constructor.prototype) : 'undefined'
+        });
+        // Store reference to htmx for debugging
+        window.htmxDebug = htmx;
+        
+        // Try to manually trigger HTMX if it exists but is empty
+        if (typeof htmx !== 'undefined' && Object.keys(htmx).length === 0) {
+            console.log('HTMX exists but is empty - attempting manual initialization');
+            // Check if HTMX has any hidden properties
+            console.log('HTMX constructor:', htmx.constructor.name);
+            console.log('HTMX prototype keys:', Object.getOwnPropertyNames(htmx.__proto__ || {}));
+            
+            // Try to see if HTMX is a function that needs to be called
+            console.log('HTMX type check:', {
+                isFunction: typeof htmx === 'function',
+                isObject: typeof htmx === 'object',
+                hasCall: typeof htmx.call === 'function',
+                toString: htmx.toString()
+            });
+            
+            // Wait a moment and check again
+            setTimeout(function() {
+                console.log('HTMX after 100ms delay:', {
+                    htmx: typeof htmx,
+                    htmxKeys: typeof htmx !== 'undefined' ? Object.keys(htmx) : 'undefined'
+                });
+                
+                // Try manual form processing
+                if (typeof htmx !== 'undefined') {
+                    console.log('Attempting to manually bind HTMX to form elements');
+                    const forms = document.querySelectorAll('form[hx-post]');
+                    console.log('Found forms with hx-post:', forms.length);
+                    
+                    // Since HTMX isn't working, create manual AJAX form submission
+                    if (forms.length > 0) {
+                        console.log('Creating manual AJAX form handler as HTMX fallback');
+                        forms.forEach(function(form) {
+                            form.addEventListener('submit', function(e) {
+                                e.preventDefault();
+                                console.log('Manual form submission triggered');
+                                
+                                const formData = new FormData(form);
+                                const url = form.getAttribute('hx-post') || form.action;
+                                const target = document.querySelector(form.getAttribute('hx-target') || '#chat-container');
+                                
+                                console.log('Submitting to:', url);
+                                console.log('Target element:', target);
+                                
+                                // Get CSRF token from form
+                                const csrfToken = formData.get('csrf_token');
+                                console.log('Retrieved CSRF token:', csrfToken);
+                                
+                                fetch(url, {
+                                    method: 'POST',
+                                    body: formData,
+                                    headers: {
+                                        'HX-Request': 'true',
+                                        'X-CSRF-Token': csrfToken || ''
+                                    }
+                                })
+                                .then(response => response.text())
+                                .then(html => {
+                                    if (target) {
+                                        const swap = form.getAttribute('hx-swap') || 'innerHTML';
+                                        if (swap === 'beforeend') {
+                                            target.insertAdjacentHTML('beforeend', html);
+                                        } else {
+                                            target.innerHTML = html;
+                                        }
+                                        console.log('Response inserted successfully');
+                                        
+                                        // Clear the form
+                                        const input = form.querySelector('input[name="message"]');
+                                        if (input) input.value = '';
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Form submission error:', error);
+                                });
+                            });
+                        });
+                    }
+                }
+            }, 100);
+        }
+    </script>
     
-    <!-- Application JavaScript -->
-    <script src="/static/js/app.js" defer></script>
+    <!-- Application JavaScript - Load after HTMX -->
+    <script src="/static/js/app.js"></script>
     
     <!-- Performance Monitoring -->
     <script src="/static/js/performance.js" defer></script>

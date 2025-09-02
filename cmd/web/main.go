@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -69,9 +70,6 @@ func main() {
 		// API Client for backend communication
 		fx.Provide(webserver.NewAPIClient),
 		
-		// Session Manager
-		fx.Provide(webserver.NewSessionManager),
-		
 		// Health Check
 		fx.Provide(func(cfg *config.Config, log *zap.Logger) *healthcheck.EnterpriseHealthCheck {
 			if cfg.Monitoring.HealthCheck.EnableEnterprise {
@@ -126,13 +124,15 @@ func registerLifecycleHooks(
 			fmt.Println("🎨 HTMX-powered interactive UI")
 			fmt.Println("🍳 Recipe management with AI capabilities")
 			
-			// Start server in background
+			// Start server in a goroutine
 			go func() {
-				if err := server.Start(); err != nil {
-					log.Fatal("Web server failed to start", zap.Error(err))
+				log.Info("Starting web server listener")
+				if err := server.Start(); err != nil && err != http.ErrServerClosed {
+					log.Error("Web server error", zap.Error(err))
 				}
 			}()
 			
+			// Server started successfully (will block in the goroutine)
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {

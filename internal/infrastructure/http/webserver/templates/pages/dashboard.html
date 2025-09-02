@@ -133,34 +133,17 @@
 
         <!-- Sidebar -->
         <div>
-            <!-- AI Chat -->
+            <!-- AI Assistant Link -->
             <section class="card" style="margin-bottom: 2rem;">
-                <h3 style="margin-bottom: 1rem;">💬 AI Chef Chat</h3>
-                <div id="chat-container" style="height: 300px; display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 0.5rem; overflow: hidden;">
-                    <!-- Chat messages area -->
-                    <div id="chat-messages" style="flex: 1; padding: 1rem; overflow-y: auto; background: #fafafa; display: flex; flex-direction: column; gap: 0.5rem;">
-                        <div class="chat-message assistant-message" style="background: white; padding: 0.75rem; border-radius: 1rem; max-width: 85%; align-self: flex-start; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                            <div style="font-size: 0.875rem;">👋 Hi! I'm your AI chef assistant. Ask me about recipes, cooking tips, or anything culinary!</div>
-                        </div>
+                <div style="display: flex; align-items: center; gap: 1rem; padding: 0.5rem;">
+                    <div style="font-size: 2rem;">🤖</div>
+                    <div style="flex: 1;">
+                        <h3 style="margin: 0 0 0.5rem 0;">AI Chef Assistant</h3>
+                        <p style="margin: 0; color: #718096; font-size: 0.875rem;">Need cooking help? Chat with your AI assistant for recipes, tips, and meal suggestions.</p>
                     </div>
-                    
-                    <!-- Chat input area -->
-                    <div style="padding: 1rem; background: white; border-top: 1px solid #e2e8f0;">
-                        <form id="chat-form" style="display: flex; gap: 0.5rem;">
-                            <input 
-                                type="text" 
-                                id="chat-input" 
-                                placeholder="Ask about recipes, cooking tips..."
-                                style="flex: 1; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; font-size: 0.875rem;"
-                            >
-                            <button 
-                                type="submit"
-                                style="padding: 0.75rem 1rem; background: #4f46e5; color: white; border: none; border-radius: 0.5rem; font-size: 0.875rem; cursor: pointer;"
-                            >
-                                Send
-                            </button>
-                        </form>
-                    </div>
+                    <a href="/" class="btn btn-primary" style="white-space: nowrap;">
+                        Open Chat
+                    </a>
                 </div>
             </section>
 
@@ -252,144 +235,9 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // WebSocket chat functionality
-    let socket = null;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-    
-    const chatMessages = document.getElementById('chat-messages');
-    const chatForm = document.getElementById('chat-form');
-    const chatInput = document.getElementById('chat-input');
-    
-    function connectWebSocket() {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
-        
-        console.log('Connecting to WebSocket:', wsUrl);
-        socket = new WebSocket(wsUrl);
-        
-        socket.onopen = function(event) {
-            console.log('WebSocket connected');
-            reconnectAttempts = 0;
-            addSystemMessage('Connected to AI Chef! 🟢');
-        };
-        
-        socket.onmessage = function(event) {
-            console.log('Received message:', event.data);
-            try {
-                const message = JSON.parse(event.data);
-                handleIncomingMessage(message);
-            } catch (e) {
-                console.error('Error parsing message:', e);
-            }
-        };
-        
-        socket.onclose = function(event) {
-            console.log('WebSocket closed:', event.code, event.reason);
-            addSystemMessage('Disconnected from AI Chef 🔴');
-            
-            // Attempt to reconnect
-            if (reconnectAttempts < maxReconnectAttempts) {
-                reconnectAttempts++;
-                setTimeout(connectWebSocket, 1000 * Math.pow(2, reconnectAttempts));
-            }
-        };
-        
-        socket.onerror = function(error) {
-            console.error('WebSocket error:', error);
-            addSystemMessage('Connection error - retrying... ⚠️');
-        };
-    }
-    
-    function handleIncomingMessage(message) {
-        switch (message.type) {
-            case 'chat_response':
-                addMessage(message.content, 'assistant');
-                break;
-            case 'connection_established':
-                addSystemMessage('Connected and ready to chat! ✨');
-                break;
-            case 'error':
-                addSystemMessage(`Error: ${message.error} ❌`);
-                break;
-            default:
-                console.log('Unknown message type:', message.type);
-        }
-    }
-    
-    function addMessage(content, role = 'user') {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `chat-message ${role}-message`;
-        
-        const isUser = role === 'user';
-        messageDiv.style.cssText = `
-            background: ${isUser ? '#4f46e5' : 'white'};
-            color: ${isUser ? 'white' : 'black'};
-            padding: 0.75rem;
-            border-radius: 1rem;
-            max-width: 85%;
-            align-self: ${isUser ? 'flex-end' : 'flex-start'};
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        `;
-        
-        const contentDiv = document.createElement('div');
-        contentDiv.style.fontSize = '0.875rem';
-        contentDiv.style.lineHeight = '1.4';
-        contentDiv.textContent = content;
-        
-        messageDiv.appendChild(contentDiv);
-        chatMessages.appendChild(messageDiv);
-        
-        // Scroll to bottom
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-    
-    function addSystemMessage(content) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'chat-message system-message';
-        messageDiv.style.cssText = `
-            background: #f3f4f6;
-            color: #6b7280;
-            padding: 0.5rem 0.75rem;
-            border-radius: 0.5rem;
-            max-width: 100%;
-            text-align: center;
-            font-size: 0.75rem;
-        `;
-        messageDiv.textContent = content;
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-    
-    function sendMessage(content) {
-        if (!socket || socket.readyState !== WebSocket.OPEN) {
-            addSystemMessage('Not connected - please wait... ⏳');
-            return;
-        }
-        
-        const message = {
-            id: Date.now().toString(),
-            type: 'chat_message',
-            content: content,
-            timestamp: new Date().toISOString()
-        };
-        
-        socket.send(JSON.stringify(message));
-        addMessage(content, 'user');
-    }
-    
-    // Handle form submission
-    chatForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const message = chatInput.value.trim();
-        if (message) {
-            sendMessage(message);
-            chatInput.value = '';
-        }
-    });
-    
-    // Connect to WebSocket
-    connectWebSocket();
+    console.log('Dashboard loaded successfully');
+    // Dashboard-specific functionality can be added here
+});
 });
 </script>
 

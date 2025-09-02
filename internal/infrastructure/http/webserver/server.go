@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,9 +22,7 @@ import (
 	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/alchemorsel/v3/internal/infrastructure/ai"
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
-	"github.com/alchemorsel/v3/internal/infrastructure/http/handlers"
 	"github.com/alchemorsel/v3/internal/infrastructure/performance"
-	"github.com/alchemorsel/v3/internal/infrastructure/websocket"
 	"github.com/alchemorsel/v3/pkg/healthcheck"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -50,8 +49,7 @@ type WebServer struct {
 	csrfSecret     []byte    // For CSRF protection
 	// Performance monitoring
 	perfMonitor    *performance.PerformanceMonitor
-	// WebSocket and AI chat
-	wsManager      *websocket.Manager
+	// AI chat
 	convService    *conversation.Service
 	ollamaClient   *ai.OllamaClient
 }
@@ -78,7 +76,7 @@ func NewWebServer(
 	perfMonitor := performance.NewPerformanceMonitor()
 	log.Info("Performance monitoring initialized successfully")
 
-	// Initialize AI and WebSocket components
+	// Initialize AI components
 	log.Info("Initializing Ollama client...")
 	// Try the AI-specific host first, then fall back to general host
 	ollamaHost := cfg.GetString("ALCHEMORSEL_AI_OLLAMA_HOST")
@@ -106,12 +104,6 @@ func NewWebServer(
 		zap.String("model", ollamaModel))
 	ollamaClient := ai.NewOllamaClient(ollamaHost, ollamaModel)
 	
-	log.Info("Initializing WebSocket manager...")
-	wsManager := websocket.NewManager()
-	
-	// Initialize chat message handler
-	chatHandler := handlers.NewChatMessageHandler(ollamaClient, wsManager)
-	wsManager.SetMessageHandler(chatHandler)
 	
 	// Initialize SCS session manager
 	log.Info("Initializing session manager...")
@@ -134,7 +126,6 @@ func NewWebServer(
 		templates:      templates,
 		healthCheck:    healthCheck,
 		rateLimitStore: &sync.Map{},
-		wsManager:      wsManager,
 		convService:    convService,
 		ollamaClient:   ollamaClient,
 		csrfSecret:     []byte("secure-csrf-secret-key-32-chars"), // TODO: Generate from config
@@ -142,20 +133,20 @@ func NewWebServer(
 	}
 
 	server.router = server.setupRoutes()
+	
+	addr := fmt.Sprintf(":%d", cfg.Server.Port)
+	log.Info("Creating HTTP server", zap.String("addr", addr))
+	
 	server.server = &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
+		Addr:         addr,
 		Handler:      server.router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
+	
+	log.Info("HTTP server created", zap.String("server_addr", server.server.Addr))
 
-	// Start WebSocket manager in background
-	go func() {
-		ctx := context.Background()
-		log.Info("Starting WebSocket manager...")
-		server.wsManager.Start(ctx)
-	}()
 
 	return server, nil
 }
@@ -221,7 +212,6 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 		
 		// AI features
 		r.Get("/ai/chat", s.handleAIChatPage)
-		r.Get("/ws", s.handleWebSocketUpgrade)
 		r.Post("/ai/generate", s.handleAIGenerate)
 		r.Post("/ai/suggest", s.handleAISuggest)
 		
@@ -269,7 +259,10 @@ func (s *WebServer) Start() error {
 		zap.String("mode", "HTMX-templates"),
 	)
 
-	return s.server.ListenAndServe()
+	s.logger.Info("About to call ListenAndServe", zap.String("addr", s.server.Addr))
+	err := s.server.ListenAndServe()
+	s.logger.Info("ListenAndServe returned", zap.Error(err))
+	return err
 }
 
 // Shutdown gracefully shuts down the web server
@@ -641,11 +634,21 @@ func (s *WebServer) handleHome(w http.ResponseWriter, r *http.Request) {
 		zap.Any("user", user),
 	)
 	
+	// Generate CSRF token for authenticated users
+	var csrfToken string
+	if isAuthenticated {
+		userID := s.sessionManager.GetString(r.Context(), "user_id")
+		if userID != "" {
+			csrfToken = s.generateCSRFToken(userID)
+		}
+	}
+	
 	// Render home page with user context
 	s.renderTemplate(w, "home", map[string]interface{}{
 		"Title":           "Welcome to Alchemorsel",
 		"User":            user,
 		"IsAuthenticated": isAuthenticated,
+		"CSRFToken":       csrfToken,
 	})
 }
 
@@ -1460,10 +1463,40 @@ func (s *WebServer) generateCSRFToken(sessionID string) string {
 	return fmt.Sprintf("%s:%d", sessionID, time.Now().Unix())
 }
 
-// validateCSRFToken validates a CSRF token
+// validateCSRFToken validates a CSRF token with time window
 func (s *WebServer) validateCSRFToken(providedToken, expectedToken string) bool {
-	// Use constant time comparison to prevent timing attacks
-	return subtle.ConstantTimeCompare([]byte(providedToken), []byte(expectedToken)) == 1
+	// Parse the provided token to extract the timestamp
+	parts := strings.Split(providedToken, ":")
+	if len(parts) != 2 {
+		return false
+	}
+	
+	providedID := parts[0]
+	providedTimestampStr := parts[1]
+	
+	// Parse the expected token to get the user ID
+	expectedParts := strings.Split(expectedToken, ":")
+	if len(expectedParts) != 2 {
+		return false
+	}
+	expectedID := expectedParts[0]
+	
+	// Check if user IDs match
+	if subtle.ConstantTimeCompare([]byte(providedID), []byte(expectedID)) != 1 {
+		return false
+	}
+	
+	// Parse and validate timestamp (allow 1 hour window)
+	providedTimestamp, err := strconv.ParseInt(providedTimestampStr, 10, 64)
+	if err != nil {
+		return false
+	}
+	
+	now := time.Now().Unix()
+	timeDiff := now - providedTimestamp
+	
+	// Allow tokens within 1 hour (3600 seconds)
+	return timeDiff >= 0 && timeDiff <= 3600
 }
 
 // containsSuspiciousPatterns checks for common attack patterns
@@ -1509,34 +1542,6 @@ func (s *WebServer) containsDangerousContent(input string) bool {
 	}
 	
 	return false
-}
-
-// handleWebSocketUpgrade handles WebSocket upgrade requests for real-time chat
-func (s *WebServer) handleWebSocketUpgrade(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from SCS session
-	userID := s.sessionManager.GetString(r.Context(), "user_id")
-	if userID == "" {
-		s.logger.Warn("No valid session for WebSocket connection")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	s.logger.Info("WebSocket connection attempt", 
-		zap.String("user_id", userID),
-		zap.String("remote_addr", r.RemoteAddr))
-
-	// Upgrade to WebSocket
-	err := s.wsManager.HandleUpgrade(w, r, userID)
-	if err != nil {
-		s.logger.Error("Failed to upgrade WebSocket connection", 
-			zap.Error(err),
-			zap.String("user_id", userID))
-		http.Error(w, "Failed to upgrade connection", http.StatusInternalServerError)
-		return
-	}
-
-	s.logger.Info("WebSocket connection established successfully", 
-		zap.String("user_id", userID))
 }
 
 // Dashboard HTMX handlers
