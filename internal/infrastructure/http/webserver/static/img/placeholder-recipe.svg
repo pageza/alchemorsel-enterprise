@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#f7fafc"/>
+  <rect x="50" y="50" width="300" height="200" fill="#e2e8f0" rx="10"/>
+  <circle cx="200" cy="150" r="40" fill="#cbd5e0"/>
+  <path d="M 180 150 L 220 150 M 200 130 L 200 170" stroke="#a0aec0" stroke-width="4" stroke-linecap="round"/>
+  <text x="200" y="280" text-anchor="middle" font-family="Arial" font-size="14" fill="#4a5568">Recipe Image</text>
+</svg>

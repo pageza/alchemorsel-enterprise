@@ -19,6 +19,7 @@
                 hx-swap="outerHTML"
                 hx-indicator="#register-spinner"
                 id="register-form"
+                onsubmit="console.log('Form submitting...', this)"
             >
                 <div id="register-messages"></div>
                 
@@ -132,14 +133,14 @@ document.getElementById('password_confirm').addEventListener('input', function()
     }
 });
 
-// Handle successful registration
+// Handle successful registration - let HTMX handle redirects automatically
+document.body.addEventListener('htmx:beforeRequest', function(event) {
+    console.log('HTMX request starting:', event.detail);
+});
+
 document.body.addEventListener('htmx:afterRequest', function(event) {
-    if (event.detail.xhr.status === 200 && event.detail.target.id === 'register-form') {
-        const response = event.detail.xhr.responseText;
-        if (response.includes('redirect')) {
-            window.location.href = '/dashboard';
-        }
-    }
+    console.log('HTMX request completed:', event.detail);
+    // Don't manually redirect - let HTMX HX-Redirect header handle it
 });
 </script>
 {{end}}

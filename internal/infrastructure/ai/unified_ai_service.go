@@ -72,7 +72,7 @@ func NewUnifiedAIService(
 func (s *UnifiedAIService) initializeProviders(cfg *config.Config) error {
 	// Initialize Ollama provider (always available for testing)
 	if cfg.AI.OllamaHost != "" {
-		ollamaClient := NewOllamaClient(cfg.AI.OllamaHost, cfg.AI.OllamaTimeout, s.logger)
+		ollamaClient := NewOllamaClient(cfg.AI.OllamaHost, cfg.AI.OllamaModel)
 		s.providers[ProviderOllama] = ollamaClient
 		s.logger.Info("Ollama provider initialized", zap.String("host", cfg.AI.OllamaHost))
 	}

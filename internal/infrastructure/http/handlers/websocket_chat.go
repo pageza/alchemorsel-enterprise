@@ -43,12 +43,20 @@ func (h *ChatMessageHandler) HandleMessage(ctx context.Context, userID string, m
 	}
 
 	// Generate AI response using Ollama
-	aiResponse, err := h.ollamaClient.GenerateChatCompletion(ctx, messages)
+	log.Printf("About to call Ollama GenerateChatCompletion for user %s", userID)
+	log.Printf("Messages being sent to Ollama: %+v", messages)
+	aiResult, err := h.ollamaClient.GenerateChatCompletion(ctx, messages, 0.7, 2048)
+	var aiContent string
 	if err != nil {
 		log.Printf("Ollama generation failed: %v", err)
+		log.Printf("Error type: %T", err)
 		
 		// Send fallback response
-		aiResponse = "I'm having trouble connecting to my AI chef brain right now! 🧠 Could you try asking again in a moment? In the meantime, I'm here to help with any cooking questions you have!"
+		aiContent = "I'm having trouble connecting to my AI chef brain right now! 🧠 Could you try asking again in a moment? In the meantime, I'm here to help with any cooking questions you have!"
+	} else {
+		log.Printf("Ollama generation successful for user %s", userID)
+		log.Printf("AI Response: %s", aiResult.Content)
+		aiContent = aiResult.Content
 	}
 
 	// Send response back to user
@@ -56,11 +64,11 @@ func (h *ChatMessageHandler) HandleMessage(ctx context.Context, userID string, m
 		ID:             message.ID,
 		Type:           "chat_response",
 		ConversationID: "", // Will be set when we have conversation persistence
-		Content:        aiResponse,
+		Content:        aiContent,
 		Role:           "assistant",
 		Metadata:       map[string]interface{}{
 			"provider": "ollama",
-			"model":    "phi3:latest",
+			"model":    "phi3:mini",
 		},
 	}
 

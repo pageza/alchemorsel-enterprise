@@ -80,14 +80,30 @@ func NewWebServer(
 
 	// Initialize AI and WebSocket components
 	log.Info("Initializing Ollama client...")
-	ollamaHost := cfg.GetString("ALCHEMORSEL_OLLAMA_HOST")
+	// Try the AI-specific host first, then fall back to general host
+	ollamaHost := cfg.GetString("ALCHEMORSEL_AI_OLLAMA_HOST")
+	log.Info("Ollama host from ALCHEMORSEL_AI_OLLAMA_HOST", zap.String("host", ollamaHost))
 	if ollamaHost == "" {
-		ollamaHost = "http://ollama:11434" // Default for Docker
+		ollamaHost = cfg.GetString("ALCHEMORSEL_OLLAMA_HOST")
+		log.Info("Ollama host from ALCHEMORSEL_OLLAMA_HOST", zap.String("host", ollamaHost))
 	}
-	ollamaModel := cfg.GetString("ALCHEMORSEL_OLLAMA_CHAT_MODEL")
+	if ollamaHost == "" {
+		ollamaHost = "http://172.17.0.1:11434" // Default to Docker gateway IP
+		log.Info("Using default Ollama host", zap.String("host", ollamaHost))
+	}
+	ollamaModel := cfg.GetString("ALCHEMORSEL_AI_CHAT_MODEL")
+	log.Info("Ollama model from ALCHEMORSEL_AI_CHAT_MODEL", zap.String("model", ollamaModel))
 	if ollamaModel == "" {
-		ollamaModel = "phi3:latest" // Default model
+		ollamaModel = cfg.GetString("ALCHEMORSEL_OLLAMA_CHAT_MODEL")
+		log.Info("Ollama model from ALCHEMORSEL_OLLAMA_CHAT_MODEL", zap.String("model", ollamaModel))
 	}
+	if ollamaModel == "" {
+		ollamaModel = "phi3:mini" // Default model matching .env
+		log.Info("Using default Ollama model", zap.String("model", ollamaModel))
+	}
+	log.Info("Creating Ollama client with configuration", 
+		zap.String("host", ollamaHost), 
+		zap.String("model", ollamaModel))
 	ollamaClient := ai.NewOllamaClient(ollamaHost, ollamaModel)
 	
 	log.Info("Initializing WebSocket manager...")
@@ -231,6 +247,12 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 		r.Get("/recipes/{id}/comments", s.handleHTMXComments)
 		r.Post("/recipes/{id}/comments", s.handleHTMXAddComment)
 		r.Get("/notifications", s.handleHTMXNotifications)
+
+		// Dashboard HTMX endpoints
+		r.Get("/dashboard/recipes", s.handleHTMXDashboardRecipes)
+		r.Get("/dashboard/activity", s.handleHTMXDashboardActivity)
+		r.Get("/dashboard/trending", s.handleHTMXDashboardTrending)
+		r.Get("/dashboard/collections", s.handleHTMXDashboardCollections)
 		
 		// AI Chat endpoints - Now properly secured
 		r.Post("/ai/chat", s.handleHTMXAIChat)
@@ -438,8 +460,27 @@ func (s *WebServer) requireAuth(next http.Handler) http.Handler {
 			return
 		}
 
+		// DEBUG: Log session data for debugging
+		s.logger.Debug("requireAuth middleware", 
+			zap.String("user_id", userID),
+			zap.String("access_token_prefix", func() string {
+				if len(accessToken) > 10 { return accessToken[:10] + "..." }
+				return accessToken
+			}()),
+			zap.String("session_token", s.sessionManager.Token(r.Context())),
+			zap.String("path", r.URL.Path),
+		)
+
 		// Verify token is still valid with API
 		if !s.apiClient.VerifyToken(r.Context(), accessToken) {
+			s.logger.Warn("Token verification failed",
+				zap.String("user_id", userID),
+				zap.String("access_token_prefix", func() string {
+					if len(accessToken) > 10 { return accessToken[:10] + "..." }
+					return accessToken
+				}()),
+			)
+			
 			// Token invalid, clear session
 			s.sessionManager.Clear(r.Context())
 			s.sessionManager.RenewToken(r.Context())
@@ -640,13 +681,28 @@ func (s *WebServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 		zap.String("user_id", resp.User.ID),
 		zap.String("user_name", resp.User.Name),
 		zap.String("user_email", resp.User.Email),
+		zap.String("access_token_prefix", func() string {
+			if len(resp.AccessToken) > 10 { return resp.AccessToken[:10] + "..." }
+			return resp.AccessToken
+		}()),
 		zap.String("session_token", s.sessionManager.Token(r.Context())),
+	)
+	
+	// DEBUG: Verify session data was stored correctly
+	storedUserID := s.sessionManager.GetString(r.Context(), "user_id")
+	storedAccessToken := s.sessionManager.GetString(r.Context(), "access_token")
+	s.logger.Debug("Verification after session storage",
+		zap.String("stored_user_id", storedUserID),
+		zap.String("stored_access_token_prefix", func() string {
+			if len(storedAccessToken) > 10 { return storedAccessToken[:10] + "..." }
+			return storedAccessToken
+		}()),
 	)
 
 	// Redirect to home or requested page
 	redirect := r.URL.Query().Get("redirect")
 	if redirect == "" {
-		redirect = "/recipes"
+		redirect = "/dashboard"
 	}
 	
 	// Check if this is an HTMX request
@@ -676,9 +732,18 @@ func (s *WebServer) handleRegister(w http.ResponseWriter, r *http.Request) {
 	// Call API to register
 	resp, err := s.apiClient.Register(r.Context(), name, email, password)
 	if err != nil {
+		// Handle HTMX requests differently - return just the form with error
+		if r.Header.Get("HX-Request") == "true" {
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`<div class="alert alert-error">Registration failed: ` + err.Error() + `</div>`))
+			return
+		}
+		
+		// For regular requests, render full template
 		s.renderTemplate(w, "register", map[string]interface{}{
 			"Title": "Register - Alchemorsel",
-			"Error": "Registration failed",
+			"Error": "Registration failed: " + err.Error(),
 		})
 		return
 	}
@@ -692,10 +757,30 @@ func (s *WebServer) handleRegister(w http.ResponseWriter, r *http.Request) {
 		s.sessionManager.Put(r.Context(), "refresh_token", loginResp.RefreshToken)
 		s.sessionManager.Put(r.Context(), "user_name", resp.User.Name)
 		s.sessionManager.Put(r.Context(), "user_email", resp.User.Email)
+		
+		// DEBUG: Verify session data was stored correctly after registration
+		storedUserID := s.sessionManager.GetString(r.Context(), "user_id")
+		storedAccessToken := s.sessionManager.GetString(r.Context(), "access_token")
+		s.logger.Debug("Registration session verification",
+			zap.String("stored_user_id", storedUserID),
+			zap.String("stored_access_token_prefix", func() string {
+				if len(storedAccessToken) > 10 { return storedAccessToken[:10] + "..." }
+				return storedAccessToken
+			}()),
+			zap.String("session_token", s.sessionManager.Token(r.Context())),
+		)
 	}
 
-	// Redirect to recipes
-	http.Redirect(w, r, "/recipes", http.StatusSeeOther)
+	// HTMX-aware redirect to dashboard
+	if r.Header.Get("HX-Request") == "true" {
+		// For HTMX requests, use HX-Redirect header
+		w.Header().Set("HX-Redirect", "/dashboard")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	
+	// For regular requests, use standard redirect
+	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
 
 func (s *WebServer) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -791,6 +876,12 @@ func (s *WebServer) handleAISuggest(w http.ResponseWriter, r *http.Request) {
 func (s *WebServer) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	// Get user context for navigation
 	user, isAuthenticated := s.getUserContext(r)
+	
+	// Debug: Log authentication status
+	s.logger.Debug("Dashboard access attempt", 
+		zap.Bool("isAuthenticated", isAuthenticated),
+		zap.Any("user", user),
+	)
 	
 	// Mock dashboard data for template
 	createdAt := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
@@ -950,12 +1041,15 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate AI response using Ollama
-	aiResponseContent, err := s.ollamaClient.GenerateChatCompletion(r.Context(), messages)
+	aiResult, err := s.ollamaClient.GenerateChatCompletion(r.Context(), messages, 0.7, 2048)
+	var aiResponseContent string
 	if err != nil {
 		s.logger.Error("Ollama generation failed", zap.Error(err), zap.String("user_id", userID))
 		
 		// Send fallback response
 		aiResponseContent = "I'm having trouble connecting to my AI chef brain right now! 🧠 Could you try asking again in a moment? In the meantime, I'm here to help with any cooking questions you have!"
+	} else {
+		aiResponseContent = aiResult.Content
 	}
 
 	// Create formatted HTML response with both user message and AI response
@@ -1443,4 +1537,246 @@ func (s *WebServer) handleWebSocketUpgrade(w http.ResponseWriter, r *http.Reques
 
 	s.logger.Info("WebSocket connection established successfully", 
 		zap.String("user_id", userID))
+}
+
+// Dashboard HTMX handlers
+
+func (s *WebServer) handleHTMXDashboardRecipes(w http.ResponseWriter, r *http.Request) {
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`<div class="error">Authentication required</div>`))
+		return
+	}
+
+	// Get user's token from session for API call
+	token := s.sessionManager.GetString(r.Context(), "auth_token")
+	if token == "" {
+		w.Write([]byte(`<div style="text-align: center; padding: 2rem; color: #718096;">
+			<p>No recipes found. <a href="/recipes">Browse recipes</a> to get started!</p>
+		</div>`))
+		return
+	}
+
+	// Fetch user's recipes from API
+	recipes, err := s.apiClient.GetRecipes(r.Context(), token)
+	if err != nil {
+		s.logger.Error("Failed to fetch user recipes", zap.Error(err))
+		w.Write([]byte(`<div style="text-align: center; padding: 2rem; color: #718096;">
+			<p>Unable to load recipes right now. Please try again later.</p>
+		</div>`))
+		return
+	}
+
+	if len(recipes) == 0 {
+		w.Write([]byte(`<div style="text-align: center; padding: 2rem; color: #718096;">
+			<svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" style="margin-bottom: 1rem;">
+				<path d="M12 2l3.09 6.26L22 9l-6.91 1.01L12 16l-3.09-5.99L2 9l6.91-1.01L12 2z"/>
+			</svg>
+			<h3>No recipes yet</h3>
+			<p>Start by browsing our recipe collection!</p>
+			<a href="/recipes" class="btn btn-primary" style="margin-top: 1rem;">Browse Recipes</a>
+		</div>`))
+		return
+	}
+
+	// Render recipe cards
+	html := `<div class="recipe-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">`
+	for i, recipe := range recipes {
+		if i >= 6 { // Limit to 6 recent recipes
+			break
+		}
+		html += fmt.Sprintf(`
+		<div class="recipe-card" style="border: 1px solid #e2e8f0; border-radius: 0.5rem; overflow: hidden; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+			<img src="%s" alt="%s" style="width: 100%%; height: 150px; object-fit: cover;">
+			<div style="padding: 1rem;">
+				<h4 style="margin: 0 0 0.5rem 0; font-size: 1rem;">%s</h4>
+				<p style="color: #718096; font-size: 0.875rem; margin: 0 0 1rem 0;">%s</p>
+				<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #718096;">
+					<span>⭐ %.1f</span>
+					<span>❤️ %d likes</span>
+				</div>
+			</div>
+		</div>`,
+			recipe.ImageURL,
+			recipe.Title,
+			recipe.Title,
+			recipe.Description,
+			recipe.Rating,
+			recipe.Likes,
+		)
+	}
+	html += `</div>`
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func (s *WebServer) handleHTMXDashboardActivity(w http.ResponseWriter, r *http.Request) {
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`<div class="error">Authentication required</div>`))
+		return
+	}
+
+	// Mock activity data for now
+	activities := []map[string]interface{}{
+		{
+			"type":    "like",
+			"message": "Someone liked your recipe 'Chocolate Chip Cookies'",
+			"time":    "2 hours ago",
+		},
+		{
+			"type":    "comment",
+			"message": "New comment on 'Italian Pasta'",
+			"time":    "4 hours ago",
+		},
+		{
+			"type":    "follow",
+			"message": "ChefMaster started following you",
+			"time":    "1 day ago",
+		},
+	}
+
+	if len(activities) == 0 {
+		w.Write([]byte(`<p style="color: #718096; text-align: center; padding: 1rem;">No recent activity</p>`))
+		return
+	}
+
+	html := `<div style="display: flex; flex-direction: column; gap: 1rem;">`
+	for _, activity := range activities {
+		icon := "📝"
+		if activity["type"] == "like" {
+			icon = "❤️"
+		} else if activity["type"] == "comment" {
+			icon = "💬"
+		} else if activity["type"] == "follow" {
+			icon = "👤"
+		}
+
+		html += fmt.Sprintf(`
+		<div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
+			<div style="width: 2rem; height: 2rem; border-radius: 50%%; background: #4f46e5; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.875rem;">
+				%s
+			</div>
+			<div style="flex: 1;">
+				<div style="font-weight: 500;">%s</div>
+				<div style="color: #718096; font-size: 0.875rem;">%s</div>
+			</div>
+		</div>`, icon, activity["message"], activity["time"])
+	}
+	html += `</div>`
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func (s *WebServer) handleHTMXDashboardTrending(w http.ResponseWriter, r *http.Request) {
+	// Mock trending recipes data
+	trendingRecipes := []map[string]interface{}{
+		{
+			"id":         "1",
+			"title":      "Classic Margherita Pizza",
+			"imageURL":   "/static/img/placeholder-recipe.jpg",
+			"likesCount": 234,
+		},
+		{
+			"id":         "2",
+			"title":      "Homemade Pasta Carbonara",
+			"imageURL":   "/static/img/placeholder-recipe.jpg",
+			"likesCount": 189,
+		},
+		{
+			"id":         "3",
+			"title":      "Chocolate Lava Cake",
+			"imageURL":   "/static/img/placeholder-recipe.jpg",
+			"likesCount": 156,
+		},
+	}
+
+	if len(trendingRecipes) == 0 {
+		w.Write([]byte(`<p style="color: #718096; font-size: 0.875rem;">Check back soon for trending recipes!</p>`))
+		return
+	}
+
+	html := `<div style="display: flex; flex-direction: column; gap: 1rem;">`
+	for _, recipe := range trendingRecipes {
+		html += fmt.Sprintf(`
+		<div style="display: flex; gap: 1rem;">
+			<img 
+				src="%s" 
+				alt="%s"
+				style="width: 3rem; height: 3rem; border-radius: 0.5rem; object-fit: cover;"
+			>
+			<div style="flex: 1;">
+				<a href="/recipes/%s" style="text-decoration: none; color: #1a202c;">
+					<div style="font-weight: 500; font-size: 0.875rem;">%s</div>
+				</a>
+				<div style="color: #718096; font-size: 0.75rem;">%d likes</div>
+			</div>
+		</div>`,
+			recipe["imageURL"],
+			recipe["title"],
+			recipe["id"],
+			recipe["title"],
+			recipe["likesCount"],
+		)
+	}
+	html += `</div>`
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func (s *WebServer) handleHTMXDashboardCollections(w http.ResponseWriter, r *http.Request) {
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`<div class="error">Authentication required</div>`))
+		return
+	}
+
+	// Mock collections data for now
+	collections := []map[string]interface{}{
+		{
+			"id":          "1",
+			"name":        "Favorite Desserts",
+			"recipeCount": 12,
+		},
+		{
+			"id":          "2",
+			"name":        "Quick Weeknight Meals",
+			"recipeCount": 8,
+		},
+		{
+			"id":          "3",
+			"name":        "Holiday Specials",
+			"recipeCount": 5,
+		},
+	}
+
+	if len(collections) == 0 {
+		w.Write([]byte(`<p style="color: #718096; font-size: 0.875rem;">No collections yet. Create one to organize your favorite recipes!</p>`))
+		return
+	}
+
+	html := `<div style="display: flex; flex-direction: column; gap: 0.5rem;">`
+	for _, collection := range collections {
+		html += fmt.Sprintf(`
+		<a href="/collections/%s" style="text-decoration: none; color: #1a202c;">
+			<div style="padding: 0.75rem; background: #f8f9fa; border-radius: 0.5rem; border: 1px solid #e2e8f0;">
+				<div style="font-weight: 500; font-size: 0.875rem;">%s</div>
+				<div style="color: #718096; font-size: 0.75rem;">%d recipes</div>
+			</div>
+		</a>`,
+			collection["id"],
+			collection["name"],
+			collection["recipeCount"],
+		)
+	}
+	html += `</div>`
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
 }
