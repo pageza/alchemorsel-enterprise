@@ -410,6 +410,7 @@
 
 .chat-message.ai-message .message-content {
     background: #ffffff;
+    color: #1a202c;
     max-width: 90%;
 }
 
@@ -705,9 +706,35 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const formData = new FormData(form);
                                 const url = form.getAttribute('hx-post') || form.action;
                                 const target = document.querySelector(form.getAttribute('hx-target') || '#chat-container');
+                                const message = formData.get('message');
                                 
                                 console.log('Submitting to:', url);
                                 console.log('Target element:', target);
+                                console.log('Message:', message);
+                                
+                                // Immediately show user's message
+                                if (target && message) {
+                                    const userMessageHTML = `
+                                        <div class="chat-message user-message" style="margin-bottom: 1rem;">
+                                            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                                                <div class="message-content" style="flex: 1; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 1rem; border-radius: 1rem; max-width: 80%;">
+                                                    <div style="font-weight: 600; margin-bottom: 0.5rem;">You</div>
+                                                    <div style="line-height: 1.6;">${message}</div>
+                                                    <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.5rem;">Just now</div>
+                                                </div>
+                                                <div class="avatar user-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
+                                                    👤
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                    target.insertAdjacentHTML('beforeend', userMessageHTML);
+                                    target.scrollTop = target.scrollHeight;
+                                }
+                                
+                                // Clear the form immediately
+                                const input = form.querySelector('input[name="message"]');
+                                if (input) input.value = '';
                                 
                                 // Get CSRF token from form
                                 const csrfToken = formData.get('csrf_token');
@@ -723,18 +750,23 @@ document.addEventListener('DOMContentLoaded', function() {
                                 })
                                 .then(response => response.text())
                                 .then(html => {
-                                    if (target) {
-                                        const swap = form.getAttribute('hx-swap') || 'innerHTML';
-                                        if (swap === 'beforeend') {
-                                            target.insertAdjacentHTML('beforeend', html);
-                                        } else {
-                                            target.innerHTML = html;
-                                        }
-                                        console.log('Response inserted successfully');
+                                    if (target && html.trim()) {
+                                        // Server response contains both user and AI messages,
+                                        // but we already added the user message, so extract only the AI message
+                                        const tempDiv = document.createElement('div');
+                                        tempDiv.innerHTML = html;
+                                        const aiMessage = tempDiv.querySelector('.chat-message.ai-message');
                                         
-                                        // Clear the form
-                                        const input = form.querySelector('input[name="message"]');
-                                        if (input) input.value = '';
+                                        if (aiMessage) {
+                                            target.insertAdjacentHTML('beforeend', aiMessage.outerHTML);
+                                            target.scrollTop = target.scrollHeight;
+                                            console.log('AI response inserted successfully');
+                                        } else {
+                                            // Fallback: insert the full response if no AI message found
+                                            target.insertAdjacentHTML('beforeend', html);
+                                            target.scrollTop = target.scrollHeight;
+                                            console.log('Full response inserted as fallback');
+                                        }
                                     }
                                 })
                                 .catch(error => {
