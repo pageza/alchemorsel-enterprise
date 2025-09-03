@@ -94,7 +94,7 @@ func (c *CacheManager) Set(ctx context.Context, key string, value interface{}, t
 	c.localCache.Set(key, data, ttl)
 
 	// Store in Redis cache (L2) via cache service
-	err = c.cacheService.Set(ctx, key, string(data), ttl)
+	err = c.cacheService.Set(ctx, key, data, ttl)
 	if err != nil {
 		c.metrics.Errors++
 		c.logger.Error("Redis cache set error", zap.String("key", key), zap.Error(err))
@@ -176,7 +176,7 @@ func (c *CacheManager) SetMulti(ctx context.Context, items map[string]interface{
 		c.localCache.Set(key, data, ttl)
 		
 		// Store in Redis cache via cache service
-		if err := c.cacheService.Set(ctx, key, string(data), ttl); err != nil {
+		if err := c.cacheService.Set(ctx, key, data, ttl); err != nil {
 			c.metrics.Errors++
 			c.logger.Error("Redis cache set error in multi-set", zap.String("key", key), zap.Error(err))
 			return err
@@ -312,7 +312,7 @@ func (c *CacheManager) IncrementRateLimit(ctx context.Context, key string, windo
 	currentCount++
 	
 	countData, _ := json.Marshal(currentCount)
-	err := c.cacheService.Set(ctx, redisKey, string(countData), window)
+	err := c.cacheService.Set(ctx, redisKey, countData, window)
 	if err != nil {
 		return 0, err
 	}
