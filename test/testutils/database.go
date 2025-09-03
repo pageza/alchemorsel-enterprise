@@ -6,11 +6,13 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
 	"github.com/alchemorsel/v3/internal/infrastructure/persistence/migrations"
+	"github.com/docker/go-connections/nat"
 	"github.com/golang-migrate/migrate/v4"
 	migratePostgres "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -79,7 +81,7 @@ func SetupTestDatabaseWithConfig(t *testing.T, cfg DatabaseConfig) *TestDatabase
 					wait.ForLog("database system is ready to accept connections").
 						WithOccurrence(2).
 						WithStartupTimeout(60*time.Second),
-					wait.ForSQL(cfg.Port+"/tcp", "postgres", func(host string, port nat.Port) string {
+					wait.ForSQL(nat.Port(strconv.Itoa(cfg.Port)+"/tcp"), "postgres", func(host string, port nat.Port) string {
 						return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 							cfg.Username, cfg.Password, host, port.Port(), cfg.Database)
 					}),
@@ -96,7 +98,7 @@ func SetupTestDatabaseWithConfig(t *testing.T, cfg DatabaseConfig) *TestDatabase
 	host, err := postgres.Host(ctx)
 	require.NoError(t, err)
 
-	port, err := postgres.MappedPort(ctx, cfg.Port)
+	port, err := postgres.MappedPort(ctx, nat.Port(strconv.Itoa(cfg.Port)+"/tcp"))
 	require.NoError(t, err)
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
@@ -256,8 +258,8 @@ func (suite *TestDBSuite) SetupSuite(t *testing.T) {
 		Database: config.DatabaseConfig{
 			Host:            "localhost",
 			Port:            5432,
-			Name:            "alchemorsel_test",
-			User:            "test_user",
+			Database:        "alchemorsel_test",
+			Username:        "test_user",
 			Password:        "test_password",
 			SSLMode:         "disable",
 			MaxOpenConns:    10,

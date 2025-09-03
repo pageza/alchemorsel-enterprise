@@ -51,9 +51,9 @@ func NewRecipeBuilder() *RecipeBuilder {
 		authorID:    uuid.New(),
 		ingredients: []recipe.Ingredient{},
 		instructions: []recipe.Instruction{},
-		cuisine:     recipe.CuisineItalian,
-		category:    recipe.CategoryMainCourse,
-		difficulty:  recipe.DifficultyMedium,
+		cuisine:     recipe.CuisineTypeItalian,
+		category:    recipe.CategoryTypeMainCourse,
+		difficulty:  recipe.DifficultyLevelMedium,
 		prepTime:    15 * time.Minute,
 		cookTime:    30 * time.Minute,
 		servings:    4,
@@ -172,14 +172,14 @@ func (rb *RecipeBuilder) BuildValid() (*recipe.Recipe, error) {
 			{
 				ID:       uuid.New(),
 				Name:     "Spaghetti",
-				Quantity: 1.0,
-				Unit:     "lb",
+				Amount: 1.0,
+				Unit:     recipe.MeasurementUnitPound,
 			},
 			{
 				ID:       uuid.New(),
 				Name:     "Tomato Sauce",
-				Quantity: 2.0,
-				Unit:     "cups",
+				Amount: 2.0,
+				Unit:     recipe.MeasurementUnitCup,
 			},
 		})
 	}

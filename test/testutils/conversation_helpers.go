@@ -178,7 +178,7 @@ type TestWebSocketConnection struct {
 
 // NewWebSocketTestHelper creates a new WebSocket test helper
 func NewWebSocketTestHelper() *WebSocketTestHelper {
-	manager := websocket.NewManager()
+	manager := wsManager.NewManager()
 	helper := &WebSocketTestHelper{
 		Manager:     manager,
 		Connections: make(map[string]*TestWebSocketConnection),

@@ -607,7 +607,7 @@ func (rum *RUMSystem) checkRealTimeAlerts(measurement RUMMeasurement) {
 
 // triggerAlert triggers a performance alert
 func (rum *RUMSystem) triggerAlert(metric string, severity string, value float64, measurement RUMMeasurement) {
-	alert := Alert{
+	alert := RUMAlert{
 		ID:        fmt.Sprintf("%s_%s_%d", metric, severity, time.Now().UnixNano()),
 		Metric:    metric,
 		Severity:  severity,
@@ -627,8 +627,8 @@ func (rum *RUMSystem) triggerAlert(metric string, severity string, value float64
 	rum.performanceMetrics.AlertsTriggered++
 }
 
-// Alert represents a performance alert
-type Alert struct {
+// RUMAlert represents a performance alert
+type RUMAlert struct {
 	ID        string    `json:"id"`
 	Metric    string    `json:"metric"`
 	Severity  string    `json:"severity"`
@@ -664,7 +664,7 @@ func (rum *RUMSystem) getThresholdValue(metric string, severity string) float64 
 }
 
 // sendAlert sends an alert through the specified channel
-func (rum *RUMSystem) sendAlert(alert Alert, channel AlertChannel) {
+func (rum *RUMSystem) sendAlert(alert RUMAlert, channel AlertChannel) {
 	// Implementation would depend on channel type (webhook, email, slack, etc.)
 	switch channel.Type {
 	case "webhook":

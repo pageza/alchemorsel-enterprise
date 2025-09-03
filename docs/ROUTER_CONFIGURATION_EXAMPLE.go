@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -175,7 +176,7 @@ func initializeConversationService(db *gorm.DB) *conversation.Service {
 }
 
 // Session migration implementation
-func (s *Service) MigrateSessionToDatabase(ctx context.Context, userID string, sessionMessages []ChatMessage) (*Conversation, error) {
+func (s *conversation.Service) MigrateSessionToDatabase(ctx context.Context, userID string, sessionMessages []ChatMessage) (*conversation.Conversation, error) {
 	if len(sessionMessages) == 0 {
 		return nil, nil
 	}
