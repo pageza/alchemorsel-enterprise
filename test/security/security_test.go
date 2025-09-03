@@ -46,6 +46,9 @@ func (suite *SecurityTestSuite) SetupSuite() {
 	
 	// Setup test configuration with security-focused settings
 	suite.config = &config.Config{
+		App: config.AppConfig{
+			Environment: "test",
+		},
 		Auth: config.AuthConfig{
 			JWTSecret:         "test-secret-key-for-security-testing-must-be-32-bytes-long",
 			JWTExpiration:     15 * time.Minute, // Shorter for security
@@ -56,7 +59,6 @@ func (suite *SecurityTestSuite) SetupSuite() {
 			RequestsPerMinute: 60,  // Lower for security testing
 			BurstSize:         5,   // Lower burst
 		},
-		Environment: "test",
 	}
 	
 	// Setup Redis
