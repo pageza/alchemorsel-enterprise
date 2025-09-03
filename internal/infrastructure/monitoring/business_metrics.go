@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 )
 
@@ -285,9 +286,9 @@ func (bm *BusinessMetricsCollector) TrackBusinessEvent(ctx context.Context, even
 	// Add trace information
 	if bm.tracing != nil {
 		bm.tracing.AddSpanEvent(ctx, "business_event_tracked",
-			"event.type", event.Type,
-			"user.id", event.UserID,
-			"event.value", fmt.Sprintf("%.2f", event.Value),
+			attribute.String("event.type", event.Type),
+			attribute.String("user.id", event.UserID),
+			attribute.String("event.value", fmt.Sprintf("%.2f", event.Value)),
 		)
 	}
 }

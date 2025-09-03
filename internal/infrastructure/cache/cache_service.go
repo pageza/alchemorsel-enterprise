@@ -695,3 +695,58 @@ type CacheStats struct {
 type CacheLoader interface {
 	LoadCache(ctx context.Context, cache *CacheService) (int, error)
 }
+
+// Increment atomically increments a counter
+func (c *CacheService) Increment(ctx context.Context, key string) (int64, error) {
+	result, err := c.redis.client.Incr(ctx, key).Result()
+	if err != nil {
+		c.logger.Error("Cache increment failed", zap.String("key", key), zap.Error(err))
+		c.metrics.Errors++
+		return 0, err
+	}
+	return result, nil
+}
+
+// Decrement atomically decrements a counter
+func (c *CacheService) Decrement(ctx context.Context, key string) (int64, error) {
+	result, err := c.redis.client.Decr(ctx, key).Result()
+	if err != nil {
+		c.logger.Error("Cache decrement failed", zap.String("key", key), zap.Error(err))
+		c.metrics.Errors++
+		return 0, err
+	}
+	return result, nil
+}
+
+// SAdd adds members to a set
+func (c *CacheService) SAdd(ctx context.Context, key string, members ...string) error {
+	err := c.redis.client.SAdd(ctx, key, members).Err()
+	if err != nil {
+		c.logger.Error("Cache sadd failed", zap.String("key", key), zap.Strings("members", members), zap.Error(err))
+		c.metrics.Errors++
+		return err
+	}
+	return nil
+}
+
+// SMembers retrieves all members of a set
+func (c *CacheService) SMembers(ctx context.Context, key string) ([]string, error) {
+	members, err := c.redis.client.SMembers(ctx, key).Result()
+	if err != nil {
+		c.logger.Error("Cache smembers failed", zap.String("key", key), zap.Error(err))
+		c.metrics.Errors++
+		return nil, err
+	}
+	return members, nil
+}
+
+// SRem removes members from a set
+func (c *CacheService) SRem(ctx context.Context, key string, members ...string) error {
+	err := c.redis.client.SRem(ctx, key, members).Err()
+	if err != nil {
+		c.logger.Error("Cache srem failed", zap.String("key", key), zap.Strings("members", members), zap.Error(err))
+		c.metrics.Errors++
+		return err
+	}
+	return nil
+}

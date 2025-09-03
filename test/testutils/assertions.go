@@ -38,7 +38,7 @@ func (ra *RecipeAssertions) ValidRecipe(recipe *recipe.Recipe, msgAndArgs ...int
 	if err != nil {
 		// If it fails due to status, it means it's already published or archived
 		// which is fine for this validation
-		if err != recipe.ErrInvalidStatusTransition {
+		if err.Error() != "invalid recipe status transition" {
 			assert.NoError(ra.t, err, "Recipe should be valid for publishing")
 		}
 	}
@@ -50,7 +50,7 @@ func (ra *RecipeAssertions) RecipeHasIngredients(recipe *recipe.Recipe, expected
 	// Note: We would need to add a public method to Recipe to get ingredients count
 	// For now, we'll check indirectly by trying to publish
 	err := recipe.Publish()
-	if err == recipe.ErrNoIngredients {
+	if err != nil && err.Error() == "recipe must have at least one ingredient" {
 		assert.Fail(ra.t, "Recipe should have ingredients", msgAndArgs...)
 	}
 }
@@ -61,7 +61,7 @@ func (ra *RecipeAssertions) RecipeHasInstructions(recipe *recipe.Recipe, expecte
 	// Note: We would need to add a public method to Recipe to get instructions count
 	// For now, we'll check indirectly by trying to publish
 	err := recipe.Publish()
-	if err == recipe.ErrNoInstructions {
+	if err != nil && err.Error() == "recipe must have at least one instruction" {
 		assert.Fail(ra.t, "Recipe should have instructions", msgAndArgs...)
 	}
 }
@@ -88,7 +88,7 @@ func (ua *UserAssertions) ValidUser(u *user.User, msgAndArgs ...interface{}) {
 	require.NotNil(ua.t, u, "User should not be nil")
 	assert.NotEqual(ua.t, uuid.Nil, u.ID(), "User should have a valid ID")
 	assert.NotEmpty(ua.t, u.Email(), "User should have an email")
-	assert.NotEmpty(ua.t, u.Username(), "User should have a username")
+	assert.NotEmpty(ua.t, u.Name(), "User should have a name")
 }
 
 // UserEmail asserts the user's email
@@ -97,10 +97,10 @@ func (ua *UserAssertions) UserEmail(u *user.User, expectedEmail string, msgAndAr
 	assert.Equal(ua.t, expectedEmail, u.Email(), msgAndArgs...)
 }
 
-// UserUsername asserts the user's username
-func (ua *UserAssertions) UserUsername(u *user.User, expectedUsername string, msgAndArgs ...interface{}) {
+// UserName asserts the user's name
+func (ua *UserAssertions) UserName(u *user.User, expectedName string, msgAndArgs ...interface{}) {
 	require.NotNil(ua.t, u, "User should not be nil")
-	assert.Equal(ua.t, expectedUsername, u.Username(), msgAndArgs...)
+	assert.Equal(ua.t, expectedName, u.Name(), msgAndArgs...)
 }
 
 // HTTPAssertions provides HTTP-specific assertion methods

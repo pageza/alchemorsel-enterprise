@@ -93,7 +93,7 @@ func TestHealthMetrics_RecordCheck(t *testing.T) {
 	assert.Equal(t, float64(2), testutil.ToFloat64(metrics.healthStatus.WithLabelValues("overall"))) // StatusHealthy = 2
 	
 	// Verify histogram metric has been recorded
-	histogramValue := testutil.ToFloat64(metrics.checkDuration.WithLabelValues("overall"))
+	histogramValue := testutil.ToFloat64(metrics.checkDuration)
 	assert.Greater(t, histogramValue, float64(0))
 }
 

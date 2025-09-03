@@ -86,15 +86,17 @@ func (r *CacheRepository) MSet(ctx context.Context, items map[string][]byte, ttl
 
 // Increment atomically increments a counter  
 func (r *CacheRepository) Increment(ctx context.Context, key string) (int64, error) {
-	// Default 1 hour expiration for counters - using direct client access for now
-	// TODO: Add Increment method to CacheService interface
-	return 1, nil // Placeholder implementation
+	result, err := r.cacheService.Increment(ctx, key)
+	if err != nil {
+		r.logger.Error("Cache increment failed", zap.String("key", key), zap.Error(err))
+		return 0, err
+	}
+	return result, nil
 }
 
 // Decrement atomically decrements a counter
 func (r *CacheRepository) Decrement(ctx context.Context, key string) (int64, error) {
-	// Use Redis DECR operation through the cache service
-	result, err := r.cacheService.redis.client.Decr(ctx, key).Result()
+	result, err := r.cacheService.Decrement(ctx, key)
 	if err != nil {
 		r.logger.Error("Cache decrement failed", zap.String("key", key), zap.Error(err))
 		return 0, err
@@ -104,7 +106,7 @@ func (r *CacheRepository) Decrement(ctx context.Context, key string) (int64, err
 
 // SAdd adds members to a set
 func (r *CacheRepository) SAdd(ctx context.Context, key string, members ...string) error {
-	err := r.cacheService.redis.client.SAdd(ctx, key, members).Err()
+	err := r.cacheService.SAdd(ctx, key, members...)
 	if err != nil {
 		r.logger.Error("Cache sadd failed", zap.String("key", key), zap.Strings("members", members), zap.Error(err))
 		return err
@@ -114,7 +116,7 @@ func (r *CacheRepository) SAdd(ctx context.Context, key string, members ...strin
 
 // SMembers retrieves all members of a set
 func (r *CacheRepository) SMembers(ctx context.Context, key string) ([]string, error) {
-	members, err := r.cacheService.redis.client.SMembers(ctx, key).Result()
+	members, err := r.cacheService.SMembers(ctx, key)
 	if err != nil {
 		r.logger.Error("Cache smembers failed", zap.String("key", key), zap.Error(err))
 		return nil, err
@@ -124,7 +126,7 @@ func (r *CacheRepository) SMembers(ctx context.Context, key string) ([]string, e
 
 // SRem removes members from a set
 func (r *CacheRepository) SRem(ctx context.Context, key string, members ...string) error {
-	err := r.cacheService.redis.client.SRem(ctx, key, members).Err()
+	err := r.cacheService.SRem(ctx, key, members...)
 	if err != nil {
 		r.logger.Error("Cache srem failed", zap.String("key", key), zap.Strings("members", members), zap.Error(err))
 		return err
