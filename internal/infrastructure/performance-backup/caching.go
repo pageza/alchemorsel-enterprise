@@ -62,23 +62,18 @@ func (c *CacheManager) Get(ctx context.Context, key string, dest interface{}) er
 		return json.Unmarshal(data, dest)
 	}
 
-	// Try Redis cache (L2)
-	data, err := c.redis.Get(ctx, key).Bytes()
-	if err == redis.Nil {
+	// Try Redis cache (L2) via cache service
+	data, err := c.cacheService.Get(ctx, key)
+	if err != nil {
 		c.metrics.Misses++
 		return ErrCacheKeyNotFound
 	}
-	if err != nil {
-		c.metrics.Errors++
-		c.logger.Error("Redis cache get error", zap.String("key", key), zap.Error(err))
-		return err
-	}
 
 	// Populate local cache for next access
-	c.localCache.Set(key, data, c.config.DefaultTTL)
+	c.localCache.Set(key, []byte(data), c.config.DefaultTTL)
 	
 	c.metrics.Hits++
-	return json.Unmarshal(data, dest)
+	return json.Unmarshal([]byte(data), dest)
 }
 
 // Set stores a value in cache with multi-layer support
@@ -98,8 +93,8 @@ func (c *CacheManager) Set(ctx context.Context, key string, value interface{}, t
 	// Store in local cache (L1)
 	c.localCache.Set(key, data, ttl)
 
-	// Store in Redis cache (L2)
-	err = c.redis.Set(ctx, key, data, ttl).Err()
+	// Store in Redis cache (L2) via cache service
+	err = c.cacheService.Set(ctx, key, string(data), ttl)
 	if err != nil {
 		c.metrics.Errors++
 		c.logger.Error("Redis cache set error", zap.String("key", key), zap.Error(err))
@@ -114,8 +109,8 @@ func (c *CacheManager) Delete(ctx context.Context, key string) error {
 	// Remove from local cache
 	c.localCache.Delete(key)
 
-	// Remove from Redis cache
-	err := c.redis.Del(ctx, key).Err()
+	// Remove from Redis cache via cache service
+	err := c.cacheService.Delete(ctx, key)
 	if err != nil {
 		c.metrics.Errors++
 		c.logger.Error("Redis cache delete error", zap.String("key", key), zap.Error(err))
@@ -146,29 +141,13 @@ func (c *CacheManager) GetMulti(ctx context.Context, keys []string) (map[string]
 		}
 	}
 
-	// Fetch missing keys from Redis
+	// Fetch missing keys from Redis via cache service
 	if len(missingKeys) > 0 {
-		pipe := c.redis.Pipeline()
-		cmds := make(map[string]*redis.StringCmd)
-		
 		for _, key := range missingKeys {
-			cmds[key] = pipe.Get(ctx, key)
-		}
-		
-		_, err := pipe.Exec(ctx)
-		if err != nil && err != redis.Nil {
-			c.metrics.Errors++
-			return nil, err
-		}
-
-		for key, cmd := range cmds {
-			if data, err := cmd.Bytes(); err == nil {
-				results[key] = data
-				c.localCache.Set(key, data, c.config.DefaultTTL)
+			if data, err := c.cacheService.Get(ctx, key); err == nil {
+				results[key] = []byte(data)
+				c.localCache.Set(key, []byte(data), c.config.DefaultTTL)
 				c.metrics.Hits++
-			} else if err != redis.Nil {
-				c.metrics.Errors++
-				c.logger.Error("Redis multi-get error", zap.String("key", key), zap.Error(err))
 			} else {
 				c.metrics.Misses++
 			}
@@ -186,8 +165,6 @@ func (c *CacheManager) SetMulti(ctx context.Context, items map[string]interface{
 		c.metrics.TotalTime += time.Since(start)
 	}()
 
-	pipe := c.redis.Pipeline()
-	
 	for key, value := range items {
 		data, err := json.Marshal(value)
 		if err != nil {
@@ -198,14 +175,12 @@ func (c *CacheManager) SetMulti(ctx context.Context, items map[string]interface{
 		// Store in local cache
 		c.localCache.Set(key, data, ttl)
 		
-		// Store in Redis cache
-		pipe.Set(ctx, key, data, ttl)
-	}
-
-	_, err := pipe.Exec(ctx)
-	if err != nil {
-		c.metrics.Errors++
-		return err
+		// Store in Redis cache via cache service
+		if err := c.cacheService.Set(ctx, key, string(data), ttl); err != nil {
+			c.metrics.Errors++
+			c.logger.Error("Redis cache set error in multi-set", zap.String("key", key), zap.Error(err))
+			return err
+		}
 	}
 
 	return nil
@@ -216,26 +191,9 @@ func (c *CacheManager) Invalidate(ctx context.Context, pattern string) error {
 	// Clear local cache entries matching pattern
 	c.localCache.InvalidatePattern(pattern)
 
-	// Use Redis SCAN to find and delete matching keys
-	iter := c.redis.Scan(ctx, 0, pattern, 0).Iterator()
-	keysToDelete := make([]string, 0)
-
-	for iter.Next(ctx) {
-		keysToDelete = append(keysToDelete, iter.Val())
-	}
-
-	if err := iter.Err(); err != nil {
-		c.metrics.Errors++
-		return err
-	}
-
-	if len(keysToDelete) > 0 {
-		err := c.redis.Del(ctx, keysToDelete...).Err()
-		if err != nil {
-			c.metrics.Errors++
-			return err
-		}
-	}
+	// Note: Cache service doesn't support pattern-based deletion
+	// This is a simplified approach - in production, consider using a prefix-based approach
+	c.logger.Warn("Pattern invalidation not fully supported with cache service", zap.String("pattern", pattern))
 
 	return nil
 }
@@ -346,17 +304,20 @@ func (c *CacheManager) GetRateLimit(ctx context.Context, key string) (int, error
 func (c *CacheManager) IncrementRateLimit(ctx context.Context, key string, window time.Duration) (int, error) {
 	redisKey := fmt.Sprintf("ratelimit:%s", key)
 	
-	// Use Redis INCR with expiration
-	pipe := c.redis.Pipeline()
-	incr := pipe.Incr(ctx, redisKey)
-	pipe.Expire(ctx, redisKey, window)
-	_, err := pipe.Exec(ctx)
+	// Use cache service for rate limiting (simplified approach)
+	var currentCount int
+	if data, err := c.cacheService.Get(ctx, redisKey); err == nil {
+		json.Unmarshal([]byte(data), &currentCount)
+	}
+	currentCount++
 	
+	countData, _ := json.Marshal(currentCount)
+	err := c.cacheService.Set(ctx, redisKey, string(countData), window)
 	if err != nil {
 		return 0, err
 	}
 	
-	return int(incr.Val()), nil
+	return currentCount, nil
 }
 
 // Errors

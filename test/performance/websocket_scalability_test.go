@@ -14,7 +14,7 @@ import (
 	"github.com/alchemorsel/v3/internal/infrastructure/websocket"
 	"github.com/alchemorsel/v3/test/testutils"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -183,7 +183,7 @@ func TestWebSocketConcurrentConnections(t *testing.T) {
 					wsURL := "ws" + server.URL[4:] + "?user_id=" + userID
 					
 					start := time.Now()
-					conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+					conn, _, err := gorillaws.DefaultDialer.Dial(wsURL, nil)
 					connectionTime := time.Since(start)
 					
 					if err != nil {
@@ -300,7 +300,7 @@ func TestWebSocketMemoryUsage(t *testing.T) {
 			userID := fmt.Sprintf("memory-user-%d", i)
 			wsURL := "ws" + server.URL[4:] + "?user_id=" + userID
 			
-			conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+			conn, _, err := gorillaws.DefaultDialer.Dial(wsURL, nil)
 			require.NoError(t, err, "Connection %d should succeed", i)
 			connections = append(connections, conn)
 		}
@@ -404,7 +404,7 @@ func TestWebSocketMessageThroughput(t *testing.T) {
 				userID := fmt.Sprintf("throughput-user-%d", i)
 				wsURL := "ws" + server.URL[4:] + "?user_id=" + userID
 				
-				conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+				conn, _, err := gorillaws.DefaultDialer.Dial(wsURL, nil)
 				require.NoError(t, err)
 				connections = append(connections, conn)
 			}
@@ -510,7 +510,7 @@ func TestWebSocketConnectionStability(t *testing.T) {
 			userID := fmt.Sprintf("stability-user-%d", i)
 			wsURL := "ws" + server.URL[4:] + "?user_id=" + userID
 			
-			conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+			conn, _, err := gorillaws.DefaultDialer.Dial(wsURL, nil)
 			require.NoError(t, err)
 			connections = append(connections, conn)
 		}
@@ -642,7 +642,7 @@ func TestWebSocketResourceCleanup(t *testing.T) {
 				userID := fmt.Sprintf("cleanup-user-%d-%d", cycle, i)
 				wsURL := "ws" + server.URL[4:] + "?user_id=" + userID
 				
-				conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+				conn, _, err := gorillaws.DefaultDialer.Dial(wsURL, nil)
 				require.NoError(t, err)
 				connections = append(connections, conn)
 			}
@@ -706,7 +706,7 @@ func BenchmarkWebSocketConnection(b *testing.B) {
 			userID := "bench-user-" + uuid.New().String()
 			wsURL := "ws" + server.URL[4:] + "?user_id=" + userID
 			
-			conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+			conn, _, err := gorillaws.DefaultDialer.Dial(wsURL, nil)
 			if err != nil {
 				b.Errorf("Failed to connect: %v", err)
 				continue
@@ -741,7 +741,7 @@ func BenchmarkWebSocketMessage(b *testing.B) {
 	userID := "bench-user-" + uuid.New().String()
 	wsURL := "ws" + server.URL[4:] + "?user_id=" + userID
 	
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	conn, _, err := gorillaws.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		b.Fatalf("Failed to connect: %v", err)
 	}

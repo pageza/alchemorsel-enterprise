@@ -16,7 +16,7 @@ import (
 	"github.com/alchemorsel/v3/internal/infrastructure/websocket"
 	"github.com/alchemorsel/v3/test/testutils"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"

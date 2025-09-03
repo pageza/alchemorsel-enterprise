@@ -195,10 +195,7 @@ func (t *TracingProvider) RecordError(ctx context.Context, err error) {
 	span := trace.SpanFromContext(ctx)
 	if span != nil {
 		span.RecordError(err)
-		span.SetStatus(trace.Status{
-			Code:        trace.StatusCodeError,
-			Description: err.Error(),
-		})
+		span.SetStatus(codes.Error, err.Error())
 	}
 }
 
@@ -206,10 +203,7 @@ func (t *TracingProvider) RecordError(ctx context.Context, err error) {
 func (t *TracingProvider) SetSpanStatus(ctx context.Context, code codes.Code, description string) {
 	span := trace.SpanFromContext(ctx)
 	if span != nil {
-		span.SetStatus(trace.Status{
-			Code:        code,
-			Description: description,
-		})
+		span.SetStatus(code, description)
 	}
 }
 

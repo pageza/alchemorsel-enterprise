@@ -17,7 +17,7 @@ import (
 	"github.com/alchemorsel/v3/internal/infrastructure/websocket"
 	"github.com/alchemorsel/v3/test/testutils"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -245,7 +245,7 @@ func (suite *ChatSecurityTestSuite) testWebSocketInputSecurity(userID, input str
 	headers := http.Header{}
 	headers.Set("X-User-ID", userID)
 	
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, headers)
+	conn, _, err := gorillaws.DefaultDialer.Dial(wsURL, headers)
 	if err != nil {
 		suite.T().Logf("Failed to connect to WebSocket for security test: %v", err)
 		return
@@ -372,7 +372,7 @@ func (suite *ChatSecurityTestSuite) TestAuthenticationAndAuthorization() {
 		// Try to connect without proper authentication
 		wsURL := "ws" + suite.server.URL[4:] + "/ws"
 		
-		_, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		_, _, err := gorillaws.DefaultDialer.Dial(wsURL, nil)
 		suite.Error(err, "WebSocket connection should fail without authentication")
 	})
 }
@@ -413,7 +413,7 @@ func (suite *ChatSecurityTestSuite) TestRateLimitingAndDDoSProtection() {
 		headers := http.Header{}
 		headers.Set("X-User-ID", userID)
 		
-		conn, _, err := websocket.DefaultDialer.Dial(wsURL, headers)
+		conn, _, err := gorillaws.DefaultDialer.Dial(wsURL, headers)
 		if err != nil {
 			suite.T().Skip("WebSocket connection failed")
 			return
@@ -601,14 +601,14 @@ func (suite *ChatSecurityTestSuite) TestSessionManagement() {
 		headers := http.Header{}
 		headers.Set("X-User-ID", userID)
 		
-		conn1, _, err := websocket.DefaultDialer.Dial(wsURL, headers)
+		conn1, _, err := gorillaws.DefaultDialer.Dial(wsURL, headers)
 		if err != nil {
 			suite.T().Skip("WebSocket connection failed")
 			return
 		}
 		defer conn1.Close()
 		
-		conn2, _, err := websocket.DefaultDialer.Dial(wsURL, headers)
+		conn2, _, err := gorillaws.DefaultDialer.Dial(wsURL, headers)
 		if err != nil {
 			suite.T().Skip("Second WebSocket connection failed")
 			return
