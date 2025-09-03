@@ -161,7 +161,7 @@ func (s *ConversationTestSuite) AssertExpectations(t *testing.T) {
 // WebSocketTestHelper provides utilities for testing WebSocket connections
 type WebSocketTestHelper struct {
 	Server     *httptest.Server
-	Manager    *websocket.Manager
+	Manager    *wsManager.Manager
 	Connections map[string]*TestWebSocketConnection
 	mu         sync.RWMutex
 }
@@ -171,7 +171,7 @@ type TestWebSocketConnection struct {
 	ID           string
 	UserID       string
 	Conn         *websocket.Conn
-	MessagesChan chan websocket.Message
+	MessagesChan chan wsManager.Message
 	ErrorsChan   chan error
 	DoneChan     chan struct{}
 }
@@ -216,7 +216,7 @@ func (h *WebSocketTestHelper) ConnectWebSocket(t *testing.T, userID string) *Tes
 		ID:           uuid.New().String(),
 		UserID:       userID,
 		Conn:         conn,
-		MessagesChan: make(chan websocket.Message, 100),
+		MessagesChan: make(chan wsManager.Message, 100),
 		ErrorsChan:   make(chan error, 10),
 		DoneChan:     make(chan struct{}),
 	}
@@ -246,7 +246,7 @@ func (h *WebSocketTestHelper) readMessages(testConn *TestWebSocketConnection) {
 	defer close(testConn.DoneChan)
 
 	for {
-		var msg websocket.Message
+		var msg wsManager.Message
 		err := testConn.Conn.ReadJSON(&msg)
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
@@ -267,24 +267,24 @@ func (h *WebSocketTestHelper) readMessages(testConn *TestWebSocketConnection) {
 }
 
 // SendMessage sends a message through the WebSocket connection
-func (tc *TestWebSocketConnection) SendMessage(msg websocket.Message) error {
+func (tc *TestWebSocketConnection) SendMessage(msg wsManager.Message) error {
 	return tc.Conn.WriteJSON(msg)
 }
 
 // WaitForMessage waits for a message with timeout
-func (tc *TestWebSocketConnection) WaitForMessage(timeout time.Duration) (websocket.Message, error) {
+func (tc *TestWebSocketConnection) WaitForMessage(timeout time.Duration) (wsManager.Message, error) {
 	select {
 	case msg := <-tc.MessagesChan:
 		return msg, nil
 	case err := <-tc.ErrorsChan:
-		return websocket.Message{}, err
+		return wsManager.Message{}, err
 	case <-time.After(timeout):
-		return websocket.Message{}, fmt.Errorf("timeout waiting for message")
+		return wsManager.Message{}, fmt.Errorf("timeout waiting for message")
 	}
 }
 
 // WaitForMessageType waits for a message of specific type
-func (tc *TestWebSocketConnection) WaitForMessageType(messageType string, timeout time.Duration) (websocket.Message, error) {
+func (tc *TestWebSocketConnection) WaitForMessageType(messageType string, timeout time.Duration) (wsManager.Message, error) {
 	deadline := time.Now().Add(timeout)
 	
 	for time.Now().Before(deadline) {
@@ -299,13 +299,13 @@ func (tc *TestWebSocketConnection) WaitForMessageType(messageType string, timeou
 			default:
 			}
 		case err := <-tc.ErrorsChan:
-			return websocket.Message{}, err
+			return wsManager.Message{}, err
 		case <-time.After(100 * time.Millisecond):
 			continue
 		}
 	}
 	
-	return websocket.Message{}, fmt.Errorf("timeout waiting for message type: %s", messageType)
+	return wsManager.Message{}, fmt.Errorf("timeout waiting for message type: %s", messageType)
 }
 
 // Close closes the WebSocket connection

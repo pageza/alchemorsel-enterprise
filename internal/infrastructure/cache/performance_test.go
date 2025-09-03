@@ -202,7 +202,7 @@ func BenchmarkSpecializedServices(b *testing.B) {
 				"data":    fmt.Sprintf("template_data_%d", i),
 			}
 			
-			key := container.TemplateCache.keyBuilder.BuildTemplateKey(templateName, data, nil, nil)
+			key := container.TemplateCache.keyBuilder.BuildTemplateKey(templateName, data)
 			container.CacheService.Get(ctx, key)
 		}
 	})

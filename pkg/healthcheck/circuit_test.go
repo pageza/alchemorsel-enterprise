@@ -259,7 +259,7 @@ func TestCircuitBreaker_Execute_MaxRequestsInHalfOpen(t *testing.T) {
 	}
 
 	// Additional requests should be rejected
-	result, err := cb.Execute(successFunc)
+	_, err := cb.Execute(successFunc)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "circuit breaker 'test' is open")
 }
