@@ -35,13 +35,15 @@ type AuthServiceTestSuite struct {
 func (suite *AuthServiceTestSuite) SetupSuite() {
 	// Setup test configuration
 	suite.config = &config.Config{
+		App: config.AppConfig{
+			Environment: "test",
+		},
 		Auth: config.AuthConfig{
 			JWTSecret:         "test-secret-key-for-testing-only-32-bytes",
 			JWTExpiration:     time.Hour,
 			RefreshExpiration: 24 * time.Hour,
 			BCryptCost:        4, // Lower cost for faster tests
 		},
-		Environment: "test",
 	}
 
 	// Setup logger (silent for tests)

@@ -139,7 +139,7 @@ func (suite *ChatWorkflowE2ETestSuite) TestExperiencedChefComplexRecipe() {
 		})
 		
 		// Get conversation ID
-		convCreated, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
+		_, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
 		suite.NoError(err)
 		
 		aiResponse, err := conn.WaitForMessageType("chat_response", 5*time.Second)
@@ -202,7 +202,7 @@ func (suite *ChatWorkflowE2ETestSuite) TestCookingHelpWorkflow() {
 			"message": "How do I properly sear a steak to get a good crust?",
 		})
 		
-		convCreated, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
+		_, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
 		suite.NoError(err)
 		
 		response1, err := conn.WaitForMessageType("chat_response", 5*time.Second)
@@ -259,7 +259,7 @@ func (suite *ChatWorkflowE2ETestSuite) TestIngredientSubstitutionWorkflow() {
 			"message": "I'm in the middle of making a cake and I just realized I'm out of eggs! What can I substitute?",
 		})
 		
-		convCreated, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
+		_, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
 		suite.NoError(err)
 		
 		response1, err := conn.WaitForMessageType("chat_response", 5*time.Second)
@@ -317,7 +317,7 @@ func (suite *ChatWorkflowE2ETestSuite) TestMealPlanningWorkflow() {
 			"message": "I need help planning meals for next week. I want healthy options for 2 people on a budget",
 		})
 		
-		convCreated, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
+		_, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
 		suite.NoError(err)
 		
 		response1, err := conn.WaitForMessageType("chat_response", 5*time.Second)
@@ -461,7 +461,7 @@ func (suite *ChatWorkflowE2ETestSuite) TestConversationErrorHandlingAndRecovery(
 		
 		// Should work normally
 		if response.Type != "conversation_created" {
-			convCreated, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
+			_, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
 			suite.NoError(err)
 			suite.NotEmpty(convCreated)
 		}
@@ -503,7 +503,7 @@ func (suite *ChatWorkflowE2ETestSuite) TestHighVolumeConversations() {
 				"message": fmt.Sprintf("I want to make recipe number %d", i+1),
 			})
 			
-			convCreated, err := conn.WaitForMessageType("conversation_created", 10*time.Second)
+			_, err := conn.WaitForMessageType("conversation_created", 10*time.Second)
 			suite.NoError(err, "User %d should create conversation", i)
 			
 			aiResponse, err := conn.WaitForMessageType("chat_response", 10*time.Second)
@@ -544,7 +544,7 @@ func (suite *ChatWorkflowE2ETestSuite) TestConversationPersistenceAndRetrieval()
 			"message": "I want to create a lasagna recipe",
 		})
 		
-		convCreated, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
+		_, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
 		suite.NoError(err)
 		
 		response1, err := conn.WaitForMessageType("chat_response", 5*time.Second)
@@ -739,7 +739,7 @@ func TestRealWorldScenarios(t *testing.T) {
 			require.NoError(t, err)
 			
 			if i == 0 {
-				convCreated, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
+				_, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
 				require.NoError(t, err)
 				
 				aiResponse, err := conn.WaitForMessageType("chat_response", 5*time.Second)
