@@ -27,7 +27,7 @@ type WebSocketManagerTestSuite struct {
 	server     *httptest.Server
 	ctx        context.Context
 	cancel     context.CancelFunc
-	wsUpgrader websocket.Upgrader
+	wsUpgrader gorillaws.Upgrader
 }
 
 // SetupSuite initializes the test suite
@@ -41,7 +41,7 @@ func (suite *WebSocketManagerTestSuite) SetupSuite() {
 	// Create test server
 	suite.server = httptest.NewServer(http.HandlerFunc(suite.handleWebSocketUpgrade))
 	
-	suite.wsUpgrader = websocket.Upgrader{
+	suite.wsUpgrader = gorillaws.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
@@ -93,7 +93,7 @@ func (suite *WebSocketManagerTestSuite) TestMultipleConnections() {
 		"test-user-3-" + uuid.New().String(),
 	}
 	
-	var connections []*websocket.Conn
+	var connections []*gorillaws.Conn
 	defer func() {
 		for _, conn := range connections {
 			conn.Close()
@@ -124,7 +124,7 @@ func (suite *WebSocketManagerTestSuite) TestMultipleConnections() {
 func (suite *WebSocketManagerTestSuite) TestSameUserMultipleConnections() {
 	userID := "test-user-" + uuid.New().String()
 	
-	var connections []*websocket.Conn
+	var connections []*gorillaws.Conn
 	defer func() {
 		for _, conn := range connections {
 			conn.Close()
@@ -242,7 +242,7 @@ func (suite *WebSocketManagerTestSuite) TestConcurrentConnections() {
 	
 	var wg sync.WaitGroup
 	var connections []struct {
-		conn   *websocket.Conn
+		conn   *gorillaws.Conn
 		userID string
 	}
 	var mu sync.Mutex
@@ -262,7 +262,7 @@ func (suite *WebSocketManagerTestSuite) TestConcurrentConnections() {
 			
 			mu.Lock()
 			connections = append(connections, struct {
-				conn   *websocket.Conn
+				conn   *gorillaws.Conn
 				userID string
 			}{conn, userID})
 			mu.Unlock()
@@ -294,7 +294,7 @@ func (suite *WebSocketManagerTestSuite) TestMessageBroadcast() {
 		"broadcast-user-3-" + uuid.New().String(),
 	}
 	
-	var connections []*websocket.Conn
+	var connections []*gorillaws.Conn
 	defer func() {
 		for _, conn := range connections {
 			conn.Close()
@@ -429,7 +429,7 @@ func (suite *WebSocketManagerTestSuite) TestWebSocketSecurity() {
 	// Test connection limit per user (if implemented)
 	userID := "security-test-user-" + uuid.New().String()
 	
-	var connections []*websocket.Conn
+	var connections []*gorillaws.Conn
 	defer func() {
 		for _, conn := range connections {
 			conn.Close()
@@ -455,19 +455,19 @@ func (suite *WebSocketManagerTestSuite) TestWebSocketSecurity() {
 // Helper methods
 
 // connectWebSocket establishes a WebSocket connection
-func (suite *WebSocketManagerTestSuite) connectWebSocket(userID string) *websocket.Conn {
+func (suite *WebSocketManagerTestSuite) connectWebSocket(userID string) *gorillaws.Conn {
 	// Convert HTTP URL to WebSocket URL
 	wsURL := "ws" + suite.server.URL[4:] + "?user_id=" + url.QueryEscape(userID)
 	
 	// Connect to WebSocket
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	conn, _, err := gorillaws.DefaultDialer.Dial(wsURL, nil)
 	suite.Require().NoError(err)
 	
 	return conn
 }
 
 // readMessage reads a message from WebSocket connection with timeout
-func (suite *WebSocketManagerTestSuite) readMessage(conn *websocket.Conn, timeout time.Duration) (websocket.Message, error) {
+func (suite *WebSocketManagerTestSuite) readMessage(conn *gorillaws.Conn, timeout time.Duration) (websocket.Message, error) {
 	conn.SetReadDeadline(time.Now().Add(timeout))
 	
 	var message websocket.Message
