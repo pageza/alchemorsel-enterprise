@@ -940,6 +940,24 @@ func (s *WebServer) handleAIChatPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// DEBUG: Log conversation history before template render
+	s.logger.Debug("Template render debug",
+		zap.String("user_id", userID),
+		zap.Int("conversation_history_length", len(conversationHistory)),
+		zap.Bool("conversation_history_nil", conversationHistory == nil),
+		zap.String("conversation_history_type", fmt.Sprintf("%T", conversationHistory)),
+	)
+	
+	// Log first message if exists
+	if len(conversationHistory) > 0 {
+		firstMsg := conversationHistory[0]
+		s.logger.Debug("First conversation message",
+			zap.String("role", firstMsg.Role),
+			zap.String("content_preview", firstMsg.Content[:min(50, len(firstMsg.Content))]),
+			zap.Time("timestamp", firstMsg.Timestamp),
+		)
+	}
+
 	s.renderTemplate(w, "chat", map[string]interface{}{
 		"Title":          "Chat with AI Chef - Alchemorsel",
 		"Description":    "Chat with our AI Chef to create amazing recipes through conversation",
@@ -1402,20 +1420,8 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 		zap.String("conversation_id", conversationID),
 	)
 
-	// Create formatted HTML response with both user message and AI response
-	aiResponse := `<div class="chat-message user-message" style="margin-bottom: 1rem;">
-		<div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-			<div class="message-content" style="flex: 1; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 1rem; border-radius: 1rem; max-width: 80%;">
-				<div style="font-weight: 600; margin-bottom: 0.5rem;">You</div>
-				<div style="line-height: 1.6;">` + message + `</div>
-				<div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.5rem;">Just now</div>
-			</div>
-			<div class="avatar user-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
-				👤
-			</div>
-		</div>
-	</div>
-	<div class="chat-message ai-message" style="margin-bottom: 1rem;">
+	// Create formatted HTML response with only AI response (user message is already added by frontend)
+	aiResponse := `<div class="chat-message ai-message" style="margin-bottom: 1rem;">
 		<div style="display: flex; align-items: flex-start; gap: 0.75rem;">
 			<div class="avatar ai-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
 				👨‍🍳
@@ -1674,7 +1680,7 @@ func (s *WebServer) handleHTMXConversationList(w http.ResponseWriter, r *http.Re
 		}
 		
 		html += fmt.Sprintf(`
-			<div class="conversation-item" onclick="loadConversation('%s')" data-conversation-id="%s" style="padding: 1rem; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: background-color 0.2s;">
+			<div class="conversation-item" data-conversation-id="%s" style="padding: 1rem; border-bottom: 1px solid #e2e8f0; transition: background-color 0.2s;">
 				<div style="display: flex; justify-content: space-between; align-items: start;">
 					<div style="flex: 1; min-width: 0;">
 						<div style="font-weight: 500; font-size: 0.875rem; margin-bottom: 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">%s</div>
@@ -1686,7 +1692,7 @@ func (s *WebServer) handleHTMXConversationList(w http.ResponseWriter, r *http.Re
 						</button>
 					</div>
 				</div>
-			</div>`, conversationID, conversationID, s.escapeHTML(title), timeStr, messageCount, conversationID)
+			</div>`, conversationID, s.escapeHTML(title), timeStr, messageCount, conversationID)
 	}
 
 	w.Header().Set("Content-Type", "text/html")

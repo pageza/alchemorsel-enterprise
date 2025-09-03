@@ -431,36 +431,32 @@
                     <!-- Chat Messages -->
                     <div class="chat-messages" id="chat-messages">
                         {{if .ConversationHistory}}
-                            {{range .ConversationHistory}}
-                                {{if eq .Role "user"}}
-                                    <!-- User Message -->
-                                    <div class="chat-message user-message" style="margin-bottom: 1rem;">
+                            {{range $msg := .ConversationHistory}}
+                                <div class="chat-message {{if eq $msg.Role "user"}}user-message{{else}}ai-message{{end}}" style="margin-bottom: 1rem;">
+                                    {{if eq $msg.Role "user"}}
                                         <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
                                             <div class="message-content" style="flex: 1; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 1rem; border-radius: 1rem; max-width: 80%;">
                                                 <div style="font-weight: 600; margin-bottom: 0.5rem;">You</div>
-                                                <div style="line-height: 1.6;">{{.Content}}</div>
-                                                <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.5rem;">{{.FormattedTime}}</div>
+                                                <div style="line-height: 1.6;">{{$msg.Content}}</div>
+                                                <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.5rem;">{{$msg.FormattedTime}}</div>
                                             </div>
                                             <div class="avatar user-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
                                                 👤
                                             </div>
                                         </div>
-                                    </div>
-                                {{else if eq .Role "assistant"}}
-                                    <!-- AI Message -->
-                                    <div class="chat-message ai-message" style="margin-bottom: 1rem;">
+                                    {{else}}
                                         <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
                                             <div class="avatar ai-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
                                                 👨‍🍳
                                             </div>
                                             <div class="message-content" style="flex: 1; background: #ffffff; padding: 1rem; border-radius: 1rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                                                 <div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.5rem;">AI Chef</div>
-                                                <div style="line-height: 1.6;">{{.Content}}</div>
-                                                <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">{{.FormattedTime}}</div>
+                                                <div style="line-height: 1.6;">{{$msg.Content}}</div>
+                                                <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">{{$msg.FormattedTime}}</div>
                                             </div>
                                         </div>
-                                    </div>
-                                {{end}}
+                                    {{end}}
+                                </div>
                             {{end}}
                         {{else}}
                             <!-- Welcome Message (only shown when no conversation history) -->
@@ -894,43 +890,8 @@
             }
         }
         
-        function loadConversation(conversationId) {
-            if (!conversationId) return;
-            
-            currentConversationId = conversationId;
-            
-            // Update active conversation in sidebar
-            document.querySelectorAll('.conversation-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            document.querySelector(`[data-conversation-id="${conversationId}"]`).classList.add('active');
-            
-            // Load conversation messages
-            fetch(`/api/chat/history?conversation_id=${conversationId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        clearChatMessages();
-                        document.getElementById('conversation-title').textContent = data.conversation.title;
-                        
-                        // Load all messages
-                        data.messages.forEach(message => {
-                            const role = message.role === 'user' ? 'user' : 'assistant';
-                            const author = message.role === 'user' ? 'You' : 'AI Chef';
-                            const time = formatMessageTime(message.created_at);
-                            addMessageToChat(role, message.content, author, time);
-                        });
-                        
-                        hideSuggestions();
-                        scrollToBottom();
-                    } else {
-                        console.error('Failed to load conversation:', data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading conversation:', error);
-                });
-        }
+        // Removed loadConversation function - using session-based storage instead
+        // This eliminates the 404 errors on /api/chat/history endpoint
         
         function renameConversation(conversationId, currentTitle) {
             const newTitle = prompt('Enter new conversation title:', currentTitle);
