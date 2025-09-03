@@ -19,7 +19,7 @@ type CoreWebVitalsOrchestrator struct {
 	config                  CWVOrchestratorConfig
 	
 	// Core Web Vitals optimizers
-	lcpOptimizer           *LCPOptimizer
+	// lcpOptimizer           *LCPOptimizer // TODO: Implement LCPOptimizer
 	clsStabilizer          *LayoutStabilizer
 	inpEnhancer            *INPEnhancer
 	rumSystem              *RUMSystem
@@ -172,20 +172,20 @@ func NewCoreWebVitalsOrchestrator(config CWVOrchestratorConfig, cacheClient *cac
 	}
 	
 	// Initialize Core Web Vitals optimizers
-	var lcpOptimizer *LCPOptimizer
+	// var lcpOptimizer *LCPOptimizer // TODO: Implement LCPOptimizer
 	var clsStabilizer *LayoutStabilizer
 	var inpEnhancer *INPEnhancer
 	var rumSystem *RUMSystem
 	var coreWebVitalsMonitor *CoreWebVitalsMonitor
 	
 	if config.EnableLCPOptimization {
-		lcpConfig := DefaultLCPConfig()
-		lcpConfig.TargetLCP = config.TargetLCP
-		lcpConfig.EnableRedisCache = config.EnableRedisCache
-		lcpConfig.EnableBundleOptimization = config.EnableBundleOptimization
-		lcpConfig.MaxBundleSize = config.MaxBundleSize
-		lcpConfig.CacheTTL = config.CacheTTL
-		lcpOptimizer = NewLCPOptimizer(lcpConfig, cacheClient)
+		// lcpConfig := DefaultLCPConfig() // TODO: Implement LCPOptimizer
+		// lcpConfig.TargetLCP = config.TargetLCP
+		// lcpConfig.EnableRedisCache = config.EnableRedisCache
+		// lcpConfig.EnableBundleOptimization = config.EnableBundleOptimization
+		// lcpConfig.MaxBundleSize = config.MaxBundleSize
+		// lcpConfig.CacheTTL = config.CacheTTL
+		// lcpOptimizer = NewLCPOptimizer(lcpConfig, cacheClient) // TODO: Implement LCPOptimizer
 	}
 	
 	if config.EnableCLSStabilization {
@@ -219,7 +219,7 @@ func NewCoreWebVitalsOrchestrator(config CWVOrchestratorConfig, cacheClient *cac
 		targets:                 targets,
 		
 		// Core Web Vitals optimizers
-		lcpOptimizer:           lcpOptimizer,
+		// lcpOptimizer:           lcpOptimizer, // TODO: Implement LCPOptimizer
 		clsStabilizer:          clsStabilizer,
 		inpEnhancer:            inpEnhancer,
 		rumSystem:              rumSystem,
@@ -333,11 +333,13 @@ func (o *CoreWebVitalsOrchestrator) OptimizeHTMLWithContext(ctx context.Context,
 
 // optimizeLCPStage applies LCP optimizations
 func (o *CoreWebVitalsOrchestrator) optimizeLCPStage(ctx context.Context, html string) (string, error) {
-	if o.lcpOptimizer == nil {
+	// if o.lcpOptimizer == nil {
 		return html, nil
-	}
+	// } // TODO: Implement LCPOptimizer
 	
-	optimized, err := o.lcpOptimizer.OptimizeHTMLWithContext(ctx, html)
+	// optimized, err := o.lcpOptimizer.OptimizeHTMLWithContext(ctx, html) // TODO: Implement LCPOptimizer
+	optimized := html // placeholder
+	var err error
 	if err != nil {
 		return "", fmt.Errorf("LCP optimization failed: %w", err)
 	}
@@ -530,13 +532,13 @@ func (o *CoreWebVitalsOrchestrator) estimatePerformanceImpact() PerformanceImpac
 	}
 	
 	// Estimate LCP improvement
-	if o.lcpOptimizer != nil {
-		metrics := o.lcpOptimizer.GetMetrics()
-		if metrics.TotalOptimizations > 0 {
-			impact.EstimatedLCPImprovement = 500 * time.Millisecond // Conservative estimate
-			impact.BundleSizeReduction = int64(o.config.MaxBundleSize) / 2 // Assume 50% reduction
-		}
-	}
+	// if o.lcpOptimizer != nil { // TODO: Implement LCPOptimizer
+	// 	metrics := o.lcpOptimizer.GetMetrics()
+	// 	if metrics.TotalOptimizations > 0 {
+	// 		impact.EstimatedLCPImprovement = 500 * time.Millisecond // Conservative estimate
+	// 		impact.BundleSizeReduction = int64(o.config.MaxBundleSize) / 2 // Assume 50% reduction
+	// 	}
+	// }
 	
 	// Estimate CLS improvement
 	if o.clsStabilizer != nil {

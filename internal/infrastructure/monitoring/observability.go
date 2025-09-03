@@ -173,10 +173,6 @@ func (h *HealthCheckManager) CheckAll(ctx context.Context) map[string]HealthChec
 		
 		// Record metrics
 		if h.metrics != nil {
-			status := "success"
-			if result.Status != "healthy" {
-				status = "failure"
-			}
 			// This would require adding health check metrics to MetricsCollector
 		}
 		

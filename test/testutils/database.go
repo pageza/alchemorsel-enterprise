@@ -81,7 +81,7 @@ func SetupTestDatabaseWithConfig(t *testing.T, cfg DatabaseConfig) *TestDatabase
 					wait.ForLog("database system is ready to accept connections").
 						WithOccurrence(2).
 						WithStartupTimeout(60*time.Second),
-					wait.ForSQL(nat.Port(strconv.Itoa(cfg.Port)+"/tcp"), "postgres", func(host string, port nat.Port) string {
+					wait.ForSQL(nat.Port(cfg.Port+"/tcp"), "postgres", func(host string, port nat.Port) string {
 						return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 							cfg.Username, cfg.Password, host, port.Port(), cfg.Database)
 					}),
@@ -98,7 +98,7 @@ func SetupTestDatabaseWithConfig(t *testing.T, cfg DatabaseConfig) *TestDatabase
 	host, err := postgres.Host(ctx)
 	require.NoError(t, err)
 
-	port, err := postgres.MappedPort(ctx, nat.Port(strconv.Itoa(cfg.Port)+"/tcp"))
+	port, err := postgres.MappedPort(ctx, nat.Port(cfg.Port+"/tcp"))
 	require.NoError(t, err)
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",

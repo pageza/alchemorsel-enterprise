@@ -4,7 +4,6 @@ package healthcheck
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 	"time"

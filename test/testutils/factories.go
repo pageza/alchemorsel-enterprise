@@ -187,13 +187,11 @@ func (rb *RecipeBuilder) BuildValid() (*recipe.Recipe, error) {
 	if len(rb.instructions) == 0 {
 		rb.WithInstructions([]recipe.Instruction{
 			{
-				ID:          uuid.New(),
 				StepNumber:  1,
 				Description: "Boil water in a large pot",
 				Duration:    5 * time.Minute,
 			},
 			{
-				ID:          uuid.New(),
 				StepNumber:  2,
 				Description: "Cook spaghetti according to package directions",
 				Duration:    10 * time.Minute,
@@ -234,38 +232,35 @@ func (rf *RecipeFactory) CreateItalianRecipe() (*recipe.Recipe, error) {
 		{
 			ID:       uuid.New(),
 			Name:     "Spaghetti",
-			Quantity: 1.0,
-			Unit:     "lb",
+			Amount: 1.0,
+			Unit:     recipe.MeasurementUnitPound,
 		},
 		{
 			ID:       uuid.New(),
 			Name:     "Parmesan Cheese",
-			Quantity: 0.5,
-			Unit:     "cup",
+			Amount: 0.5,
+			Unit:     recipe.MeasurementUnitCup,
 		},
 		{
 			ID:       uuid.New(),
 			Name:     "Extra Virgin Olive Oil",
-			Quantity: 3.0,
-			Unit:     "tbsp",
+			Amount: 3.0,
+			Unit:     recipe.MeasurementUnitTablespoon,
 		},
 	}
 
 	instructions := []recipe.Instruction{
 		{
-			ID:          uuid.New(),
 			StepNumber:  1,
 			Description: "Bring a large pot of salted water to boil",
 			Duration:    5 * time.Minute,
 		},
 		{
-			ID:          uuid.New(),
 			StepNumber:  2,
 			Description: "Cook spaghetti al dente",
 			Duration:    10 * time.Minute,
 		},
 		{
-			ID:          uuid.New(),
 			StepNumber:  3,
 			Description: "Toss with olive oil and cheese",
 			Duration:    2 * time.Minute,

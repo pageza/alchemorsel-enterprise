@@ -80,7 +80,7 @@ func setupConversationRoutes(r chi.Router, db *gorm.DB) {
 	// WebSocket route (if you're using WebSockets)
 	r.Route("/ws", func(r chi.Router) {
 		// r.Use(WebSocketAuthMiddleware()) // Add WebSocket auth
-		r.Get("/chat", chatHandler.HandleWebSocketChat) // You'll need to implement this
+		// r.Get("/chat", chatHandler.HandleWebSocketChat) // You'll need to implement this
 	})
 }
 
