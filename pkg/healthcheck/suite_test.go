@@ -3,7 +3,10 @@
 package healthcheck
 
 import (
+	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
@@ -373,9 +376,3 @@ func TestBenchmarkSuite_RunAll(t *testing.T) {
 	suite.Run(t, new(BenchmarkSuite))
 }
 
-// Add missing imports
-import (
-	"context"
-	"fmt"
-	"time"
-)

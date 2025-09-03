@@ -116,7 +116,26 @@ func (m *ConnectionMetrics) GetSnapshot() ConnectionMetrics {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	
-	return *m
+	// Return a copy without the mutex to avoid copying lock
+	return ConnectionMetrics{
+		TotalConnections:    m.TotalConnections,
+		ActiveConnections:   m.ActiveConnections,
+		IdleConnections:     m.IdleConnections,
+		WaitingConnections:  m.WaitingConnections,
+		MaxConnections:      m.MaxConnections,
+		ConnectionsCreated:  m.ConnectionsCreated,
+		ConnectionsClosed:   m.ConnectionsClosed,
+		ConnectionsReused:   m.ConnectionsReused,
+		QueryCount:          m.QueryCount,
+		QueryErrors:         m.QueryErrors,
+		SlowQueryCount:      m.SlowQueryCount,
+		AverageQueryTime:    m.AverageQueryTime,
+		MaxQueryTime:        m.MaxQueryTime,
+		TotalQueryTime:      m.TotalQueryTime,
+		LastQueryTime:       m.LastQueryTime,
+		ConnectedAt:         m.ConnectedAt,
+		// Note: mu (mutex) is intentionally omitted to avoid copying lock
+	}
 }
 
 // GetConnectionEfficiency returns connection pool efficiency percentage

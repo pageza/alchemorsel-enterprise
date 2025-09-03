@@ -129,13 +129,13 @@ func (pd *PerformanceDashboard) GetDashboardData(ctx context.Context) (*Dashboar
 	}
 	
 	// Calculate overview
-	overview := pd.calculateOverview(connMetrics, queryAnalysis, cacheMetrics, indexReport)
+	overview := pd.calculateOverview(&connMetrics, queryAnalysis, cacheMetrics, indexReport)
 	
 	// Generate alerts
-	alerts := pd.generateAlerts(connMetrics, queryAnalysis, cacheMetrics, indexReport)
+	alerts := pd.generateAlerts(&connMetrics, queryAnalysis, cacheMetrics, indexReport)
 	
 	// Compile recommendations
-	recommendations := pd.compileRecommendations(connMetrics, queryAnalysis, cacheMetrics, indexReport)
+	recommendations := pd.compileRecommendations(&connMetrics, queryAnalysis, cacheMetrics, indexReport)
 	
 	// Get trend data
 	trendData := pd.getTrendData()
@@ -160,7 +160,7 @@ func (pd *PerformanceDashboard) GetDashboardData(ctx context.Context) (*Dashboar
 
 // calculateOverview calculates high-level performance overview
 func (pd *PerformanceDashboard) calculateOverview(
-	connMetrics ConnectionMetrics,
+	connMetrics *ConnectionMetrics,
 	queryAnalysis QueryAnalysis,
 	cacheMetrics CacheMetrics,
 	indexReport *IndexAnalysisReport,
@@ -241,7 +241,7 @@ func (pd *PerformanceDashboard) calculateOverview(
 
 // generateAlerts generates performance alerts based on metrics
 func (pd *PerformanceDashboard) generateAlerts(
-	connMetrics ConnectionMetrics,
+	connMetrics *ConnectionMetrics,
 	queryAnalysis QueryAnalysis,
 	cacheMetrics CacheMetrics,
 	indexReport *IndexAnalysisReport,
@@ -417,7 +417,7 @@ func (pd *PerformanceDashboard) generateAlerts(
 
 // compileRecommendations compiles all performance recommendations
 func (pd *PerformanceDashboard) compileRecommendations(
-	connMetrics ConnectionMetrics,
+	connMetrics *ConnectionMetrics,
 	queryAnalysis QueryAnalysis,
 	cacheMetrics CacheMetrics,
 	indexReport *IndexAnalysisReport,
