@@ -414,7 +414,6 @@ func (suite *RecipeTestSuite) TestRecipeSocialFeatures() {
 		// Arrange
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
 		rating := Rating{
-			ID:     uuid.New(),
 			UserID: uuid.New(),
 			Value:  5,
 		}
@@ -443,9 +442,9 @@ func (suite *RecipeTestSuite) TestRecipeSocialFeatures() {
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
 		
 		// Act - Add ratings of 3, 4, 5
-		recipe.AddRating(Rating{ID: uuid.New(), UserID: uuid.New(), Value: 3})
-		recipe.AddRating(Rating{ID: uuid.New(), UserID: uuid.New(), Value: 4})
-		recipe.AddRating(Rating{ID: uuid.New(), UserID: uuid.New(), Value: 5})
+		recipe.AddRating(Rating{UserID: uuid.New(), Value: 3})
+		recipe.AddRating(Rating{UserID: uuid.New(), Value: 4})
+		recipe.AddRating(Rating{UserID: uuid.New(), Value: 5})
 
 		// Assert
 		expectedAverage := (3.0 + 4.0 + 5.0) / 3.0
@@ -456,7 +455,6 @@ func (suite *RecipeTestSuite) TestRecipeSocialFeatures() {
 		// Arrange
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
 		rating := Rating{
-			ID:     uuid.New(),
 			UserID: uuid.New(),
 			Value:  0, // Invalid - should be 1-5
 		}
