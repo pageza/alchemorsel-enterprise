@@ -2,7 +2,6 @@
 package hotreload
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"

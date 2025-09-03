@@ -12,14 +12,14 @@ import (
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
 	"github.com/alchemorsel/v3/internal/infrastructure/persistence/migrations"
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
+	migratePostgres "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.uber.org/zap"
-	"gorm.io/driver/postgres"
+	gormPostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -111,7 +111,7 @@ func SetupTestDatabaseWithConfig(t *testing.T, cfg DatabaseConfig) *TestDatabase
 	require.NoError(t, err, "Failed to ping test database")
 
 	// Create GORM connection
-	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+	gormDB, err := gorm.Open(gormPostgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent), // Suppress logs in tests
 	})
 	require.NoError(t, err, "Failed to create GORM connection")
@@ -147,7 +147,7 @@ func SetupTestDatabaseWithConfig(t *testing.T, cfg DatabaseConfig) *TestDatabase
 
 // RunMigrations runs database migrations on the test database
 func (td *TestDatabase) RunMigrations() error {
-	driver, err := postgres.WithInstance(td.DB, &postgres.Config{})
+	driver, err := migratePostgres.WithInstance(td.DB, &migratePostgres.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to create postgres driver: %w", err)
 	}

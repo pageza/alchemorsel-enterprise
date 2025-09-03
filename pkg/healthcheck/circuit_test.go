@@ -222,6 +222,7 @@ func TestCircuitBreaker_Execute_HalfOpenToOpenOnFailure(t *testing.T) {
 
 	result, err := cb.Execute(successFunc)
 	assert.NoError(t, err)
+	assert.Equal(t, "success", result)
 	assert.Equal(t, StateHalfOpen, cb.GetState())
 
 	// Next failure should open the circuit again

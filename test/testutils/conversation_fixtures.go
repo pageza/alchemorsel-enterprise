@@ -3,6 +3,7 @@ package testutils
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/alchemorsel/v3/internal/application/conversation"

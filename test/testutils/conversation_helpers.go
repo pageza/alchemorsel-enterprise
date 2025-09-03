@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/alchemorsel/v3/internal/application/conversation"
-	"github.com/alchemorsel/v3/internal/infrastructure/websocket"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	wsManager "github.com/alchemorsel/v3/internal/infrastructure/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
