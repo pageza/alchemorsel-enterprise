@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -32,6 +33,16 @@ import (
 // @BasePath /
 
 func main() {
+	// Parse command line flags
+	healthCheck := flag.Bool("healthcheck", false, "Run health check and exit")
+	flag.Parse()
+
+	// If health check flag is provided, run health check and exit
+	if *healthCheck {
+		runHealthCheck()
+		return
+	}
+
 	// Print startup banner
 	fmt.Println(`
  █████╗ ██╗      ██████╗██╗  ██╗███████╗███╗   ███╗ ██████╗ ██████╗ ███████╗███████╗██╗      
@@ -124,15 +135,18 @@ func registerLifecycleHooks(
 			fmt.Println("🎨 HTMX-powered interactive UI")
 			fmt.Println("🍳 Recipe management with AI capabilities")
 			
-			// Start server in a goroutine
+			// Start server in a simple goroutine without complex verification
 			go func() {
-				log.Info("Starting web server listener")
+				log.Info("Starting web server listener", zap.Int("port", cfg.Server.Port))
 				if err := server.Start(); err != nil && err != http.ErrServerClosed {
 					log.Error("Web server error", zap.Error(err))
 				}
 			}()
 			
-			// Server started successfully (will block in the goroutine)
+			// Give server a moment to start binding, but don't wait for confirmation
+			time.Sleep(50 * time.Millisecond)
+			log.Info("Web server startup initiated",
+				zap.String("address", fmt.Sprintf("http://localhost:%d", cfg.Server.Port)))
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
@@ -236,4 +250,24 @@ func setupGracefulShutdown(log *zap.Logger) {
 		// The FX framework will handle the actual shutdown
 		_ = ctx
 	}()
+}
+
+// runHealthCheck performs a simple health check and exits
+func runHealthCheck() {
+	// Simple health check: try to connect to the health endpoint
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get("http://localhost:8080/health")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Health check failed: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode == http.StatusOK {
+		fmt.Println("Health check passed")
+		os.Exit(0)
+	} else {
+		fmt.Fprintf(os.Stderr, "Health check failed: HTTP %d\n", resp.StatusCode)
+		os.Exit(1)
+	}
 }

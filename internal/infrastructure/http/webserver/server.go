@@ -161,10 +161,13 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	// Performance monitoring middleware
-	r.Use(s.perfMonitor.Middleware())
+	
+	// Performance monitoring middleware with recovery
+	r.Use(s.resilientMiddleware("performance", s.perfMonitor.Middleware()))
 	r.Use(s.securityHeadersMiddleware)
-	r.Use(s.sessionManager.LoadAndSave)
+	
+	// Session middleware with resilient wrapper to handle Redis failures gracefully
+	r.Use(s.resilientMiddleware("session", s.sessionManager.LoadAndSave))
 	r.Use(s.rateLimitMiddleware)
 
 	// Static files - serve from embedded static subdirectory
@@ -2007,6 +2010,30 @@ func (s *WebServer) renderError(w http.ResponseWriter, message string, err error
 }
 
 // Security Middleware Functions
+
+// resilientMiddleware wraps middleware to handle failures gracefully
+func (s *WebServer) resilientMiddleware(name string, middleware func(http.Handler) http.Handler) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Add panic recovery for the middleware
+			defer func() {
+				if rec := recover(); rec != nil {
+					s.logger.Error("Middleware panic recovered",
+						zap.String("middleware", name),
+						zap.Any("panic", rec),
+						zap.String("path", r.URL.Path),
+					)
+					// Continue to next handler even if middleware fails
+					next.ServeHTTP(w, r)
+				}
+			}()
+			
+			// Try to execute the middleware
+			handler := middleware(next)
+			handler.ServeHTTP(w, r)
+		})
+	}
+}
 
 // securityHeadersMiddleware adds security headers to all responses
 func (s *WebServer) securityHeadersMiddleware(next http.Handler) http.Handler {

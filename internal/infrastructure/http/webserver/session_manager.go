@@ -2,6 +2,7 @@
 package webserver
 
 import (
+	"context"
 	"encoding/gob"
 	"fmt"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/alexedwards/scs/v2"
+	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/alexedwards/scs/redisstore"
 	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
@@ -60,7 +62,7 @@ type SessionManager struct {
 	logger *zap.Logger
 }
 
-// NewSessionManager creates a new SCS session manager with Redis store
+// NewSessionManager creates a new SCS session manager with Redis store (with fallback)
 func NewSessionManager(cfg *config.Config, logger *zap.Logger) (*SessionManager, error) {
 	// Register types with gob for session serialization
 	gob.Register(conversation.ChatMessage{})
@@ -71,6 +73,14 @@ func NewSessionManager(cfg *config.Config, logger *zap.Logger) (*SessionManager,
 	gob.Register([]map[string]interface{}{})
 	gob.Register(time.Time{})
 	
+	// Create SCS session manager first
+	sessionManager := scs.New()
+	
+	// Try to establish Redis connection with timeout
+	redisAvailable := false
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
 	// Create Redis connection pool for SCS (using Redigo)
 	// Note: This creates a separate connection pool from the main Redis client
 	// because SCS redisstore uses the Redigo client, while our cache uses go-redis
@@ -79,7 +89,7 @@ func NewSessionManager(cfg *config.Config, logger *zap.Logger) (*SessionManager,
 		MaxActive:   100,
 		IdleTimeout: 5 * time.Minute,
 		Dial: func() (redis.Conn, error) {
-			return redis.Dial("tcp", cfg.Redis.Host+":"+strconv.Itoa(cfg.Redis.Port))
+			return redis.DialContext(ctx, "tcp", cfg.Redis.Host+":"+strconv.Itoa(cfg.Redis.Port))
 		},
 		TestOnBorrow: func(c redis.Conn, t time.Time) error {
 			if time.Since(t) < time.Minute {
@@ -90,16 +100,39 @@ func NewSessionManager(cfg *config.Config, logger *zap.Logger) (*SessionManager,
 		},
 	}
 
-	// Test the connection
-	conn := pool.Get()
-	defer conn.Close()
-	if _, err := conn.Do("PING"); err != nil {
-		return nil, err
+	// Test the connection with timeout
+	done := make(chan bool)
+	go func() {
+		conn := pool.Get()
+		defer conn.Close()
+		if _, err := conn.Do("PING"); err == nil {
+			redisAvailable = true
+		}
+		done <- true
+	}()
+	
+	// Wait for connection test or timeout
+	select {
+	case <-done:
+		// Connection test completed
+	case <-ctx.Done():
+		// Timeout reached
+		logger.Warn("Redis connection timeout, falling back to in-memory sessions",
+			zap.String("redis_host", cfg.Redis.Host),
+			zap.Int("redis_port", cfg.Redis.Port))
 	}
+	
+	// Configure session store based on Redis availability
+	if redisAvailable {
+		sessionManager.Store = redisstore.NewWithPrefix(pool, "session:")
+		logger.Info("Using Redis session store",
+			zap.String("prefix", "session:"))
+	} else {
+		// Fallback to in-memory store
+		sessionManager.Store = memstore.New()
+		logger.Warn("Using in-memory session store (Redis unavailable)")
 
-	// Create SCS session manager
-	sessionManager := scs.New()
-	sessionManager.Store = redisstore.NewWithPrefix(pool, "session:")
+	}
 
 	// Configure session settings
 	sessionManager.Lifetime = 24 * time.Hour                    // 24 hour absolute timeout
@@ -116,9 +149,13 @@ func NewSessionManager(cfg *config.Config, logger *zap.Logger) (*SessionManager,
 		sessionManager.Cookie.SameSite = http.SameSiteStrictMode
 	}
 
+	storeType := "redis"
+	if !redisAvailable {
+		storeType = "memory"
+	}
+	
 	logger.Info("Initialized SCS session manager",
-		zap.String("store", "redis"),
-		zap.String("prefix", "session:"),
+		zap.String("store", storeType),
 		zap.Duration("lifetime", sessionManager.Lifetime),
 		zap.Duration("idle_timeout", sessionManager.IdleTimeout),
 		zap.String("cookie_name", sessionManager.Cookie.Name),

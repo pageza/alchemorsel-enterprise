@@ -60,6 +60,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/main", "-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - alchemorsel-network
 
@@ -92,6 +98,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # healthcheck disabled temporarily for testing startup
+    # healthcheck:
+    #   test: ["CMD", "/app/main", "-healthcheck"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+    #   start_period: 40s
     networks:
       - alchemorsel-network
 

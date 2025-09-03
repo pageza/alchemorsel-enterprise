@@ -4,8 +4,10 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -32,6 +34,16 @@ import (
 // @name Authorization
 // @description Enter 'Bearer {token}' to authenticate
 func main() {
+	// Parse command line flags
+	healthCheck := flag.Bool("healthcheck", false, "Run health check and exit")
+	flag.Parse()
+
+	// If health check flag is provided, run health check and exit
+	if *healthCheck {
+		runHealthCheck()
+		return
+	}
+
 	// Create Fx application with dependency injection
 	app := fx.New(
 		// Application metadata
@@ -81,4 +93,24 @@ func main() {
 	}
 	
 	fmt.Println("Application stopped successfully")
+}
+
+// runHealthCheck performs a simple health check and exits
+func runHealthCheck() {
+	// Simple health check: try to connect to the health endpoint
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get("http://localhost:8080/health")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Health check failed: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode == http.StatusOK {
+		fmt.Println("Health check passed")
+		os.Exit(0)
+	} else {
+		fmt.Fprintf(os.Stderr, "Health check failed: HTTP %d\n", resp.StatusCode)
+		os.Exit(1)
+	}
 }

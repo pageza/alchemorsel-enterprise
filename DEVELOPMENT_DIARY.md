@@ -353,7 +353,48 @@ Ollama AI:      localhost:11435 → 11434     (AI service)
 
 ---
 
-**📍 Location**: `/home/hermes/alchemorsel-v3/DEVELOPMENT_DIARY.md`  
-**🕒 Last Updated**: 2025-09-01 19:45 UTC  
-**✅ Status**: HTMX Forms & Authentication Fully Working - MIGRATION READY  
-**🎯 Next Focus**: Environment Migration & Homepage AI Integration
+## Latest Session: 2025-09-03 - Web Server Hanging Issue
+
+### 🔴 Critical Issue: Web Server Not Listening
+**Problem**: Web server starts but hangs after `ListenAndServe`, no routes accessible
+**Impact**: All web functionality broken, only health endpoints partially working
+
+**Root Cause Investigation**:
+1. **Performance Monitor Issue**: Fixed `NewPerformanceMonitor()` function call that was using wrong signature
+2. **Server Hanging**: `ListenAndServe` called but server not actually listening on port
+3. **Container Issue**: Web container running but not accepting connections on port 8080 or mapped 3021
+
+**Attempted Fixes**:
+1. Fixed `NewPerformanceMonitor()` call in `/internal/infrastructure/http/webserver/server.go:77`
+2. Rebuilt container without cache to ensure new code deployed
+3. Verified container is running and logs show startup sequence
+
+**Current State**:
+- Container builds successfully without compilation errors
+- Server logs show it reaches `ListenAndServe` but then hangs
+- No connections accepted on any port (internal 8080 or external 3021)
+- Routes return connection timeout, not 404
+
+### 📊 CI/CD Pipeline Status
+**CI Compilation Errors Fixed**:
+- ✅ Rating struct literal (removed non-existent ID field)
+- ✅ Instruction struct literal (removed non-existent ID field)  
+- ✅ OpenTelemetry attribute usage (added proper imports and attribute.String())
+- ✅ Config struct Environment field (using App.Environment structure)
+- ✅ Performance monitor initialization
+
+**Remaining Issues**:
+- Web server hanging after startup
+- Need to run full CI pipeline to catch remaining errors
+- Puppeteer E2E tests not yet implemented
+
+### 🎯 Next Session Priority
+1. **Debug Server Hang**: Investigate why `ListenAndServe` doesn't actually listen
+2. **Alternative Approach**: Consider checking if fx lifecycle is blocking or goroutine issues
+3. **Puppeteer Testing**: Implement comprehensive E2E tests once server works
+4. **CI/CD Completion**: Ensure all compilation errors fixed and pipeline passes
+
+**📍 Location**: `/workspace/alchemorsel-enterprise/DEVELOPMENT_DIARY.md`  
+**🕒 Last Updated**: 2025-09-03 20:10 UTC  
+**🔴 Status**: Web Server Hanging - Routes Inaccessible  
+**🎯 Next Focus**: Fix Server Listen Issue & Complete CI/CD Pipeline
