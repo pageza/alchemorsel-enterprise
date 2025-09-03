@@ -527,7 +527,6 @@ func (suite *RecipeTestSuite) TestRecipeValidation() {
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
 		// Add instructions but no ingredients
 		recipe.AddInstruction(Instruction{
-			ID:          uuid.New(),
 			Description: "Test instruction",
 			Duration:    5 * time.Minute,
 		})
