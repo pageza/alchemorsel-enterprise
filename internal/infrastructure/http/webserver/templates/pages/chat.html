@@ -228,6 +228,7 @@
             border: 1px solid #e2e8f0;
             cursor: pointer;
             transition: all 0.2s;
+            position: relative;
         }
         
         .conversation-item:hover {
@@ -235,9 +236,36 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
+        .conversation-item:hover .conversation-actions {
+            display: flex !important;
+        }
+        
         .conversation-item.active {
             background: #e0e7ff;
             border-color: #4f46e5;
+        }
+        
+        .conversation-actions {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            display: none;
+            gap: 0.25rem;
+        }
+        
+        .conversation-actions button {
+            background: rgba(255,255,255,0.9);
+            border: 1px solid #e2e8f0;
+            border-radius: 0.25rem;
+            padding: 0.25rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .conversation-actions button:hover {
+            background: #f7fafc;
+            border-color: #cbd5e0;
         }
         
         .conversation-title {
@@ -504,50 +532,15 @@
         
         // Initialize chat on page load
         document.addEventListener('DOMContentLoaded', function() {
-            initializeWebSocket();
+            isConnected = true; // Always connected via HTTP API
             loadConversations();
+            loadConversationHistory();
             updateSendButton();
             
             // Focus on input
             document.getElementById('message-input').focus();
+            hideConnectionStatus();
         });
-        
-        // WebSocket Functions
-        function initializeWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws/chat`;
-            
-            wsConnection = new WebSocket(wsUrl);
-            
-            wsConnection.onopen = function(event) {
-                console.log('WebSocket connected');
-                isConnected = true;
-                hideConnectionStatus();
-            };
-            
-            wsConnection.onmessage = function(event) {
-                try {
-                    const message = JSON.parse(event.data);
-                    handleIncomingMessage(message);
-                } catch (error) {
-                    console.error('Error parsing WebSocket message:', error);
-                }
-            };
-            
-            wsConnection.onclose = function(event) {
-                console.log('WebSocket disconnected');
-                isConnected = false;
-                showConnectionStatus('Disconnected - Attempting to reconnect...');
-                
-                // Attempt to reconnect after 3 seconds
-                setTimeout(initializeWebSocket, 3000);
-            };
-            
-            wsConnection.onerror = function(error) {
-                console.error('WebSocket error:', error);
-                showConnectionStatus('Connection error - Attempting to reconnect...');
-            };
-        }
         
         function showConnectionStatus(message) {
             const status = document.getElementById('connection-status');
@@ -582,74 +575,97 @@
             // Show typing indicator
             showTypingIndicator();
             
-            // Send message via WebSocket
-            if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
-                const message = {
-                    type: 'chat_message',
-                    conversation_id: currentConversationId,
-                    content: content,
-                    timestamp: new Date().toISOString()
-                };
-                
-                wsConnection.send(JSON.stringify(message));
-            } else {
-                // Fallback to HTTP if WebSocket is not available
-                sendMessageHTTP(content);
-            }
+            // Send message via HTTP API
+            sendMessageHTTP(content);
         }
         
         function sendMessageHTTP(content) {
-            fetch('/htmx/chat/message', {
+            // Generate new conversation ID if we don't have one
+            if (!currentConversationId) {
+                currentConversationId = 'conv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                console.log('[AI Chat Debug] Generated new conversation ID:', currentConversationId);
+            }
+            
+            const requestTime = performance.now();
+            const requestBody = `message=${encodeURIComponent(content)}&conversation_id=${encodeURIComponent(currentConversationId || '')}{{if .CSRFToken}}&csrf_token=${encodeURIComponent('{{.CSRFToken}}')}{{end}}`;
+            
+            console.log('[AI Chat Debug] Starting request:', {
+                timestamp: new Date().toISOString(),
+                url: '/htmx/ai/chat',
+                method: 'POST',
+                message_length: content.length,
+                conversation_id: currentConversationId,
+                csrf_token_present: {{if .CSRFToken}}true{{else}}false{{end}},
+                request_body_length: requestBody.length,
+                message_preview: content.substring(0, 100)
+            });
+            
+            fetch('/htmx/ai/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `message=${encodeURIComponent(content)}&conversation_id=${currentConversationId || ''}`
+                body: requestBody
             })
-            .then(response => response.json())
-            .then(data => {
+            .then(response => {
+                const responseTime = performance.now() - requestTime;
+                
+                console.log('[AI Chat Debug] Response received:', {
+                    timestamp: new Date().toISOString(),
+                    status: response.status,
+                    status_text: response.statusText,
+                    content_type: response.headers.get('Content-Type'),
+                    response_time_ms: responseTime.toFixed(2),
+                    ok: response.ok
+                });
+                
+                if (!response.ok) {
+                    console.error('[AI Chat Debug] HTTP Error Details:', {
+                        status: response.status,
+                        status_text: response.statusText,
+                        headers: Object.fromEntries(response.headers.entries())
+                    });
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(html => {
+                const totalTime = performance.now() - requestTime;
                 hideTypingIndicator();
                 
-                if (data.error) {
-                    addMessageToChat('assistant', 'Sorry, I encountered an error processing your message. Please try again.', 'AI Chef', 'Just now');
-                } else {
-                    addMessageToChat('assistant', data.response, 'AI Chef', 'Just now');
-                    if (data.conversation_id) {
-                        currentConversationId = data.conversation_id;
-                    }
-                }
+                console.log('[AI Chat Debug] Response processed:', {
+                    timestamp: new Date().toISOString(),
+                    html_length: html.length,
+                    total_time_ms: totalTime.toFixed(2),
+                    html_preview: html.substring(0, 200)
+                });
+                
+                // The HTMX AI chat returns HTML content directly
+                // Insert it into the chat messages container
+                const messagesContainer = document.getElementById('chat-messages');
+                messagesContainer.insertAdjacentHTML('beforeend', html);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                console.log('[AI Chat Debug] HTML inserted successfully');
             })
             .catch(error => {
-                console.error('Error sending message:', error);
+                const errorTime = performance.now() - requestTime;
+                
+                console.error('[AI Chat Debug] Request failed:', {
+                    timestamp: new Date().toISOString(),
+                    error_message: error.message,
+                    error_type: error.constructor.name,
+                    error_stack: error.stack,
+                    time_to_error_ms: errorTime.toFixed(2),
+                    request_url: '/htmx/ai/chat',
+                    request_method: 'POST'
+                });
+                
                 hideTypingIndicator();
                 addMessageToChat('assistant', 'Sorry, I\'m having trouble connecting. Please check your connection and try again.', 'AI Chef', 'Just now');
             });
         }
         
-        function handleIncomingMessage(message) {
-            hideTypingIndicator();
-            
-            switch (message.type) {
-            case 'chat_response':
-                addMessageToChat('assistant', message.content, 'AI Chef', 'Just now');
-                if (message.conversation_id) {
-                    currentConversationId = message.conversation_id;
-                }
-                break;
-                
-            case 'conversation_created':
-                currentConversationId = message.conversation_id;
-                loadConversations();
-                break;
-                
-            case 'error':
-                addMessageToChat('assistant', 'Sorry, I encountered an error. Please try again.', 'AI Chef', 'Just now');
-                break;
-                
-            default:
-                console.log('Received message:', message);
-            }
-        }
         
         function addMessageToChat(role, content, author, time) {
             const messagesContainer = document.getElementById('chat-messages');
@@ -740,10 +756,14 @@
         
         // Conversation Management
         function startNewConversation() {
-            currentConversationId = null;
+            // Generate new conversation ID immediately
+            currentConversationId = 'conv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            console.log('[AI Chat Debug] Starting new conversation:', currentConversationId);
+            
             clearChatMessages();
             showWelcomeMessage();
             showSuggestions();
+            loadConversations(); // Refresh conversation list
             document.getElementById('conversation-title').textContent = 'New conversation';
             document.getElementById('message-input').focus();
         }
@@ -778,9 +798,191 @@
         }
         
         function loadConversations() {
-            // This would typically fetch conversations from the server
-            console.log('Loading conversations...');
-            // For now, we'll show a placeholder
+            fetch('/htmx/chat/conversations-list'{{if .CSRFToken}}, {
+                method: 'GET',
+                headers: {
+                    'X-CSRF-Token': '{{.CSRFToken}}'
+                }
+            }{{end}})
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('conversation-list').innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error loading conversations:', error);
+                    document.getElementById('conversation-list').innerHTML = `
+                        <div style="padding: 1rem; text-align: center; color: #e53e3e;">
+                            Failed to load conversations
+                        </div>
+                    `;
+                });
+        }
+        
+        function loadConversationHistory() {
+            fetch('/htmx/chat/history'{{if .CSRFToken}}, {
+                method: 'GET',
+                headers: {
+                    'X-CSRF-Token': '{{.CSRFToken}}'
+                }
+            }{{end}})
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('chat-messages').innerHTML = html;
+                    scrollToBottom();
+                })
+                .catch(error => {
+                    console.error('Error loading conversation history:', error);
+                });
+        }
+        
+        function reloadCurrentConversation() {
+            loadConversationHistory();
+        }
+        
+        function clearCurrentConversation() {
+            if (confirm('Are you sure you want to clear this conversation? This action cannot be undone.')) {
+                fetch('/htmx/ai/chat/reset'{{if .CSRFToken}}, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRF-Token': '{{.CSRFToken}}'
+                    }
+                }{{end}})
+                    .then(response => response.text())
+                    .then(html => {
+                        document.getElementById('chat-messages').innerHTML = html;
+                        loadConversations(); // Refresh conversation list
+                        scrollToBottom();
+                    })
+                    .catch(error => {
+                        console.error('Error clearing conversation:', error);
+                    });
+            }
+        }
+        
+        function loadConversation(conversationId) {
+            if (!conversationId) return;
+            
+            currentConversationId = conversationId;
+            
+            // Update active conversation in sidebar
+            document.querySelectorAll('.conversation-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`[data-conversation-id="${conversationId}"]`).classList.add('active');
+            
+            // Load conversation messages
+            fetch(`/api/chat/history?conversation_id=${conversationId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        clearChatMessages();
+                        document.getElementById('conversation-title').textContent = data.conversation.title;
+                        
+                        // Load all messages
+                        data.messages.forEach(message => {
+                            const role = message.role === 'user' ? 'user' : 'assistant';
+                            const author = message.role === 'user' ? 'You' : 'AI Chef';
+                            const time = formatMessageTime(message.created_at);
+                            addMessageToChat(role, message.content, author, time);
+                        });
+                        
+                        hideSuggestions();
+                        scrollToBottom();
+                    } else {
+                        console.error('Failed to load conversation:', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading conversation:', error);
+                });
+        }
+        
+        function renameConversation(conversationId, currentTitle) {
+            const newTitle = prompt('Enter new conversation title:', currentTitle);
+            if (!newTitle || newTitle.trim() === '' || newTitle === currentTitle) return;
+            
+            fetch('/api/chat/rename', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `conversation_id=${encodeURIComponent(conversationId)}&title=${encodeURIComponent(newTitle.trim())}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the title in the sidebar
+                    const conversationItem = document.querySelector(`[data-conversation-id="${conversationId}"] .conversation-title`);
+                    if (conversationItem) {
+                        conversationItem.textContent = newTitle.trim();
+                    }
+                    
+                    // Update the header if this is the active conversation
+                    if (currentConversationId === conversationId) {
+                        document.getElementById('conversation-title').textContent = newTitle.trim();
+                    }
+                } else {
+                    alert('Failed to rename conversation: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error renaming conversation:', error);
+                alert('Failed to rename conversation. Please try again.');
+            });
+        }
+        
+        function deleteConversation(conversationId) {
+            if (!confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+                return;
+            }
+            
+            fetch('/api/chat/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `conversation_id=${encodeURIComponent(conversationId)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove from sidebar
+                    const conversationItem = document.querySelector(`[data-conversation-id="${conversationId}"]`);
+                    if (conversationItem) {
+                        conversationItem.remove();
+                    }
+                    
+                    // If this was the active conversation, start a new one
+                    if (currentConversationId === conversationId) {
+                        startNewConversation();
+                    }
+                } else {
+                    alert('Failed to delete conversation: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting conversation:', error);
+                alert('Failed to delete conversation. Please try again.');
+            });
+        }
+        
+        function formatMessageTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) {
+                return 'Just now';
+            } else if (diff < 3600000) {
+                const minutes = Math.floor(diff / 60000);
+                return `${minutes}m ago`;
+            } else if (diff < 86400000) {
+                const hours = Math.floor(diff / 3600000);
+                return `${hours}h ago`;
+            } else {
+                return date.toLocaleDateString();
+            }
         }
         
         function shareConversation() {

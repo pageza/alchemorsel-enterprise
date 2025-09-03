@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/alchemorsel/v3/internal/application/user"
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
 	"github.com/alchemorsel/v3/internal/infrastructure/http/handlers"
@@ -23,16 +24,17 @@ import (
 
 // PureAPIServer represents a pure JSON API HTTP server (no frontend templates)
 type PureAPIServer struct {
-	config        *config.Config
-	logger        *zap.Logger
-	server        *http.Server
-	router        *chi.Mux
-	recipeService inbound.RecipeService
-	userService   *user.UserService
-	authService   *security.AuthService
-	aiService     outbound.AIService
-	healthCheck   *healthcheck.EnterpriseHealthCheck
-	openAPIHandler *OpenAPIHandler
+	config             *config.Config
+	logger             *zap.Logger
+	server             *http.Server
+	router             *chi.Mux
+	recipeService      inbound.RecipeService
+	userService        *user.UserService
+	authService        *security.AuthService
+	aiService          outbound.AIService
+	conversationService *conversation.Service
+	healthCheck        *healthcheck.EnterpriseHealthCheck
+	openAPIHandler     *OpenAPIHandler
 }
 
 // NewPureAPIServer creates a new pure API server instance
@@ -43,17 +45,19 @@ func NewPureAPIServer(
 	userService *user.UserService,
 	authService *security.AuthService,
 	aiService outbound.AIService,
+	conversationService *conversation.Service,
 	healthCheck *healthcheck.EnterpriseHealthCheck,
 ) *PureAPIServer {
 	server := &PureAPIServer{
-		config:        cfg,
-		logger:        log,
-		recipeService: recipeService,
-		userService:   userService,
-		authService:   authService,
-		aiService:     aiService,
-		healthCheck:   healthCheck,
-		openAPIHandler: NewOpenAPIHandler(log),
+		config:             cfg,
+		logger:             log,
+		recipeService:      recipeService,
+		userService:        userService,
+		authService:        authService,
+		aiService:          aiService,
+		conversationService: conversationService,
+		healthCheck:        healthCheck,
+		openAPIHandler:     NewOpenAPIHandler(log),
 	}
 
 	server.router = server.setupRoutes()
@@ -110,6 +114,7 @@ func (s *PureAPIServer) setupAPIV3Routes(r chi.Router) {
 	h := handlers.NewAPIHandlers(s.recipeService, s.logger)
 	authH := handlers.NewAuthAPIHandlers(s.userService, s.authService, s.logger)
 	aiH := handlers.NewAIAPIHandlers(s.aiService, s.logger)
+	chatH := handlers.NewChatAPIHandlers(s.conversationService, s.logger)
 
 	// Authentication routes
 	r.Route("/auth", func(r chi.Router) {
@@ -149,6 +154,18 @@ func (s *PureAPIServer) setupAPIV3Routes(r chi.Router) {
 		r.Post("/generate-recipe", aiH.GenerateRecipe)
 		r.Post("/suggest-ingredients", aiH.SuggestIngredients)
 		r.Post("/analyze-nutrition", aiH.AnalyzeNutrition)
+	})
+
+	// Chat/Conversation routes
+	r.Route("/chat", func(r chi.Router) {
+		r.Use(middleware.AuthenticateAPI(s.authService))
+		r.Get("/conversations", chatH.ListConversations)
+		r.Post("/conversations", chatH.CreateConversation)
+		r.Get("/conversations/{id}", chatH.GetConversation)
+		r.Put("/conversations/{id}", chatH.UpdateConversation)
+		r.Delete("/conversations/{id}", chatH.DeleteConversation)
+		r.Get("/conversations/{id}/messages", chatH.GetConversationMessages)
+		r.Post("/conversations/{id}/messages", chatH.SendMessage)
 	})
 
 	// User routes  

@@ -278,46 +278,58 @@
         </div>
         {{end}}
         
-        <!-- Simplified Recipe Preview Cards -->
+        <!-- Recipe Preview Cards -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
-            <div class="card" style="overflow: hidden;">
-                <img src="/static/img/placeholder-recipe.jpg" alt="Pasta Carbonara" loading="lazy" style="width: 100%; height: 200px; object-fit: cover;">
-                <div style="padding: 1.5rem;">
-                    <h3 style="margin: 0 0 0.5rem 0;">Classic Pasta Carbonara</h3>
-                    <p style="color: #718096; margin-bottom: 1rem; font-size: 0.9rem;">Rich and creamy Italian pasta with eggs, cheese, and pancetta</p>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <div style="color: #f39c12; font-size: 0.9rem;">★★★★★ 4.8</div>
-                        <div style="color: #718096; font-size: 0.875rem;">⏱️ 25 min</div>
+            {{if .Dashboard.FeaturedRecipes}}
+                {{range .Dashboard.FeaturedRecipes}}
+                <div class="card" style="overflow: hidden;">
+                    <img src="{{.ImageURL}}" alt="{{.Title}}" loading="lazy" style="width: 100%; height: 200px; object-fit: cover; background: linear-gradient(45deg, #f0f2f5, #e2e8f0);">
+                    <div style="padding: 1.5rem;">
+                        <h3 style="margin: 0 0 0.5rem 0;">{{.Title}}</h3>
+                        <p style="color: #718096; margin-bottom: 1rem; font-size: 0.9rem;">{{.Description}}</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <div style="color: #f39c12; font-size: 0.9rem;">★★★★☆ {{printf "%.1f" .Rating}}</div>
+                            <div style="color: #718096; font-size: 0.875rem;">⏱️ {{.CookTime}} min</div>
+                        </div>
+                        <a href="/recipes/{{.ID}}" class="btn btn-primary" style="width: 100%; text-align: center;">View Recipe</a>
                     </div>
-                    <a href="/recipes/1" class="btn btn-primary" style="width: 100%; text-align: center;">View Recipe</a>
                 </div>
-            </div>
-            
-            <div class="card" style="overflow: hidden;">
-                <img src="/static/img/placeholder-recipe-2.jpg" alt="Chicken Tikka Masala" loading="lazy" style="width: 100%; height: 200px; object-fit: cover;">
-                <div style="padding: 1.5rem;">
-                    <h3 style="margin: 0 0 0.5rem 0;">Chicken Tikka Masala</h3>
-                    <p style="color: #718096; margin-bottom: 1rem; font-size: 0.9rem;">Creamy tomato-based curry with tender marinated chicken</p>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <div style="color: #f39c12; font-size: 0.9rem;">★★★★☆ 4.6</div>
-                        <div style="color: #718096; font-size: 0.875rem;">⏱️ 45 min</div>
+                {{end}}
+            {{else if .FeaturedRecipes}}
+                {{range .FeaturedRecipes}}
+                <div class="card" style="overflow: hidden;">
+                    <img src="{{.ImageURL}}" alt="{{.Title}}" loading="lazy" style="width: 100%; height: 200px; object-fit: cover; background: linear-gradient(45deg, #f0f2f5, #e2e8f0);">
+                    <div style="padding: 1.5rem;">
+                        <h3 style="margin: 0 0 0.5rem 0;">{{.Title}}</h3>
+                        <p style="color: #718096; margin-bottom: 1rem; font-size: 0.9rem;">{{.Description}}</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <div style="color: #f39c12; font-size: 0.9rem;">★★★★☆ {{printf "%.1f" .Rating}}</div>
+                            <div style="color: #718096; font-size: 0.875rem;">⏱️ {{.CookTime}} min</div>
+                        </div>
+                        <a href="/recipes/{{.ID}}" class="btn btn-primary" style="width: 100%; text-align: center;">View Recipe</a>
                     </div>
-                    <a href="/recipes/2" class="btn btn-primary" style="width: 100%; text-align: center;">View Recipe</a>
                 </div>
-            </div>
-            
-            <div class="card" style="overflow: hidden;">
-                <img src="/static/img/placeholder-recipe-3.jpg" alt="Chocolate Chip Cookies" loading="lazy" style="width: 100%; height: 200px; object-fit: cover;">
-                <div style="padding: 1.5rem;">
-                    <h3 style="margin: 0 0 0.5rem 0;">Perfect Chocolate Chip Cookies</h3>
-                    <p style="color: #718096; margin-bottom: 1rem; font-size: 0.9rem;">Crispy edges, chewy center, and loaded with chocolate chips</p>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <div style="color: #f39c12; font-size: 0.9rem;">★★★★★ 4.9</div>
-                        <div style="color: #718096; font-size: 0.875rem;">⏱️ 30 min</div>
+                {{end}}
+            {{else}}
+                <!-- Fallback placeholder recipes if no data available -->
+                <div class="card" style="overflow: hidden;">
+                    <div style="width: 100%; height: 200px; background: linear-gradient(45deg, #f0f2f5, #e2e8f0); display: flex; align-items: center; justify-content: center; color: #718096;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🍴</div>
+                            <div>Recipe Image</div>
+                        </div>
                     </div>
-                    <a href="/recipes/3" class="btn btn-primary" style="width: 100%; text-align: center;">View Recipe</a>
+                    <div style="padding: 1.5rem;">
+                        <h3 style="margin: 0 0 0.5rem 0;">Discover Amazing Recipes</h3>
+                        <p style="color: #718096; margin-bottom: 1rem; font-size: 0.9rem;">Join Alchemorsel to discover and create incredible recipes with AI assistance</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <div style="color: #f39c12; font-size: 0.9rem;">★★★★★</div>
+                            <div style="color: #718096; font-size: 0.875rem;">✨ AI Powered</div>
+                        </div>
+                        <a href="/register" class="btn btn-primary" style="width: 100%; text-align: center;">Get Started</a>
+                    </div>
                 </div>
-            </div>
+            {{end}}
         </div>
         
         {{if not .User}}

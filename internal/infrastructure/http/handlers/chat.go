@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/alchemorsel/v3/internal/application/conversation"
 )
@@ -225,6 +226,120 @@ func (h *ChatHandler) HandleConversationDelete(w http.ResponseWriter, r *http.Re
 	})
 }
 
+// HandleConversationRename renames a conversation
+func (h *ChatHandler) HandleConversationRename(w http.ResponseWriter, r *http.Request) {
+	user := getUserFromHTTPContext(r.Context())
+	if user == nil {
+		h.writeErrorResponse(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	conversationID := r.FormValue("conversation_id")
+	newTitle := strings.TrimSpace(r.FormValue("title"))
+	
+	if conversationID == "" {
+		h.writeErrorResponse(w, "Conversation ID required", http.StatusBadRequest)
+		return
+	}
+	
+	if newTitle == "" {
+		h.writeErrorResponse(w, "Title cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Check if user owns the conversation
+	conv, err := h.convService.GetConversation(ctx, conversationID)
+	if err != nil {
+		log.Printf("Failed to get conversation: %v", err)
+		h.writeErrorResponse(w, "Conversation not found", http.StatusNotFound)
+		return
+	}
+
+	if conv.UserID != user.ID {
+		h.writeErrorResponse(w, "Access denied", http.StatusForbidden)
+		return
+	}
+
+	// Rename the conversation
+	if err := h.convService.RenameConversation(ctx, conversationID, newTitle); err != nil {
+		log.Printf("Failed to rename conversation: %v", err)
+		h.writeErrorResponse(w, "Failed to rename conversation", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Conversation renamed successfully",
+		"title":   newTitle,
+	})
+}
+
+// HandleConversationListHTMX returns user's conversations as HTMX partial
+func (h *ChatHandler) HandleConversationListHTMX(w http.ResponseWriter, r *http.Request) {
+	user := getUserFromHTTPContext(r.Context())
+	if user == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`<div class="error">Please log in to view conversations</div>`))
+		return
+	}
+
+	ctx := r.Context()
+	conversations, err := h.convService.GetUserConversations(ctx, user.ID, 50, 0)
+	if err != nil {
+		log.Printf("Failed to get conversations: %v", err)
+		w.Write([]byte(`<div class="error">Failed to load conversations</div>`))
+		return
+	}
+
+	html := ""
+	for _, conv := range conversations {
+		// Get first message for preview
+		_, messages, err := h.convService.GetConversationWithMessages(ctx, conv.ID)
+		preview := "No messages yet"
+		if err == nil && len(messages) > 0 {
+			content := messages[0].Content
+			if len(content) > 60 {
+				content = content[:60] + "..."
+			}
+			preview = content
+		}
+
+		// Format time
+		timeFormatted := h.formatTimeAgo(conv.UpdatedAt)
+		
+		html += fmt.Sprintf(`
+			<div class="conversation-item" onclick="loadConversation('%s')" data-conversation-id="%s">
+				<div class="conversation-title">%s</div>
+				<div class="conversation-preview">%s</div>
+				<div class="conversation-time">%s</div>
+				<div class="conversation-actions" style="display: none;">
+					<button onclick="event.stopPropagation(); renameConversation('%s', '%s')" title="Rename">
+						✏️
+					</button>
+					<button onclick="event.stopPropagation(); deleteConversation('%s')" title="Delete">
+						🗑️
+					</button>
+				</div>
+			</div>
+		`, conv.ID, conv.ID, h.escapeHTML(conv.Title), h.escapeHTML(preview), timeFormatted, conv.ID, h.escapeHTML(conv.Title), conv.ID)
+	}
+
+	if html == "" {
+		html = `
+			<div style="padding: 2rem 1rem; text-align: center; color: #718096;">
+				<div style="margin-bottom: 1rem;">💬</div>
+				<p style="font-size: 0.875rem;">Start a new conversation with our AI Chef!</p>
+			</div>
+		`
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
 // HandleConversationStats returns conversation statistics for a user
 func (h *ChatHandler) HandleConversationStats(w http.ResponseWriter, r *http.Request) {
 	user := getUserFromHTTPContext(r.Context())
@@ -380,6 +495,37 @@ func (h *ChatHandler) writeHTMXError(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(html))
 }
+
+// formatTimeAgo formats a timestamp to a human-readable relative time
+func (h *ChatHandler) formatTimeAgo(t time.Time) string {
+	now := time.Now()
+	diff := now.Sub(t)
+	
+	if diff < time.Minute {
+		return "Just now"
+	} else if diff < time.Hour {
+		minutes := int(diff.Minutes())
+		if minutes == 1 {
+			return "1 minute ago"
+		}
+		return fmt.Sprintf("%d minutes ago", minutes)
+	} else if diff < 24*time.Hour {
+		hours := int(diff.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	} else if diff < 7*24*time.Hour {
+		days := int(diff.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	} else {
+		return t.Format("Jan 2, 2006")
+	}
+}
+
 
 // escapeHTML escapes HTML characters to prevent XSS
 func (h *ChatHandler) escapeHTML(s string) string {

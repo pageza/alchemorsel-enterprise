@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/alchemorsel/v3/internal/application/user"
 	"github.com/alchemorsel/v3/internal/domain/recipe"
 	"github.com/alchemorsel/v3/internal/infrastructure/security"
@@ -23,13 +24,14 @@ import (
 
 // FrontendHandlers handles frontend HTMX requests
 type FrontendHandlers struct {
-	templates       *template.Template
-	recipeService   inbound.RecipeService
-	userService     *user.UserService
-	authService     *security.AuthService
-	aiService       outbound.AIService
-	xssProtection   *security.XSSProtectionService
-	logger          *zap.Logger
+	templates           *template.Template
+	recipeService       inbound.RecipeService
+	userService         *user.UserService
+	conversationService *conversation.Service
+	authService         *security.AuthService
+	aiService           outbound.AIService
+	xssProtection       *security.XSSProtectionService
+	logger              *zap.Logger
 }
 
 // NewFrontendHandlers creates a new frontend handlers instance
@@ -37,19 +39,21 @@ func NewFrontendHandlers(
 	templates *template.Template,
 	recipeService inbound.RecipeService,
 	userService *user.UserService,
+	conversationService *conversation.Service,
 	authService *security.AuthService,
 	aiService outbound.AIService,
 	xssProtection *security.XSSProtectionService,
 	logger *zap.Logger,
 ) *FrontendHandlers {
 	return &FrontendHandlers{
-		templates:     templates,
-		recipeService: recipeService,
-		userService:   userService,
-		authService:   authService,
-		aiService:     aiService,
-		xssProtection: xssProtection,
-		logger:        logger,
+		templates:           templates,
+		recipeService:       recipeService,
+		userService:         userService,
+		conversationService: conversationService,
+		authService:         authService,
+		aiService:           aiService,
+		xssProtection:       xssProtection,
+		logger:              logger,
 	}
 }
 
@@ -70,14 +74,74 @@ type Message struct {
 	Content string
 }
 
+// UserDashboard represents dashboard data for logged-in users
+type UserDashboard struct {
+	User               *user.UserDTO             `json:"user"`
+	RecipeStats        *UserRecipeStats          `json:"recipe_stats"`
+	ConversationStats  *UserConversationStats    `json:"conversation_stats"`
+	RecentRecipes      []inbound.RecipeDTO       `json:"recent_recipes"`
+	FeaturedRecipes    []inbound.RecipeDTO       `json:"featured_recipes"`
+	QuickActions       []QuickAction             `json:"quick_actions"`
+}
+
+// UserRecipeStats contains user recipe statistics
+type UserRecipeStats struct {
+	TotalRecipes    int `json:"total_recipes"`
+	PublishedRecipes int `json:"published_recipes"`
+	TotalLikes      int `json:"total_likes"`
+	TotalViews      int `json:"total_views"`
+	AvgRating       float64 `json:"avg_rating"`
+}
+
+// UserConversationStats contains user AI conversation statistics
+type UserConversationStats struct {
+	TotalConversations int `json:"total_conversations"`
+	ActiveConversations int `json:"active_conversations"`
+	RecipesGenerated   int `json:"recipes_generated"`
+}
+
+// QuickAction represents a dashboard quick action
+type QuickAction struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+	URL         string `json:"url"`
+}
+
 // HandleHome renders the home page with critical 14KB optimization
 func (h *FrontendHandlers) HandleHome(w http.ResponseWriter, r *http.Request) {
+	user := h.getUserFromRequest(r)
+	
 	data := PageData{
-		Title:       "Alchemorsel - AI-Powered Recipe Platform",
+		Title:       "Alchemorsel - AI-Powered Recipe Platform", 
 		Description: "Discover, create, and share recipes with AI assistance",
 		Keywords:    "recipes, cooking, AI, food, ingredients",
-		User:        h.getUserFromRequest(r),
+		User:        user,
 		HTMX:        r.Header.Get("HX-Request") == "true",
+	}
+
+	// If user is authenticated, fetch dashboard data
+	if user != nil {
+		dashboard, err := h.buildUserDashboard(r.Context(), user)
+		if err != nil {
+			h.logger.Error("Failed to build user dashboard", 
+				zap.Error(err), 
+				zap.String("user_id", user.ID.String()),
+			)
+			// Still render page but without dashboard data
+		} else {
+			data.Data = dashboard
+		}
+	} else {
+		// For unauthenticated users, fetch featured recipes
+		featuredRecipes, err := h.getFeaturedRecipes(r.Context())
+		if err != nil {
+			h.logger.Error("Failed to fetch featured recipes", zap.Error(err))
+		} else {
+			data.Data = map[string]interface{}{
+				"featured_recipes": featuredRecipes,
+			}
+		}
 	}
 
 	// If this is an HTMX request, return only the content
@@ -1261,4 +1325,157 @@ func (h *FrontendHandlers) buildRecipeAIResponseText(aiResponse *outbound.AIReci
 	}
 	
 	return response
+}
+
+// buildUserDashboard constructs dashboard data for authenticated users
+func (h *FrontendHandlers) buildUserDashboard(ctx context.Context, user *user.UserDTO) (*UserDashboard, error) {
+	dashboard := &UserDashboard{
+		User: user,
+	}
+
+	// Fetch user recipes with pagination
+	paginationParams := inbound.PaginationParams{
+		Page:     1,
+		PageSize: 10,
+		OrderBy:  "created_at",
+		Order:    "desc",
+	}
+	
+	userRecipes, err := h.recipeService.GetRecipesByUser(ctx, user.ID, paginationParams)
+	if err != nil {
+		h.logger.Warn("Failed to fetch user recipes for dashboard",
+			zap.Error(err),
+			zap.String("user_id", user.ID.String()),
+		)
+	} else {
+		// Calculate recipe statistics
+		recipeStats := h.calculateRecipeStats(userRecipes.Recipes)
+		dashboard.RecipeStats = recipeStats
+		dashboard.RecentRecipes = userRecipes.Recipes
+	}
+
+	// Fetch conversation statistics
+	if h.conversationService != nil {
+		convStats, err := h.conversationService.GetConversationStats(ctx, user.ID.String())
+		if err != nil {
+			h.logger.Warn("Failed to fetch conversation stats for dashboard",
+				zap.Error(err),
+				zap.String("user_id", user.ID.String()),
+			)
+		} else {
+			dashboard.ConversationStats = h.buildConversationStats(convStats)
+		}
+	}
+
+	// Fetch featured/trending recipes
+	featuredRecipes, err := h.recipeService.GetTrendingRecipes(ctx, inbound.PaginationParams{
+		Page:     1,
+		PageSize: 6,
+		OrderBy:  "likes",
+		Order:    "desc",
+	})
+	if err != nil {
+		h.logger.Warn("Failed to fetch trending recipes for dashboard", zap.Error(err))
+	} else {
+		dashboard.FeaturedRecipes = featuredRecipes.Recipes
+	}
+
+	// Build quick actions
+	dashboard.QuickActions = []QuickAction{
+		{
+			Title:       "Create Recipe",
+			Description: "Add a new recipe to your collection",
+			Icon:        "➕",
+			URL:         "/recipes/new",
+		},
+		{
+			Title:       "AI Chef Chat",
+			Description: "Get cooking help from AI",
+			Icon:        "🤖",
+			URL:         "/ai/chat",
+		},
+		{
+			Title:       "My Recipes",
+			Description: "Browse your recipe collection",
+			Icon:        "📚",
+			URL:         "/recipes?author=" + user.ID.String(),
+		},
+		{
+			Title:       "Favorites",
+			Description: "View your saved recipes",
+			Icon:        "❤️",
+			URL:         "/favorites",
+		},
+	}
+
+	return dashboard, nil
+}
+
+// calculateRecipeStats computes statistics from user recipes
+func (h *FrontendHandlers) calculateRecipeStats(recipes []inbound.RecipeDTO) *UserRecipeStats {
+	stats := &UserRecipeStats{}
+	
+	totalLikes := 0
+	totalViews := 0
+	totalRating := 0.0
+	publishedCount := 0
+	
+	for _, recipe := range recipes {
+		totalLikes += recipe.Likes
+		totalViews += recipe.Views
+		totalRating += recipe.Rating
+		
+		if recipe.Status == recipe.Status { // Assuming published status check
+			publishedCount++
+		}
+	}
+	
+	stats.TotalRecipes = len(recipes)
+	stats.PublishedRecipes = publishedCount
+	stats.TotalLikes = totalLikes
+	stats.TotalViews = totalViews
+	
+	if len(recipes) > 0 {
+		stats.AvgRating = totalRating / float64(len(recipes))
+	}
+	
+	return stats
+}
+
+// buildConversationStats converts conversation service stats to dashboard format
+func (h *FrontendHandlers) buildConversationStats(stats map[string]interface{}) *UserConversationStats {
+	convStats := &UserConversationStats{}
+	
+	if totalConv, ok := stats["total_conversations"].(int); ok {
+		convStats.TotalConversations = totalConv
+	}
+	
+	if activeConv, ok := stats["active_conversations"].(int); ok {
+		convStats.ActiveConversations = activeConv
+	}
+	
+	// Count recipe-related conversations as recipes generated
+	if intents, ok := stats["intents"].(map[string]interface{}); ok {
+		if recipeCount, ok := intents["recipe_generation"].(int); ok {
+			convStats.RecipesGenerated = recipeCount
+		}
+	}
+	
+	return convStats
+}
+
+// getFeaturedRecipes fetches featured recipes for unauthenticated users
+func (h *FrontendHandlers) getFeaturedRecipes(ctx context.Context) ([]inbound.RecipeDTO, error) {
+	// Get trending recipes for featured section
+	trendingRecipes, err := h.recipeService.GetTrendingRecipes(ctx, inbound.PaginationParams{
+		Page:     1,
+		PageSize: 6,
+		OrderBy:  "views",
+		Order:    "desc",
+	})
+	if err != nil {
+		return []inbound.RecipeDTO{}, err
+	}
+	
+	return trendingRecipes.Recipes, nil
 }

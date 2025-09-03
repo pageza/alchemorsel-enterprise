@@ -246,6 +246,19 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 		
 		// AI Chat endpoints - Now properly secured
 		r.Post("/ai/chat", s.handleHTMXAIChat)
+		r.Post("/ai/chat/reset", s.handleHTMXAIChatReset)
+		
+		// Multi-Chat API endpoints
+		r.Get("/api/chat/conversations", s.handleAPIConversationList)
+		r.Get("/api/chat/history", s.handleAPIConversationHistory)
+		r.Post("/api/chat/message", s.handleAPIChatMessage)
+		r.Post("/api/chat/rename", s.handleAPIConversationRename)
+		r.Post("/api/chat/delete", s.handleAPIConversationDelete)
+		
+		// Multi-Chat HTMX endpoints
+		r.Get("/chat/conversations-list", s.handleHTMXConversationList)
+		r.Get("/chat/history", s.handleHTMXConversationHistory)
+		
 		r.Post("/recipes/search", s.handleHTMXRecipeSearch)
 	})
 
@@ -634,22 +647,30 @@ func (s *WebServer) handleHome(w http.ResponseWriter, r *http.Request) {
 		zap.Any("user", user),
 	)
 	
-	// Generate CSRF token for authenticated users
-	var csrfToken string
+	// Authenticated users get redirected to AI Chat (their "home")
 	if isAuthenticated {
-		userID := s.sessionManager.GetString(r.Context(), "user_id")
-		if userID != "" {
-			csrfToken = s.generateCSRFToken(userID)
-		}
+		http.Redirect(w, r, "/ai/chat", http.StatusSeeOther)
+		return
+	}
+
+	// For unauthenticated users, show marketing page
+	data := map[string]interface{}{
+		"Title":           "Welcome to Alchemorsel",
+		"User":            nil,
+		"IsAuthenticated": false,
+		"CurrentPage":     "home",
+	}
+
+	// Fetch featured recipes for unauthenticated users
+	featuredRecipes, err := s.getFeaturedRecipes(r.Context())
+	if err != nil {
+		s.logger.Error("Failed to fetch featured recipes", zap.Error(err))
+	} else {
+		data["FeaturedRecipes"] = featuredRecipes
 	}
 	
-	// Render home page with user context
-	s.renderTemplate(w, "home", map[string]interface{}{
-		"Title":           "Welcome to Alchemorsel",
-		"User":            user,
-		"IsAuthenticated": isAuthenticated,
-		"CSRFToken":       csrfToken,
-	})
+	// Render home page for unauthenticated users only
+	s.renderTemplate(w, "home", data)
 }
 
 func (s *WebServer) handleLoginPage(w http.ResponseWriter, r *http.Request) {
@@ -705,7 +726,7 @@ func (s *WebServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 	// Redirect to home or requested page
 	redirect := r.URL.Query().Get("redirect")
 	if redirect == "" {
-		redirect = "/dashboard"
+		redirect = "/" // Let handleHome redirect authenticated users to AI chat
 	}
 	
 	// Check if this is an HTMX request
@@ -861,8 +882,32 @@ func (s *WebServer) handleDeleteRecipe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *WebServer) handleAIChatPage(w http.ResponseWriter, r *http.Request) {
-	s.renderTemplate(w, "ai-chat", map[string]interface{}{
-		"Title": "AI Chef - Alchemorsel",
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	var user interface{} = nil
+	
+	// Get user information if authenticated
+	if userID != "" {
+		// In a real application, you'd fetch user details from the database
+		// For now, we'll create a simple user object
+		user = map[string]interface{}{
+			"ID":   userID,
+			"Name": s.sessionManager.GetString(r.Context(), "user_name"),
+		}
+	}
+
+	// Generate CSRF token for authenticated users
+	var csrfToken string
+	if userID != "" {
+		csrfToken = s.generateCSRFToken(userID)
+	}
+
+	s.renderTemplate(w, "chat", map[string]interface{}{
+		"Title":          "Chat with AI Chef - Alchemorsel",
+		"Description":    "Chat with our AI Chef to create amazing recipes through conversation",
+		"User":           user,
+		"IsAuthenticated": user != nil,
+		"CurrentPage":    "ai-chat",
+		"CSRFToken":      csrfToken,
 	})
 }
 
@@ -1004,10 +1049,41 @@ func (s *WebServer) handleHTMXNotifications(w http.ResponseWriter, r *http.Reque
 
 func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
+	
+	// Add panic recovery with detailed logging
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.Error("PANIC in handleHTMXAIChat", 
+				zap.Any("panic", r),
+				zap.String("stack", fmt.Sprintf("%+v", r)),
+				zap.Duration("duration", time.Since(startTime)),
+			)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("<div class=\"error\">Internal server error occurred. Please try again.</div>"))
+		}
+	}()
+	
 	s.logger.Info("AI Chat request started", 
 		zap.String("method", r.Method),
 		zap.String("path", r.URL.Path),
 		zap.String("timestamp", startTime.Format("15:04:05.000")),
+		zap.String("remote_addr", r.RemoteAddr),
+		zap.String("user_agent", r.UserAgent()),
+		zap.String("content_type", r.Header.Get("Content-Type")),
+	)
+	
+	// Log form data for debugging
+	if err := r.ParseForm(); err != nil {
+		s.logger.Error("Failed to parse form data", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("<div class=\"error\">Invalid form data</div>"))
+		return
+	}
+	
+	s.logger.Debug("Form data received", 
+		zap.Any("form_values", r.Form),
+		zap.String("message_raw", r.FormValue("message")),
+		zap.String("csrf_token", r.FormValue("csrf_token")),
 	)
 	
 	// CRITICAL SECURITY FIX ALV3-2025-001: Validate authentication (enforced by middleware)
@@ -1047,26 +1123,101 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 		zap.Duration("validation_duration", validationTime),
 	)
 
-	// Create chat history for AI context (similar to WebSocket implementation)
+	// Get conversation ID from request
+	conversationID := strings.TrimSpace(r.FormValue("conversation_id"))
+	if conversationID == "" {
+		// Generate new conversation ID if not provided
+		conversationID = fmt.Sprintf("conv_%d_%s", time.Now().UnixNano(), userID)
+	}
+	
+	// Get conversation history from session using conversation-specific key
+	conversationKey := fmt.Sprintf("ai_conversation_%s_%s", userID, conversationID)
+	s.logger.Debug("Attempting to retrieve conversation history", 
+		zap.String("user_id", userID),
+		zap.String("conversation_id", conversationID),
+		zap.String("conversation_key", conversationKey),
+	)
+	
+	existingHistory := s.sessionManager.Get(r.Context(), conversationKey)
+	s.logger.Debug("Session history retrieval", 
+		zap.String("user_id", userID),
+		zap.Bool("history_exists", existingHistory != nil),
+		zap.String("history_type", fmt.Sprintf("%T", existingHistory)),
+	)
+	
+	var conversationHistory []conversation.ChatMessage
+	if existingHistory != nil {
+		if history, ok := existingHistory.([]conversation.ChatMessage); ok {
+			conversationHistory = history
+			s.logger.Info("Retrieved conversation history", 
+				zap.String("user_id", userID),
+				zap.Int("history_length", len(history)),
+			)
+		} else {
+			s.logger.Warn("Conversation history type assertion failed", 
+				zap.String("user_id", userID),
+				zap.String("actual_type", fmt.Sprintf("%T", existingHistory)),
+			)
+		}
+	} else {
+		s.logger.Debug("No existing conversation history found", zap.String("user_id", userID))
+	}
+	
+	// Create chat messages starting with system prompt
 	messages := []conversation.ChatMessage{
 		{
 			Role:    "system",
-			Content: "You are an expert AI chef assistant helping users with cooking and recipes. You are knowledgeable, friendly, and practical. Always provide helpful, accurate, and safe cooking advice.",
-		},
-		{
-			Role:    "user",
-			Content: message, // Already sanitized above
+			Content: "You are an expert AI chef assistant helping users with cooking and recipes. You are knowledgeable, friendly, and practical. Always provide helpful, accurate, and safe cooking advice. Maintain context from previous messages in this conversation to provide coherent, connected responses.",
 		},
 	}
+	
+	// Add conversation history (limit to last 10 messages to keep context manageable)
+	historyLimit := 10
+	if len(conversationHistory) > historyLimit {
+		conversationHistory = conversationHistory[len(conversationHistory)-historyLimit:]
+	}
+	messages = append(messages, conversationHistory...)
+	
+	// Add current user message
+	currentUserMessage := conversation.ChatMessage{
+		Role:    "user",
+		Content: message, // Already sanitized above
+	}
+	messages = append(messages, currentUserMessage)
 
 	// Generate AI response using Ollama
 	ollamaStartTime := time.Now()
 	s.logger.Info("Starting Ollama AI generation", 
 		zap.String("user_id", userID),
 		zap.String("timestamp", ollamaStartTime.Format("15:04:05.000")),
+		zap.Int("total_messages", len(messages)),
+		zap.Bool("ollama_client_exists", s.ollamaClient != nil),
 	)
 	
-	aiResult, err := s.ollamaClient.GenerateChatCompletion(r.Context(), messages, 0.7, 2048)
+	// Log the messages being sent (first few for debugging)
+	for i, msg := range messages {
+		if i < 3 || i == len(messages)-1 { // Log first 3 and last message
+			s.logger.Debug("Message to Ollama", 
+				zap.Int("index", i),
+				zap.String("role", msg.Role),
+				zap.String("content_preview", msg.Content[:min(100, len(msg.Content))]),
+			)
+		}
+	}
+	
+	if s.ollamaClient == nil {
+		s.logger.Error("Ollama client is nil")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("<div class=\"error\">AI service not available</div>"))
+		return
+	}
+	
+	// Use a very short timeout (10 seconds) to avoid connection issues
+	// If Ollama is slow, we'll use the fallback response
+	ollamaCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	aiResult, err := s.ollamaClient.GenerateChatCompletion(ollamaCtx, messages, 0.7, 2048)
 	
 	ollmaDuration := time.Since(ollamaStartTime)
 	var aiResponseContent string
@@ -1091,7 +1242,104 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// Format AI response for better readability
+	s.logger.Debug("Formatting AI response", 
+		zap.String("user_id", userID),
+		zap.Int("response_length", len(aiResponseContent)),
+	)
+	
 	formattedAIResponse := s.formatAIResponse(aiResponseContent)
+	
+	s.logger.Debug("AI response formatted", 
+		zap.String("user_id", userID),
+		zap.Int("formatted_length", len(formattedAIResponse)),
+	)
+	
+	// Save conversation history to session
+	aiMessage := conversation.ChatMessage{
+		Role:    "assistant",
+		Content: aiResponseContent, // Store unformatted content for AI context
+	}
+	
+	// Update conversation history
+	updatedHistory := append(conversationHistory, currentUserMessage, aiMessage)
+	
+	s.logger.Debug("Attempting to save conversation history to session", 
+		zap.String("user_id", userID),
+		zap.Int("history_length", len(updatedHistory)),
+		zap.String("conversation_key", conversationKey),
+	)
+	
+	s.sessionManager.Put(r.Context(), conversationKey, updatedHistory)
+	
+	// Also maintain a conversation index for the user
+	conversationIndexKey := fmt.Sprintf("conversation_index_%s", userID)
+	existingIndex := s.sessionManager.Get(r.Context(), conversationIndexKey)
+	
+	var conversationIndex []map[string]interface{}
+	if existingIndex != nil {
+		if index, ok := existingIndex.([]map[string]interface{}); ok {
+			conversationIndex = index
+		}
+	}
+	
+	// Check if this conversation already exists in the index
+	found := false
+	for i := range conversationIndex {
+		if conversationIndex[i]["id"] == conversationID {
+			// Update existing conversation
+			conversationIndex[i]["updated_at"] = time.Now()
+			conversationIndex[i]["message_count"] = len(updatedHistory)
+			if len(updatedHistory) > 0 {
+				// Use first user message as title
+				for _, msg := range updatedHistory {
+					if msg.Role == "user" {
+						title := msg.Content
+						if len(title) > 50 {
+							title = title[:47] + "..."
+						}
+						conversationIndex[i]["title"] = title
+						break
+					}
+				}
+			}
+			found = true
+			break
+		}
+	}
+	
+	// Add new conversation to index if not found
+	if !found {
+		title := "New Conversation"
+		if len(updatedHistory) > 0 {
+			// Use first user message as title
+			for _, msg := range updatedHistory {
+				if msg.Role == "user" {
+					title = msg.Content
+					if len(title) > 50 {
+						title = title[:47] + "..."
+					}
+					break
+				}
+			}
+		}
+		
+		conversationIndex = append(conversationIndex, map[string]interface{}{
+			"id":            conversationID,
+			"title":         title,
+			"created_at":    time.Now(),
+			"updated_at":    time.Now(),
+			"message_count": len(updatedHistory),
+		})
+	}
+	
+	s.sessionManager.Put(r.Context(), conversationIndexKey, conversationIndex)
+	
+	s.logger.Info("Conversation history updated", 
+		zap.String("user_id", userID),
+		zap.Int("total_messages", len(updatedHistory)),
+		zap.String("conversation_key", conversationKey),
+		zap.String("conversation_id", conversationID),
+	)
 
 	// Create formatted HTML response with both user message and AI response
 	aiResponse := `<div class="chat-message user-message" style="margin-bottom: 1rem;">
@@ -1132,8 +1380,392 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 			totalDuration.Milliseconds())),
 	)
 	
+	s.logger.Info("AI Chat request completed successfully", 
+		zap.String("user_id", userID),
+		zap.Duration("total_duration", time.Since(startTime)),
+		zap.Int("response_size", len(aiResponse)),
+	)
+	
+	// Set response headers and write the response
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(aiResponse))
+	written, err := w.Write([]byte(aiResponse))
+	if err != nil {
+		s.logger.Error("Failed to write response", 
+			zap.Error(err),
+			zap.String("user_id", userID),
+		)
+	} else {
+		s.logger.Debug("Response written successfully", 
+			zap.String("user_id", userID),
+			zap.Int("bytes_written", written),
+		)
+	}
+}
+
+func (s *WebServer) handleHTMXAIChatReset(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+	s.logger.Info("AI Chat reset request started", 
+		zap.String("method", r.Method),
+		zap.String("path", r.URL.Path),
+		zap.String("timestamp", startTime.Format("15:04:05.000")),
+	)
+	
+	// CRITICAL SECURITY FIX: Validate authentication (enforced by middleware)
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
+		s.logger.Warn("Unauthorized AI chat reset request", zap.Duration("duration", time.Since(startTime)))
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("<div class=\"error\">Authentication required to reset chat.</div>"))
+		return
+	}
+
+	// Clear conversation history from session
+	conversationKey := fmt.Sprintf("ai_conversation_%s", userID)
+	s.sessionManager.Remove(r.Context(), conversationKey)
+	
+	s.logger.Info("AI Chat conversation reset", 
+		zap.String("user_id", userID),
+		zap.String("conversation_key", conversationKey),
+		zap.Duration("duration", time.Since(startTime)),
+	)
+
+	// Return success response
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(`<div id="chat-messages" style="min-height: 400px; max-height: 600px; overflow-y: auto; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; margin-bottom: 1rem; background: #f8f9fa;">
+		<div style="text-align: center; color: #718096; padding: 2rem;">
+			<div style="font-size: 3rem; margin-bottom: 1rem;">👨‍🍳</div>
+			<h3>Chat Reset Successfully!</h3>
+			<p>Hello! I'm your AI Chef assistant. What can I help you cook today?</p>
+		</div>
+	</div>`))
+}
+
+// Multi-Chat API Handlers
+
+func (s *WebServer) handleAPIConversationList(w http.ResponseWriter, r *http.Request) {
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
+		s.writeJSONError(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	// Forward request to API server instead of calling convService directly
+	err := s.apiClient.ForwardRequest(r.Context(), w, r, "/api/v3/chat/conversations")
+	if err != nil {
+		s.logger.Error("Failed to forward conversation list request", 
+			zap.Error(err), 
+			zap.String("user_id", userID),
+		)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *WebServer) handleAPIConversationHistory(w http.ResponseWriter, r *http.Request) {
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
+		s.writeJSONError(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	// Get conversation ID from query parameter and forward to proper endpoint
+	conversationID := r.URL.Query().Get("conversation_id")
+	if conversationID == "" {
+		s.writeJSONError(w, "Conversation ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Forward request to API server messages endpoint
+	err := s.apiClient.ForwardRequest(r.Context(), w, r, "/api/v3/chat/conversations/"+conversationID+"/messages")
+	if err != nil {
+		s.logger.Error("Failed to forward conversation history request", 
+			zap.Error(err), 
+			zap.String("user_id", userID),
+		)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *WebServer) handleAPIChatMessage(w http.ResponseWriter, r *http.Request) {
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
+		s.writeJSONError(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	// Get conversation ID from form data
+	conversationID := r.FormValue("conversation_id")
+	if conversationID == "" {
+		s.writeJSONError(w, "Conversation ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Forward request to API server messages endpoint
+	err := s.apiClient.ForwardRequest(r.Context(), w, r, "/api/v3/chat/conversations/"+conversationID+"/messages")
+	if err != nil {
+		s.logger.Error("Failed to forward chat message request", 
+			zap.Error(err), 
+			zap.String("user_id", userID),
+		)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *WebServer) handleAPIConversationRename(w http.ResponseWriter, r *http.Request) {
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
+		s.writeJSONError(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	// Get conversation ID from form data
+	conversationID := r.FormValue("conversation_id")
+	if conversationID == "" {
+		s.writeJSONError(w, "Conversation ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Forward request to API server conversation endpoint
+	err := s.apiClient.ForwardRequest(r.Context(), w, r, "/api/v3/chat/conversations/"+conversationID)
+	if err != nil {
+		s.logger.Error("Failed to forward conversation rename request", 
+			zap.Error(err), 
+			zap.String("user_id", userID),
+		)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *WebServer) handleAPIConversationDelete(w http.ResponseWriter, r *http.Request) {
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
+		s.writeJSONError(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	// Get conversation ID from form data
+	conversationID := r.FormValue("conversation_id")
+	if conversationID == "" {
+		s.writeJSONError(w, "Conversation ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Forward request to API server conversation endpoint
+	err := s.apiClient.ForwardRequest(r.Context(), w, r, "/api/v3/chat/conversations/"+conversationID)
+	if err != nil {
+		s.logger.Error("Failed to forward conversation delete request", 
+			zap.Error(err), 
+			zap.String("user_id", userID),
+		)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *WebServer) handleHTMXConversationList(w http.ResponseWriter, r *http.Request) {
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`<div class="error">Please log in to view conversations</div>`))
+		return
+	}
+
+	// Get conversation index from session storage
+	conversationIndexKey := fmt.Sprintf("conversation_index_%s", userID)
+	existingIndex := s.sessionManager.Get(r.Context(), conversationIndexKey)
+	
+	var conversationIndex []map[string]interface{}
+	if existingIndex != nil {
+		if index, ok := existingIndex.([]map[string]interface{}); ok {
+			conversationIndex = index
+		}
+	}
+
+	// If no conversations, show empty state
+	if len(conversationIndex) == 0 {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`
+			<div style="padding: 2rem 1rem; text-align: center; color: #718096;">
+				<div style="margin-bottom: 1rem;">💬</div>
+				<p style="font-size: 0.875rem;">Start a new conversation with our AI Chef!</p>
+			</div>
+		`))
+		return
+	}
+
+	// Generate HTML for conversation list (most recent first)
+	html := ""
+	for i := len(conversationIndex) - 1; i >= 0; i-- {
+		conv := conversationIndex[i]
+		title := conv["title"].(string)
+		conversationID := conv["id"].(string)
+		messageCount := conv["message_count"].(int)
+		
+		// Format time
+		var timeStr string
+		if updatedAt, ok := conv["updated_at"].(time.Time); ok {
+			timeStr = s.formatTimeAgo(updatedAt)
+		} else {
+			timeStr = "Recently"
+		}
+		
+		html += fmt.Sprintf(`
+			<div class="conversation-item" onclick="loadConversation('%s')" data-conversation-id="%s" style="padding: 1rem; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: background-color 0.2s;">
+				<div style="display: flex; justify-content: space-between; align-items: start;">
+					<div style="flex: 1; min-width: 0;">
+						<div style="font-weight: 500; font-size: 0.875rem; margin-bottom: 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">%s</div>
+						<div style="color: #718096; font-size: 0.75rem;">%s • %d messages</div>
+					</div>
+					<div style="display: flex; gap: 0.5rem; opacity: 0;" class="conversation-actions">
+						<button onclick="event.stopPropagation(); deleteConversation('%s')" title="Delete" style="background: none; border: none; cursor: pointer; font-size: 0.75rem;">
+							🗑️
+						</button>
+					</div>
+				</div>
+			</div>`, conversationID, conversationID, s.escapeHTML(title), timeStr, messageCount, conversationID)
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+func (s *WebServer) handleHTMXConversationHistory(w http.ResponseWriter, r *http.Request) {
+	userID := s.sessionManager.GetString(r.Context(), "user_id")
+	if userID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`<div class="error">Please log in to view conversation history</div>`))
+		return
+	}
+
+	// Get conversation ID from request (for loading specific conversation)
+	conversationID := strings.TrimSpace(r.URL.Query().Get("conversation_id"))
+	var conversationKey string
+	
+	if conversationID != "" {
+		// Load specific conversation
+		conversationKey = fmt.Sprintf("ai_conversation_%s_%s", userID, conversationID)
+	} else {
+		// For now, just show welcome message since we don't have active conversation tracking yet
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<div id="chat-messages" style="min-height: 400px; max-height: 600px; overflow-y: auto; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; margin-bottom: 1rem; background: #f8f9fa;">
+			<div style="text-align: center; color: #718096; padding: 2rem;">
+				<div style="font-size: 3rem; margin-bottom: 1rem;">👨‍🍳</div>
+				<h3>Welcome to AI Chef Chat!</h3>
+				<p>I'm here to help you with recipes, cooking tips, and culinary questions. What would you like to cook today?</p>
+			</div>
+		</div>`))
+		return
+	}
+
+	// Get conversation history from session storage
+	existingHistory := s.sessionManager.Get(r.Context(), conversationKey)
+	
+	var conversationHistory []conversation.ChatMessage
+	if existingHistory != nil {
+		if history, ok := existingHistory.([]conversation.ChatMessage); ok {
+			conversationHistory = history
+		}
+	}
+
+	// If no conversation history, show welcome message
+	if len(conversationHistory) == 0 {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<div id="chat-messages" style="min-height: 400px; max-height: 600px; overflow-y: auto; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; margin-bottom: 1rem; background: #f8f9fa;">
+			<div style="text-align: center; color: #718096; padding: 2rem;">
+				<div style="font-size: 3rem; margin-bottom: 1rem;">👨‍🍳</div>
+				<h3>Welcome to AI Chef Chat!</h3>
+				<p>I'm here to help you with recipes, cooking tips, and culinary questions. What would you like to cook today?</p>
+			</div>
+		</div>`))
+		return
+	}
+
+	// Generate HTML for conversation history
+	html := `<div id="chat-messages" style="min-height: 400px; max-height: 600px; overflow-y: auto; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; margin-bottom: 1rem; background: #f8f9fa;">`
+	
+	for _, msg := range conversationHistory {
+		if msg.Role == "user" {
+			escapedContent := s.escapeHTML(msg.Content)
+			html += `<div class="chat-message user-message" style="margin-bottom: 1rem;">
+				<div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+					<div class="message-content" style="flex: 1; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 1rem; border-radius: 1rem; max-width: 80%;">
+						<div style="font-weight: 600; margin-bottom: 0.5rem;">You</div>
+						<div style="line-height: 1.6;">` + escapedContent + `</div>
+						<div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.5rem;">Earlier</div>
+					</div>
+					<div class="avatar user-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
+						👤
+					</div>
+				</div>
+			</div>`
+		} else if msg.Role == "assistant" {
+			formattedResponse := s.formatAIResponse(msg.Content)
+			html += `<div class="chat-message ai-message" style="margin-bottom: 1rem;">
+				<div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+					<div class="avatar ai-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
+						👨‍🍳
+					</div>
+					<div class="message-content" style="flex: 1; background: #ffffff; padding: 1rem; border-radius: 1rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+						<div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.5rem;">AI Chef</div>
+						<div style="line-height: 1.6;">` + formattedResponse + `</div>
+						<div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">Earlier</div>
+					</div>
+				</div>
+			</div>`
+		}
+	}
+	
+	html += `</div>`
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+// Helper methods
+
+func (s *WebServer) writeJSONError(w http.ResponseWriter, message string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": false,
+		"error":   message,
+	})
+}
+
+func (s *WebServer) formatTimeAgo(t time.Time) string {
+	now := time.Now()
+	diff := now.Sub(t)
+	
+	if diff < time.Minute {
+		return "Just now"
+	} else if diff < time.Hour {
+		minutes := int(diff.Minutes())
+		if minutes == 1 {
+			return "1m ago"
+		}
+		return fmt.Sprintf("%dm ago", minutes)
+	} else if diff < 24*time.Hour {
+		hours := int(diff.Hours())
+		if hours == 1 {
+			return "1h ago"
+		}
+		return fmt.Sprintf("%dh ago", hours)
+	} else if diff < 7*24*time.Hour {
+		days := int(diff.Hours() / 24)
+		if days == 1 {
+			return "1d ago"
+		}
+		return fmt.Sprintf("%dd ago", days)
+	} else {
+		return t.Format("Jan 2")
+	}
+}
+
+func (s *WebServer) escapeHTML(input string) string {
+	return html.EscapeString(input)
 }
 
 func (s *WebServer) handleHTMXRecipeSearch(w http.ResponseWriter, r *http.Request) {

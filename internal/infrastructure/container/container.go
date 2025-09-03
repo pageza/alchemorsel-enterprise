@@ -9,8 +9,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/alchemorsel/v3/internal/application/recipe"
 	"github.com/alchemorsel/v3/internal/application/user"
+	"github.com/alchemorsel/v3/internal/infrastructure/ai"
 	"github.com/alchemorsel/v3/internal/infrastructure/ai/openai"
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
 	"github.com/alchemorsel/v3/internal/infrastructure/http/apiserver"
@@ -109,6 +111,9 @@ var DatabaseModule = fx.Provide(
 				&gormRepo.CommentModel{},
 				&gormRepo.ActivityModel{},
 				&gormRepo.RecipeViewModel{},
+				&gormRepo.ConversationModel{},
+				&gormRepo.MessageModel{},
+				&gormRepo.ConversationContextModel{},
 			); err != nil {
 				log.Warn("Failed to auto-migrate database", zap.Error(err))
 			}
@@ -275,6 +280,22 @@ var RepositoryModule = fx.Provide(
 		gormRepo.NewUserRepository,
 		fx.As(new(outbound.UserRepository)),
 	),
+	
+	// Conversation repositories
+	fx.Annotate(
+		gormRepo.NewConversationRepository,
+		fx.As(new(conversation.ConversationRepository)),
+	),
+	
+	fx.Annotate(
+		gormRepo.NewMessageRepository,
+		fx.As(new(conversation.MessageRepository)),
+	),
+	
+	fx.Annotate(
+		gormRepo.NewContextRepository,
+		fx.As(new(conversation.ContextRepository)),
+	),
 )
 
 // ServiceModule provides application services
@@ -309,6 +330,43 @@ var ServiceModule = fx.Provide(
 	func(cfg *config.Config, log *zap.Logger) *security.AuthService {
 		return security.NewAuthService(cfg, log, nil)
 	},
+	
+	// Conversation AI clients
+	fx.Annotate(
+		func(cfg *config.Config, log *zap.Logger) conversation.OllamaClient {
+			ollamaHost := cfg.GetString("ALCHEMORSEL_AI_OLLAMA_HOST")
+			if ollamaHost == "" {
+				ollamaHost = cfg.GetString("ALCHEMORSEL_OLLAMA_HOST")
+			}
+			if ollamaHost == "" {
+				ollamaHost = "http://172.17.0.1:11434"
+			}
+			
+			ollamaModel := cfg.GetString("ALCHEMORSEL_AI_CHAT_MODEL")
+			if ollamaModel == "" {
+				ollamaModel = cfg.GetString("ALCHEMORSEL_OLLAMA_CHAT_MODEL")
+			}
+			if ollamaModel == "" {
+				ollamaModel = "phi3:mini"
+			}
+			
+			return ai.NewConversationOllamaAdapter(ollamaHost, ollamaModel)
+		},
+		fx.As(new(conversation.OllamaClient)),
+	),
+	
+	fx.Annotate(
+		func(log *zap.Logger) conversation.OpenAIClient {
+			return ai.NewConversationOpenAIAdapter(log)
+		},
+		fx.As(new(conversation.OpenAIClient)),
+	),
+	
+	// Conversation AI service
+	conversation.NewAIService,
+	
+	// Conversation service
+	conversation.NewService,
 )
 
 // HTTPModule provides HTTP server and handlers
@@ -515,16 +573,18 @@ func NewPureAPIServer(
 	userService *user.UserService,
 	authService *security.AuthService,
 	aiService outbound.AIService,
+	conversationService *conversation.Service,
 	healthCheck *healthcheck.EnterpriseHealthCheck,
 ) *PureAPIServer {
 	return &PureAPIServer{
-		config:        cfg,
-		logger:        log,
-		recipeService: recipeService,
-		userService:   userService,
-		authService:   authService,
-		aiService:     aiService,
-		healthCheck:   healthCheck,
+		config:             cfg,
+		logger:             log,
+		recipeService:      recipeService,
+		userService:        userService,
+		authService:        authService,
+		aiService:          aiService,
+		conversationService: conversationService,
+		healthCheck:        healthCheck,
 	}
 }
 
@@ -582,14 +642,15 @@ func parsePort(portStr string) int {
 
 // PureAPIServer represents a pure JSON API HTTP server (no templates)
 type PureAPIServer struct {
-	config        *config.Config
-	logger        *zap.Logger
-	server        *http.Server
-	recipeService inbound.RecipeService
-	userService   *user.UserService
-	authService   *security.AuthService
-	aiService     outbound.AIService
-	healthCheck   *healthcheck.EnterpriseHealthCheck
+	config             *config.Config
+	logger             *zap.Logger
+	server             *http.Server
+	recipeService      inbound.RecipeService
+	userService        *user.UserService
+	authService        *security.AuthService
+	aiService          outbound.AIService
+	conversationService *conversation.Service
+	healthCheck        *healthcheck.EnterpriseHealthCheck
 }
 
 // Start starts the pure API HTTP server
@@ -602,6 +663,7 @@ func (s *PureAPIServer) Start() error {
 		s.userService,
 		s.authService,
 		s.aiService,
+		s.conversationService,
 		s.healthCheck,
 	)
 	

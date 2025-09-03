@@ -2,12 +2,14 @@
 package webserver
 
 import (
+	"encoding/gob"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/redisstore"
+	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
 	"github.com/gomodule/redigo/redis"
 	"go.uber.org/zap"
@@ -22,6 +24,13 @@ type SessionManager struct {
 
 // NewSessionManager creates a new SCS session manager with Redis store
 func NewSessionManager(cfg *config.Config, logger *zap.Logger) (*SessionManager, error) {
+	// Register types with gob for session serialization
+	gob.Register(conversation.ChatMessage{})
+	gob.Register([]conversation.ChatMessage{})
+	gob.Register(map[string]interface{}{})
+	gob.Register([]map[string]interface{}{})
+	gob.Register(time.Time{})
+	
 	// Create Redis connection pool for SCS (using Redigo)
 	// Note: This creates a separate connection pool from the main Redis client
 	// because SCS redisstore uses the Redigo client, while our cache uses go-redis

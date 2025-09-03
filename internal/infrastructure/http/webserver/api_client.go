@@ -278,6 +278,52 @@ func (c *APIClient) CreateRecipe(ctx context.Context, token string, recipe Recip
 	return &resp.Data, nil
 }
 
+// Conversations
+
+// ConversationResponse represents conversation data
+type ConversationResponse struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Title     string    `json:"title"`
+	Intent    string    `json:"intent"`
+	Status    string    `json:"status"`
+	Metadata  map[string]interface{} `json:"metadata"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// MessageResponse represents message data
+type MessageResponse struct {
+	ID             string                 `json:"id"`
+	ConversationID string                 `json:"conversation_id"`
+	Role           string                 `json:"role"`
+	Content        string                 `json:"content"`
+	Metadata       map[string]interface{} `json:"metadata"`
+	CreatedAt      time.Time              `json:"created_at"`
+}
+
+// GetConversationsWithAuth fetches user conversations from the API with authentication
+func (c *APIClient) GetConversationsWithAuth(ctx context.Context, token string, limit, offset int) ([]ConversationResponse, error) {
+	var resp struct {
+		Success       bool                   `json:"success"`
+		Conversations []ConversationResponse `json:"conversations"`
+		Error         string                 `json:"error,omitempty"`
+	}
+
+	path := fmt.Sprintf("/api/v3/chat/conversations?limit=%d&offset=%d", limit, offset)
+	
+	err := c.getWithAuth(ctx, path, token, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.Success {
+		return nil, fmt.Errorf("failed to get conversations: %s", resp.Error)
+	}
+
+	return resp.Conversations, nil
+}
+
 // AI Features
 
 // GenerateRecipe generates a recipe using AI
@@ -378,6 +424,66 @@ func (c *APIClient) doRequest(req *http.Request, response interface{}) error {
 
 	if err := json.Unmarshal(body, response); err != nil {
 		return fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return nil
+}
+
+// ForwardRequest forwards an HTTP request to the API backend and writes the response directly to the writer
+func (c *APIClient) ForwardRequest(ctx context.Context, w http.ResponseWriter, r *http.Request, path string) error {
+	// Create new request to API backend
+	var body io.Reader
+	if r.Body != nil {
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read request body: %w", err)
+		}
+		r.Body.Close()
+		body = bytes.NewReader(bodyBytes)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, r.Method, c.baseURL+path, body)
+	if err != nil {
+		return fmt.Errorf("failed to create proxy request: %w", err)
+	}
+
+	// Copy relevant headers
+	for header, values := range r.Header {
+		if header == "Host" {
+			continue
+		}
+		for _, value := range values {
+			req.Header.Add(header, value)
+		}
+	}
+
+	c.logger.Debug("Forwarding request to API",
+		zap.String("method", req.Method),
+		zap.String("url", req.URL.String()),
+	)
+
+	// Make the request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("proxy request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Copy response headers
+	for header, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(header, value)
+		}
+	}
+
+	// Set status code
+	w.WriteHeader(resp.StatusCode)
+
+	// Copy response body
+	_, err = io.Copy(w, resp.Body)
+	if err != nil {
+		c.logger.Error("Failed to copy response body", zap.Error(err))
+		return fmt.Errorf("failed to copy response body: %w", err)
 	}
 
 	return nil

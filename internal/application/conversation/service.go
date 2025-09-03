@@ -444,6 +444,27 @@ func (s *Service) ArchiveConversation(ctx context.Context, conversationID string
 	return s.conversationRepo.UpdateConversation(ctx, conversation)
 }
 
+// RenameConversation updates the title of a conversation
+func (s *Service) RenameConversation(ctx context.Context, conversationID string, newTitle string) error {
+	if strings.TrimSpace(newTitle) == "" {
+		return fmt.Errorf("conversation title cannot be empty")
+	}
+	
+	if len(newTitle) > 200 {
+		return fmt.Errorf("conversation title cannot exceed 200 characters")
+	}
+	
+	conversation, err := s.GetConversation(ctx, conversationID)
+	if err != nil {
+		return err
+	}
+	
+	conversation.Title = strings.TrimSpace(newTitle)
+	conversation.UpdatedAt = time.Now()
+	
+	return s.conversationRepo.UpdateConversation(ctx, conversation)
+}
+
 // DeleteConversation soft deletes a conversation
 func (s *Service) DeleteConversation(ctx context.Context, conversationID string) error {
 	conversation, err := s.GetConversation(ctx, conversationID)
