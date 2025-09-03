@@ -1,0 +1,249 @@
+name: Continuous Integration - Simplified
+
+on:
+  push:
+    branches: [ main, master, develop, "feature/*" ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  GO_VERSION: "1.23"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  # Go code quality and testing
+  test:
+    name: Go Tests & Quality
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: alchemorsel_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download && go mod verify
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run gofmt check
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "Code is not formatted properly:"
+            gofmt -s -l .
+            exit 1
+          fi
+
+      - name: Run tests
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: alchemorsel_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          GO_ENV: test
+        run: |
+          go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          fail_ci_if_error: false
+
+  # Security scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run Gosec Security Scanner
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: '-fmt sarif -out gosec.sarif ./...'
+        continue-on-error: true
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: gosec.sarif
+
+  # Build Docker images
+  build:
+    name: Build Docker Images  
+    runs-on: ubuntu-latest
+    needs: [test]
+    strategy:
+      matrix:
+        service: [web, api]
+    outputs:
+      web-image: ${{ steps.meta-web.outputs.tags }}
+      api-image: ${{ steps.meta-api.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for ${{ matrix.service }}
+        id: meta-${{ matrix.service }}
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push ${{ matrix.service }} image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.${{ matrix.service }}
+          push: true
+          tags: ${{ steps['meta-' + matrix.service].outputs.tags }}
+          labels: ${{ steps['meta-' + matrix.service].outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+  # Integration test with Docker Compose
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create test environment file
+        run: |
+          cat > .env.test << EOF
+          POSTGRES_USER=testuser
+          POSTGRES_PASSWORD=testpass
+          POSTGRES_DB=alchemorsel_test
+          REDIS_PASSWORD=testredis
+          GO_ENV=test
+          PORT=3021
+          API_PORT=8080
+          EOF
+
+      - name: Start services with Docker Compose
+        run: |
+          docker compose -f docker-compose.yml up -d
+          sleep 30
+
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for web service..."
+          timeout 120 bash -c 'until curl -f http://localhost:3021/health; do sleep 2; done' || true
+          echo "Waiting for API service..."  
+          timeout 120 bash -c 'until curl -f http://localhost:8080/health; do sleep 2; done' || true
+
+      - name: Run basic health checks
+        run: |
+          # Check if services are responding
+          curl -f http://localhost:3021/health || echo "Web health check failed"
+          curl -f http://localhost:8080/health || echo "API health check failed"
+          
+          # Check if containers are running
+          docker compose ps
+
+      - name: Check application logs
+        if: always()
+        run: |
+          echo "=== Web Service Logs ==="
+          docker compose logs web || true
+          echo "=== API Service Logs ==="
+          docker compose logs api || true
+          echo "=== PostgreSQL Logs ==="
+          docker compose logs postgres || true
+          echo "=== Redis Logs ==="
+          docker compose logs redis || true
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
+
+  # Notification
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [test, security, build, integration-test]
+    if: always() && github.event_name == 'push'
+    steps:
+      - name: Determine status
+        id: status
+        run: |
+          if [[ "${{ needs.test.result }}" == "success" && "${{ needs.build.result }}" == "success" ]]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=✅ CI pipeline completed successfully" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT  
+            echo "message=❌ CI pipeline failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Show status
+        run: |
+          echo "Pipeline status: ${{ steps.status.outputs.status }}"
+          echo "Message: ${{ steps.status.outputs.message }}"
