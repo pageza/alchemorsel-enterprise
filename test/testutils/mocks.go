@@ -10,7 +10,6 @@ import (
 
 	"github.com/alchemorsel/v3/internal/domain/recipe"
 	"github.com/alchemorsel/v3/internal/domain/user"
-	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 )

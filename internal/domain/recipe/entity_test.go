@@ -239,7 +239,6 @@ func (suite *RecipeTestSuite) TestRecipeInstructions() {
 		// Arrange
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
 		instruction := Instruction{
-			ID:          uuid.New(),
 			Description: "Boil water in a large pot",
 			Duration:    5 * time.Minute,
 		}
@@ -256,12 +255,10 @@ func (suite *RecipeTestSuite) TestRecipeInstructions() {
 		// Arrange
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
 		instruction1 := Instruction{
-			ID:          uuid.New(),
 			Description: "First step",
 			Duration:    5 * time.Minute,
 		}
 		instruction2 := Instruction{
-			ID:          uuid.New(),
 			Description: "Second step",
 			Duration:    10 * time.Minute,
 		}

@@ -165,9 +165,9 @@ func getUserFromContext(ctx context.Context) *User {
 
 // Example conversation service initialization
 func initializeConversationService(db *gorm.DB) *conversation.Service {
-	conversationRepo := gorm.NewConversationRepository(db)
-	messageRepo := gorm.NewMessageRepository(db)
-	contextRepo := gorm.NewContextRepository(db)
+	conversationRepo := gormRepo.NewConversationRepository(db)
+	messageRepo := gormRepo.NewMessageRepository(db)
+	contextRepo := gormRepo.NewContextRepository(db)
 	
 	// Initialize with your AI service
 	// aiService := ai.NewService(...)

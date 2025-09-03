@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/stretchr/testify/mock"

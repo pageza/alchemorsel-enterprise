@@ -21,7 +21,7 @@ type PerformanceMonitor struct {
 	thresholds          Thresholds
 	mutex               sync.RWMutex
 	firstPacketOptimizer *FirstPacketOptimizer
-	compressionMiddleware *CompressionMiddleware
+	// compressionMiddleware *CompressionMiddleware // TODO: Implement CompressionMiddleware
 	resourceBundler     *ResourceBundler
 	htmxOptimizer       *HTMXOptimizer
 	criticalCSSExtractor *CriticalCSSExtractor

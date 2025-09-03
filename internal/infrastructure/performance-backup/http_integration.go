@@ -14,7 +14,7 @@ import (
 type HTTPIntegration struct {
 	orchestrator       *CoreWebVitalsOrchestrator
 	performanceMonitor *PerformanceMonitor
-	compressionMiddleware *CompressionMiddleware
+	// compressionMiddleware *CompressionMiddleware // TODO: Implement CompressionMiddleware
 	enableMetrics      bool
 	enableDebugHeaders bool
 }
@@ -31,7 +31,7 @@ func NewHTTPIntegration(orchestrator *OptimizationOrchestrator, config HTTPInteg
 	return &HTTPIntegration{
 		orchestrator:          orchestrator,
 		performanceMonitor:    orchestrator.GetPerformanceMonitor(),
-		compressionMiddleware: orchestrator.GetCompressionMiddleware(),
+		// compressionMiddleware: orchestrator.GetCompressionMiddleware(), // TODO: Implement CompressionMiddleware
 		enableMetrics:         config.EnableMetrics,
 		enableDebugHeaders:    config.EnableDebugHeaders,
 	}

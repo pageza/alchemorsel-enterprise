@@ -6,12 +6,10 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
-	"github.com/alchemorsel/v3/internal/infrastructure/persistence/migrations"
 	"github.com/docker/go-connections/nat"
 	"github.com/golang-migrate/migrate/v4"
 	migratePostgres "github.com/golang-migrate/migrate/v4/database/postgres"
