@@ -204,7 +204,7 @@ func DefaultThresholds() Thresholds {
 
 // NewPerformanceMonitor creates a new performance monitor
 func NewPerformanceMonitor(config MonitorConfig, optimizer *FirstPacketOptimizer, 
-	compression *CompressionMiddleware, bundler *ResourceBundler, 
+	/* compression *CompressionMiddleware, */ bundler *ResourceBundler, 
 	htmx *HTMXOptimizer, css *CriticalCSSExtractor) *PerformanceMonitor {
 	
 	return &PerformanceMonitor{
