@@ -785,10 +785,10 @@ func (sm *SecurityMonitor) recordSecurityEvent(ctx context.Context, event Securi
 	// Add tracing information
 	if sm.tracing != nil {
 		sm.tracing.AddSpanEvent(ctx, "security_event",
-			"event.id", event.ID,
-			"event.type", event.Type,
-			"event.severity", event.Severity,
-			"event.threat_score", fmt.Sprintf("%.2f", event.ThreatScore),
+			attribute.String("event.id", event.ID),
+			attribute.String("event.type", event.Type),
+			attribute.String("event.severity", event.Severity),
+			attribute.String("event.threat_score", fmt.Sprintf("%.2f", event.ThreatScore)),
 		)
 	}
 }
