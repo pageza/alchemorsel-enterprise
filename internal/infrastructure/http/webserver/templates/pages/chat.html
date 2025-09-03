@@ -430,29 +430,63 @@
                     
                     <!-- Chat Messages -->
                     <div class="chat-messages" id="chat-messages">
-                        <!-- Welcome Message -->
-                        <div class="message assistant">
-                            <div class="message-avatar assistant">
-                                👨‍🍳
-                            </div>
-                            <div class="message-content">
-                                <div>
-                                    Hello! I'm your personal AI chef assistant. I'm here to help you with:
-                                    <ul style="margin: 0.5rem 0 0 1rem; line-height: 1.6;">
-                                        <li>Creating custom recipes based on your preferences</li>
-                                        <li>Answering cooking questions and techniques</li>
-                                        <li>Suggesting ingredient substitutions</li>
-                                        <li>Planning meals for the week</li>
-                                        <li>Food safety and storage tips</li>
-                                    </ul>
-                                    What would you like to cook today?
+                        {{if .ConversationHistory}}
+                            {{range .ConversationHistory}}
+                                {{if eq .Role "user"}}
+                                    <!-- User Message -->
+                                    <div class="chat-message user-message" style="margin-bottom: 1rem;">
+                                        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                                            <div class="message-content" style="flex: 1; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 1rem; border-radius: 1rem; max-width: 80%;">
+                                                <div style="font-weight: 600; margin-bottom: 0.5rem;">You</div>
+                                                <div style="line-height: 1.6;">{{.Content}}</div>
+                                                <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.5rem;">{{.FormattedTime}}</div>
+                                            </div>
+                                            <div class="avatar user-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
+                                                👤
+                                            </div>
+                                        </div>
+                                    </div>
+                                {{else if eq .Role "assistant"}}
+                                    <!-- AI Message -->
+                                    <div class="chat-message ai-message" style="margin-bottom: 1rem;">
+                                        <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                                            <div class="avatar ai-avatar" style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex-shrink: 0;">
+                                                👨‍🍳
+                                            </div>
+                                            <div class="message-content" style="flex: 1; background: #ffffff; padding: 1rem; border-radius: 1rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                                <div style="font-weight: 600; color: #4f46e5; margin-bottom: 0.5rem;">AI Chef</div>
+                                                <div style="line-height: 1.6;">{{.Content}}</div>
+                                                <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">{{.FormattedTime}}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {{end}}
+                            {{end}}
+                        {{else}}
+                            <!-- Welcome Message (only shown when no conversation history) -->
+                            <div class="message assistant">
+                                <div class="message-avatar assistant">
+                                    👨‍🍳
                                 </div>
-                                <div class="message-meta">
-                                    <span>AI Chef</span>
-                                    <span>Just now</span>
+                                <div class="message-content">
+                                    <div>
+                                        Hello! I'm your personal AI chef assistant. I'm here to help you with:
+                                        <ul style="margin: 0.5rem 0 0 1rem; line-height: 1.6;">
+                                            <li>Creating custom recipes based on your preferences</li>
+                                            <li>Answering cooking questions and techniques</li>
+                                            <li>Suggesting ingredient substitutions</li>
+                                            <li>Planning meals for the week</li>
+                                            <li>Food safety and storage tips</li>
+                                        </ul>
+                                        What would you like to cook today?
+                                    </div>
+                                    <div class="message-meta">
+                                        <span>AI Chef</span>
+                                        <span>Just now</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        {{end}}
                     </div>
                     
                     <!-- Typing Indicator -->

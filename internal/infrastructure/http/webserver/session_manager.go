@@ -3,6 +3,7 @@ package webserver
 
 import (
 	"encoding/gob"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -14,6 +15,43 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"go.uber.org/zap"
 )
+
+// ConversationMessage represents a message in the session-based chat system
+type ConversationMessage struct {
+	Role      string    `json:"role"`      // "user" or "assistant"
+	Content   string    `json:"content"`   // Message content
+	Timestamp time.Time `json:"timestamp"` // When the message was created
+}
+
+// FormattedTime returns a human-readable time string
+func (m *ConversationMessage) FormattedTime() string {
+	now := time.Now()
+	diff := now.Sub(m.Timestamp)
+	
+	if diff < time.Minute {
+		return "Just now"
+	} else if diff < time.Hour {
+		minutes := int(diff.Minutes())
+		if minutes == 1 {
+			return "1 minute ago"
+		}
+		return fmt.Sprintf("%d minutes ago", minutes)
+	} else if diff < 24*time.Hour {
+		hours := int(diff.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	} else {
+		days := int(diff.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		} else if days < 7 {
+			return fmt.Sprintf("%d days ago", days)
+		}
+		return m.Timestamp.Format("Jan 2, 2006")
+	}
+}
 
 // SessionManager wraps SCS session manager with Redis store
 type SessionManager struct {
@@ -27,6 +65,8 @@ func NewSessionManager(cfg *config.Config, logger *zap.Logger) (*SessionManager,
 	// Register types with gob for session serialization
 	gob.Register(conversation.ChatMessage{})
 	gob.Register([]conversation.ChatMessage{})
+	gob.Register(ConversationMessage{})
+	gob.Register([]ConversationMessage{})
 	gob.Register(map[string]interface{}{})
 	gob.Register([]map[string]interface{}{})
 	gob.Register(time.Time{})

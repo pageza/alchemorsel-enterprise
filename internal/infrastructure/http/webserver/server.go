@@ -55,6 +55,7 @@ type WebServer struct {
 }
 
 
+
 // NewWebServer creates a new web frontend server instance
 func NewWebServer(
 	cfg *config.Config,
@@ -901,6 +902,44 @@ func (s *WebServer) handleAIChatPage(w http.ResponseWriter, r *http.Request) {
 		csrfToken = s.generateCSRFToken(userID)
 	}
 
+	// Load existing conversation history
+	var conversationHistory []ConversationMessage
+	if userID != "" {
+		conversationID := r.URL.Query().Get("conversation_id")
+		if conversationID == "" {
+			// Get the most recent conversation for this user
+			conversationIndexKey := fmt.Sprintf("conversation_index_%s", userID)
+			existingIndex := s.sessionManager.Get(r.Context(), conversationIndexKey)
+			
+			if existingIndex != nil {
+				if index, ok := existingIndex.([]map[string]interface{}); ok && len(index) > 0 {
+					// Get the most recent conversation (first in index)
+					mostRecent := index[0]
+					if convID, ok := mostRecent["id"].(string); ok {
+						conversationID = convID
+					}
+				}
+			}
+		}
+		
+		// Load conversation history if we have a conversation ID
+		if conversationID != "" {
+			conversationKey := fmt.Sprintf("ai_conversation_%s_%s", userID, conversationID)
+			savedHistory := s.sessionManager.Get(r.Context(), conversationKey)
+			
+			if savedHistory != nil {
+				if history, ok := savedHistory.([]ConversationMessage); ok {
+					conversationHistory = history
+					s.logger.Debug("Loaded conversation history",
+						zap.String("user_id", userID),
+						zap.String("conversation_id", conversationID),
+						zap.Int("message_count", len(history)),
+					)
+				}
+			}
+		}
+	}
+
 	s.renderTemplate(w, "chat", map[string]interface{}{
 		"Title":          "Chat with AI Chef - Alchemorsel",
 		"Description":    "Chat with our AI Chef to create amazing recipes through conversation",
@@ -908,6 +947,7 @@ func (s *WebServer) handleAIChatPage(w http.ResponseWriter, r *http.Request) {
 		"IsAuthenticated": user != nil,
 		"CurrentPage":    "ai-chat",
 		"CSRFToken":      csrfToken,
+		"ConversationHistory": conversationHistory,
 	})
 }
 
@@ -1145,10 +1185,10 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 		zap.String("history_type", fmt.Sprintf("%T", existingHistory)),
 	)
 	
-	var conversationHistory []conversation.ChatMessage
+	var persistentHistory []ConversationMessage
 	if existingHistory != nil {
-		if history, ok := existingHistory.([]conversation.ChatMessage); ok {
-			conversationHistory = history
+		if history, ok := existingHistory.([]ConversationMessage); ok {
+			persistentHistory = history
 			s.logger.Info("Retrieved conversation history", 
 				zap.String("user_id", userID),
 				zap.Int("history_length", len(history)),
@@ -1171,12 +1211,24 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	
-	// Add conversation history (limit to last 10 messages to keep context manageable)
+	// Convert persistent history to API format and apply limit
 	historyLimit := 10
-	if len(conversationHistory) > historyLimit {
-		conversationHistory = conversationHistory[len(conversationHistory)-historyLimit:]
+	apiHistory := make([]conversation.ChatMessage, 0, len(persistentHistory))
+	
+	startIdx := 0
+	if len(persistentHistory) > historyLimit {
+		startIdx = len(persistentHistory) - historyLimit
 	}
-	messages = append(messages, conversationHistory...)
+	
+	for i := startIdx; i < len(persistentHistory); i++ {
+		msg := persistentHistory[i]
+		apiHistory = append(apiHistory, conversation.ChatMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+	
+	messages = append(messages, apiHistory...)
 	
 	// Add current user message
 	currentUserMessage := conversation.ChatMessage{
@@ -1254,14 +1306,23 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 		zap.Int("formatted_length", len(formattedAIResponse)),
 	)
 	
-	// Save conversation history to session
-	aiMessage := conversation.ChatMessage{
-		Role:    "assistant",
-		Content: aiResponseContent, // Store unformatted content for AI context
+	// Create ConversationMessage objects for session storage (with timestamps)
+	now := time.Now()
+	
+	sessionUserMessage := ConversationMessage{
+		Role:      "user",
+		Content:   message, // Already sanitized above
+		Timestamp: now.Add(-1 * time.Minute), // User message slightly before AI response
+	}
+	
+	sessionAIMessage := ConversationMessage{
+		Role:      "assistant",
+		Content:   aiResponseContent, // Store unformatted content for AI context
+		Timestamp: now,
 	}
 	
 	// Update conversation history
-	updatedHistory := append(conversationHistory, currentUserMessage, aiMessage)
+	updatedHistory := append(persistentHistory, sessionUserMessage, sessionAIMessage)
 	
 	s.logger.Debug("Attempting to save conversation history to session", 
 		zap.String("user_id", userID),
