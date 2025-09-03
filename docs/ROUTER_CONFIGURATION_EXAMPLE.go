@@ -94,15 +94,19 @@ func SessionMigrationMiddleware(convService *conversation.Service) func(http.Han
 				sessionKey := fmt.Sprintf("ai_conversation_%s", user.ID)
 				if sessionData := getFromSession(r, sessionKey); sessionData != nil {
 					// Migrate to database asynchronously
+					// TODO: Implement MigrateSessionToDatabase method in conversation service
 					go func() {
 						ctx := context.Background()
-						conv, err := convService.MigrateSessionToDatabase(ctx, user.ID, sessionData)
-						if err != nil {
-							log.Printf("Failed to migrate session for user %s: %v", user.ID, err)
-						} else if conv != nil {
-							log.Printf("Successfully migrated session to conversation %s for user %s", conv.ID, user.ID)
-							clearFromSession(w, r, sessionKey) // Clear old session
-						}
+						// conv, err := convService.MigrateSessionToDatabase(ctx, user.ID, sessionData)
+						// if err != nil {
+						// 	log.Printf("Failed to migrate session for user %s: %v", user.ID, err)
+						// } else if conv != nil {
+						// 	log.Printf("Successfully migrated session to conversation %s for user %s", conv.ID, user.ID)
+						// 	clearFromSession(w, r, sessionKey) // Clear old session
+						// }
+						log.Printf("Session migration not implemented for user %s", user.ID)
+						_ = ctx
+						_ = sessionData
 					}()
 				}
 			}
@@ -176,36 +180,37 @@ func initializeConversationService(db *gorm.DB) *conversation.Service {
 }
 
 // Session migration implementation
-func (s *conversation.Service) MigrateSessionToDatabase(ctx context.Context, userID string, sessionMessages []ChatMessage) (*conversation.Conversation, error) {
-	if len(sessionMessages) == 0 {
-		return nil, nil
-	}
+// This would be implemented in the conversation service package
+// func (s *conversation.Service) MigrateSessionToDatabase(ctx context.Context, userID string, sessionMessages []ChatMessage) (*conversation.Conversation, error) {
+// 	if len(sessionMessages) == 0 {
+// 		return nil, nil
+// 	}
 
-	// Create new conversation from session data
-	firstMessage := sessionMessages[0].Content
-	conv, err := s.CreateConversation(ctx, userID, firstMessage)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create conversation: %w", err)
-	}
+// 	// Create new conversation from session data
+// 	firstMessage := sessionMessages[0].Content
+// 	conv, err := s.CreateConversation(ctx, userID, firstMessage)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to create conversation: %w", err)
+// 	}
 
-	// Migrate all messages
-	for i, msg := range sessionMessages {
-		role := conversation.MessageRole(strings.ToLower(msg.Role))
-		if role != conversation.RoleUser && role != conversation.RoleAssistant && role != conversation.RoleSystem {
-			log.Printf("Skipping message %d with invalid role: %s", i, msg.Role)
-			continue
-		}
+// 	// Migrate all messages
+// 	for i, msg := range sessionMessages {
+// 		role := conversation.MessageRole(strings.ToLower(msg.Role))
+// 		if role != conversation.RoleUser && role != conversation.RoleAssistant && role != conversation.RoleSystem {
+// 			log.Printf("Skipping message %d with invalid role: %s", i, msg.Role)
+// 			continue
+// 		}
 
-		_, err := s.AddMessage(ctx, conv.ID, role, msg.Content, msg.Metadata)
-		if err != nil {
-			log.Printf("Failed to migrate message %d: %v", i, err)
-			continue
-		}
-	}
+// 		_, err := s.AddMessage(ctx, conv.ID, role, msg.Content, msg.Metadata)
+// 		if err != nil {
+// 			log.Printf("Failed to migrate message %d: %v", i, err)
+// 			continue
+// 		}
+// 	}
 
-	log.Printf("Successfully migrated %d messages to conversation %s", len(sessionMessages), conv.ID)
-	return conv, nil
-}
+// 	log.Printf("Successfully migrated %d messages to conversation %s", len(sessionMessages), conv.ID)
+// 	return conv, nil
+// }
 
 // ChatMessage represents the old session-based message format
 type ChatMessage struct {

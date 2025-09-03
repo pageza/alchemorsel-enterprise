@@ -270,10 +270,10 @@ func (rf *RecipeFactory) CreateItalianRecipe() (*recipe.Recipe, error) {
 	return NewRecipeBuilder().
 		WithTitle("Spaghetti Aglio e Olio").
 		WithDescription("A classic Italian pasta dish with garlic and olive oil").
-		WithCuisine(recipe.CuisineItalian).
+		WithCuisine(recipe.CuisineTypeItalian).
 		WithIngredients(ingredients).
 		WithInstructions(instructions).
-		WithDifficulty(recipe.DifficultyEasy).
+		WithDifficulty(recipe.DifficultyLevelEasy).
 		WithTimings(10*time.Minute, 15*time.Minute).
 		WithServings(4).
 		WithTags([]string{"italian", "pasta", "quick"}).
@@ -286,8 +286,8 @@ func (rf *RecipeFactory) CreateComplexRecipe() (*recipe.Recipe, error) {
 	for i := 0; i < 10; i++ {
 		ingredients = append(ingredients, recipe.Ingredient{
 			ID:       uuid.New(),
-			Name:     rf.faker.Food(),
-			Quantity: rf.faker.Float32Range(0.5, 3.0),
+			Name:     rf.faker.Noun(),
+			Amount:   float64(rf.faker.Float32Range(0.5, 3.0)),
 			Unit:     rf.randomUnit(),
 		})
 	}
@@ -295,7 +295,6 @@ func (rf *RecipeFactory) CreateComplexRecipe() (*recipe.Recipe, error) {
 	instructions := make([]recipe.Instruction, 0, 8)
 	for i := 0; i < 8; i++ {
 		instructions = append(instructions, recipe.Instruction{
-			ID:          uuid.New(),
 			StepNumber:  i + 1,
 			Description: rf.faker.Sentence(8),
 			Duration:    time.Duration(rf.faker.IntRange(5, 30)) * time.Minute,
@@ -307,7 +306,7 @@ func (rf *RecipeFactory) CreateComplexRecipe() (*recipe.Recipe, error) {
 		WithDescription(rf.faker.Paragraph(3, 4, 6, " ")).
 		WithIngredients(ingredients).
 		WithInstructions(instructions).
-		WithDifficulty(recipe.DifficultyHard).
+		WithDifficulty(recipe.DifficultyLevelHard).
 		WithTimings(45*time.Minute, 90*time.Minute).
 		WithServings(rf.faker.IntRange(4, 8)).
 		WithTags([]string{"complex", "gourmet", "special-occasion"}).
@@ -437,10 +436,19 @@ func (uf *UserFactory) CreateUnverifiedUser() (*user.User, error) {
 // Helper methods
 
 // randomUnit returns a random cooking unit
-func (rf *RecipeFactory) randomUnit() string {
-	units := []string{
-		"cup", "cups", "tbsp", "tsp", "lb", "oz", "g", "kg", 
-		"ml", "l", "pieces", "cloves", "bunch", "pinch",
+func (rf *RecipeFactory) randomUnit() recipe.MeasurementUnit {
+	units := []recipe.MeasurementUnit{
+		recipe.MeasurementUnitCup,
+		recipe.MeasurementUnitTablespoon,
+		recipe.MeasurementUnitTeaspoon,
+		recipe.MeasurementUnitPound,
+		recipe.MeasurementUnitOunce,
+		recipe.MeasurementUnitGram,
+		recipe.MeasurementUnitKilogram,
+		recipe.MeasurementUnitMilliliter,
+		recipe.MeasurementUnitLiter,
+		recipe.MeasurementUnitPiece,
+		recipe.MeasurementUnitPinch,
 	}
 	return units[rand.Intn(len(units))]
 }
@@ -454,7 +462,6 @@ type TestDataSet struct {
 // CreateTestDataSet creates a related set of test data
 func CreateTestDataSet(userCount, recipeCount int) (*TestDataSet, error) {
 	userFactory := NewUserFactory(time.Now().UnixNano())
-	recipeFactory := NewRecipeFactory(time.Now().UnixNano())
 
 	// Create users
 	users := make([]*user.User, 0, userCount)

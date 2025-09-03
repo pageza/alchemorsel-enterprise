@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alchemorsel/v3/test/testutils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,14 +13,43 @@ import (
 // RecipeTestSuite provides a test suite for Recipe entity
 type RecipeTestSuite struct {
 	suite.Suite
-	recipeFactory *testutils.RecipeFactory
-	assertions    *testutils.RecipeAssertions
 }
 
 // SetupSuite initializes the test suite
 func (suite *RecipeTestSuite) SetupSuite() {
-	suite.recipeFactory = testutils.NewRecipeFactory(time.Now().UnixNano())
-	suite.assertions = testutils.NewRecipeAssertions(suite.T())
+	// No initialization needed
+}
+
+// createValidRecipe creates a valid recipe with ingredients and instructions for testing
+func (suite *RecipeTestSuite) createValidRecipe() (*Recipe, error) {
+	recipe, err := NewRecipe("Test Recipe", "A valid test recipe", uuid.New())
+	if err != nil {
+		return nil, err
+	}
+	
+	// Add a valid ingredient
+	ingredient := Ingredient{
+		ID:       uuid.New(),
+		Name:     "Test Ingredient",
+		Amount:   1.0,
+		Unit:     MeasurementUnitCup,
+	}
+	err = recipe.AddIngredient(ingredient)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Add a valid instruction
+	instruction := Instruction{
+		Description: "Test instruction",
+		Duration:    5 * time.Minute,
+	}
+	err = recipe.AddInstruction(instruction)
+	if err != nil {
+		return nil, err
+	}
+	
+	return recipe, nil
 }
 
 // TestRecipeCreation tests recipe creation scenarios
@@ -254,7 +282,7 @@ func (suite *RecipeTestSuite) TestRecipeInstructions() {
 func (suite *RecipeTestSuite) TestRecipePublishing() {
 	suite.Run("PublishValidRecipe_ShouldPublish", func() {
 		// Arrange
-		recipe, _ := suite.recipeFactory.CreateValidRecipe()
+		recipe, _ := suite.createValidRecipe()
 		recipe.Events() // Clear creation events
 
 		// Act
@@ -310,7 +338,7 @@ func (suite *RecipeTestSuite) TestRecipePublishing() {
 
 	suite.Run("PublishAlreadyPublishedRecipe_ShouldReturnError", func() {
 		// Arrange
-		recipe, _ := suite.recipeFactory.CreateValidRecipe()
+		recipe, _ := suite.createValidRecipe()
 		recipe.Publish() // Publish first time
 
 		// Act
@@ -326,7 +354,7 @@ func (suite *RecipeTestSuite) TestRecipePublishing() {
 func (suite *RecipeTestSuite) TestRecipeArchiving() {
 	suite.Run("ArchivePublishedRecipe_ShouldArchive", func() {
 		// Arrange
-		recipe, _ := suite.recipeFactory.CreateValidRecipe()
+		recipe, _ := suite.createValidRecipe()
 		recipe.Publish()
 		recipe.Events() // Clear events
 
@@ -490,7 +518,7 @@ func (suite *RecipeTestSuite) TestRecipeEvents() {
 func (suite *RecipeTestSuite) TestRecipeValidation() {
 	suite.Run("ValidateForPublishing_ValidRecipe_ShouldPass", func() {
 		// Arrange
-		recipe, _ := suite.recipeFactory.CreateValidRecipe()
+		recipe, _ := suite.createValidRecipe()
 
 		// Act
 		err := recipe.validateForPublishing()
@@ -576,11 +604,38 @@ func BenchmarkRecipeAddIngredient(b *testing.B) {
 
 // BenchmarkRecipePublish benchmarks recipe publishing
 func BenchmarkRecipePublish(b *testing.B) {
-	factory := testutils.NewRecipeFactory(time.Now().UnixNano())
+	createValidRecipe := func() (*Recipe, error) {
+		recipe, err := NewRecipe("Benchmark Recipe", "A recipe for benchmarking", uuid.New())
+		if err != nil {
+			return nil, err
+		}
+		
+		ingredient := Ingredient{
+			ID:     uuid.New(),
+			Name:   "Test Ingredient",
+			Amount: 1.0,
+			Unit:   MeasurementUnitCup,
+		}
+		err = recipe.AddIngredient(ingredient)
+		if err != nil {
+			return nil, err
+		}
+		
+		instruction := Instruction{
+			Description: "Test instruction",
+			Duration:    5 * time.Minute,
+		}
+		err = recipe.AddInstruction(instruction)
+		if err != nil {
+			return nil, err
+		}
+		
+		return recipe, nil
+	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		recipe, _ := factory.CreateValidRecipe()
+		recipe, _ := createValidRecipe()
 		err := recipe.Publish()
 		if err != nil {
 			b.Fatal(err)

@@ -132,8 +132,8 @@ type FontPreloadHint struct {
 	Type        string
 }
 
-// FontFontResourceHint represents a resource hint for fonts
-type FontFontResourceHint struct {
+// FontResourceHint represents a resource hint for fonts
+type FontResourceHint struct {
 	Type        string // preconnect, dns-prefetch, preload
 	URL         string
 	CrossOrigin bool

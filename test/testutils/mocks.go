@@ -3,6 +3,7 @@ package testutils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -12,6 +13,11 @@ import (
 	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
+)
+
+var (
+	// ErrUserNotFound is returned when a user is not found
+	ErrUserNotFound = errors.New("user not found")
 )
 
 // MockRecipeRepository provides a mock implementation of RecipeRepository
@@ -104,7 +110,7 @@ func (m *MockRecipeRepository) SetupStandardMockBehavior() {
 	
 	// FindByID returns recipe not found by default
 	m.On("FindByID", mock.Anything, mock.AnythingOfType("uuid.UUID")).
-		Return((*recipe.Recipe)(nil), outbound.ErrRecipeNotFound)
+		Return((*recipe.Recipe)(nil), recipe.ErrRecipeNotFound)
 	
 	// Other methods return empty results
 	m.On("FindByAuthorID", mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.AnythingOfType("int"), mock.AnythingOfType("int")).
@@ -201,15 +207,15 @@ func (m *MockUserRepository) SetupStandardMockBehavior() {
 	
 	// FindByID returns user not found by default
 	m.On("FindByID", mock.Anything, mock.AnythingOfType("uuid.UUID")).
-		Return((*user.User)(nil), outbound.ErrUserNotFound)
+		Return((*user.User)(nil), ErrUserNotFound)
 	
 	// FindByEmail returns user not found by default
 	m.On("FindByEmail", mock.Anything, mock.AnythingOfType("string")).
-		Return((*user.User)(nil), outbound.ErrUserNotFound)
+		Return((*user.User)(nil), ErrUserNotFound)
 	
 	// FindByUsername returns user not found by default
 	m.On("FindByUsername", mock.Anything, mock.AnythingOfType("string")).
-		Return((*user.User)(nil), outbound.ErrUserNotFound)
+		Return((*user.User)(nil), ErrUserNotFound)
 	
 	// Delete always succeeds
 	m.On("Delete", mock.Anything, mock.AnythingOfType("uuid.UUID")).
