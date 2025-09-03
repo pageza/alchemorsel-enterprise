@@ -27,7 +27,7 @@ type HTTPIntegrationConfig struct {
 }
 
 // NewHTTPIntegration creates a new HTTP integration
-func NewHTTPIntegration(orchestrator *OptimizationOrchestrator, config HTTPIntegrationConfig) *HTTPIntegration {
+func NewHTTPIntegration(orchestrator *CoreWebVitalsOrchestrator, config HTTPIntegrationConfig) *HTTPIntegration {
 	return &HTTPIntegration{
 		orchestrator:          orchestrator,
 		performanceMonitor:    orchestrator.GetPerformanceMonitor(),
