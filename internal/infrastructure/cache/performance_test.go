@@ -225,7 +225,6 @@ func TestCachePerformanceUnderLoad(t *testing.T) {
 	targetOpsPerSec := 10000
 
 	var (
-		totalOps    int64
 		totalErrors int64
 		wg          sync.WaitGroup
 		start       = time.Now()

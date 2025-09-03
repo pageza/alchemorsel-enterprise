@@ -6,15 +6,16 @@ import (
 	
 	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/alchemorsel/v3/internal/infrastructure/http/handlers"
-	"github.com/alchemorsel/v3/internal/infrastructure/persistence/gorm"
+	gormRepo "github.com/alchemorsel/v3/internal/infrastructure/persistence/gorm"
+	"gorm.io/gorm"
 )
 
 // Example router configuration for multi-chat conversation system
 func setupConversationRoutes(r chi.Router, db *gorm.DB) {
 	// Initialize repositories
-	conversationRepo := gorm.NewConversationRepository(db)
-	messageRepo := gorm.NewMessageRepository(db)
-	contextRepo := gorm.NewContextRepository(db)
+	conversationRepo := gormRepo.NewConversationRepository(db)
+	messageRepo := gormRepo.NewMessageRepository(db)
+	contextRepo := gormRepo.NewContextRepository(db)
 	
 	// Initialize AI service (assuming you have this)
 	// aiService := ai.NewService(...)
