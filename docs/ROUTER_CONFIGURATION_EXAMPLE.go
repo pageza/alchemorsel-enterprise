@@ -118,7 +118,8 @@ func SessionMigrationMiddleware(convService *conversation.Service) func(http.Han
 // Example complete server setup
 func main() {
 	// Initialize database connection
-	db := initializeDatabase() // Your DB initialization
+	// db := initializeDatabase() // Your DB initialization - implement this function
+	var db *gorm.DB // placeholder
 	
 	// Initialize router
 	r := chi.NewRouter()

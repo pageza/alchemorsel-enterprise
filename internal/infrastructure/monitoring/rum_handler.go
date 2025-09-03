@@ -368,12 +368,10 @@ func (h *RUMHandler) processErrorsForMonitoring(ctx context.Context, errors []RU
 		// Record error in tracing
 		if h.tracing != nil {
 			h.tracing.AddSpanEvent(ctx, "frontend_error",
-				map[string]interface{}{
-					"error.type":    err.Type,
-					"error.message": err.Message,
-					"error.file":    err.Filename,
-					"user.id":       err.UserID,
-				},
+				attribute.String("error.type", err.Type),
+				attribute.String("error.message", err.Message),
+				attribute.String("error.file", err.Filename),
+				attribute.String("user.id", err.UserID),
 			)
 		}
 	}

@@ -12,7 +12,7 @@ import (
 
 // HTTPIntegration provides HTTP middleware and handlers for optimization
 type HTTPIntegration struct {
-	orchestrator       *OptimizationOrchestrator
+	orchestrator       *CoreWebVitalsOrchestrator
 	performanceMonitor *PerformanceMonitor
 	compressionMiddleware *CompressionMiddleware
 	enableMetrics      bool

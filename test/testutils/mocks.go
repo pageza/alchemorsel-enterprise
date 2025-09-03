@@ -273,25 +273,23 @@ func (m *MockAIService) SetupStandardMockBehavior() {
 			{
 				ID:       uuid.New(),
 				Name:     "Spaghetti",
-				Quantity: 1.0,
-				Unit:     "lb",
+				Amount:   1.0,
+				Unit:     recipe.MeasurementUnitPound,
 			},
 			{
 				ID:       uuid.New(),
 				Name:     "Tomato Sauce",
-				Quantity: 2.0,
-				Unit:     "cups",
+				Amount:   2.0,
+				Unit:     recipe.MeasurementUnitCup,
 			},
 		},
 		Instructions: []recipe.Instruction{
 			{
-				ID:          uuid.New(),
 				StepNumber:  1,
 				Description: "Boil water",
 				Duration:    5 * time.Minute,
 			},
 			{
-				ID:          uuid.New(),
 				StepNumber:  2,
 				Description: "Cook pasta",
 				Duration:    10 * time.Minute,
@@ -300,8 +298,8 @@ func (m *MockAIService) SetupStandardMockBehavior() {
 		PrepTime:   10 * time.Minute,
 		CookTime:   15 * time.Minute,
 		Servings:   4,
-		Cuisine:    recipe.CuisineItalian,
-		Difficulty: recipe.DifficultyEasy,
+		Cuisine:    recipe.CuisineTypeItalian,
+		Difficulty: recipe.DifficultyLevelEasy,
 	}
 
 	// Standard nutrition info
@@ -314,11 +312,6 @@ func (m *MockAIService) SetupStandardMockBehavior() {
 		Sugar:           10.0,
 		Sodium:          800.0,
 		Cholesterol:     25.0,
-		ServingSize:     "1 portion",
-		VitaminA:        20.0,
-		VitaminC:        15.0,
-		Calcium:         10.0,
-		Iron:            8.0,
 	}
 
 	// Setup mock responses
@@ -333,7 +326,7 @@ func (m *MockAIService) SetupStandardMockBehavior() {
 			{
 				ID:       uuid.New(),
 				Name:     "Suggested Ingredient",
-				Quantity: 1.0,
+				Amount:   1.0,
 				Unit:     "cup",
 			},
 		}, nil)

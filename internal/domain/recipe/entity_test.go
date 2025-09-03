@@ -195,8 +195,8 @@ func (suite *RecipeTestSuite) TestRecipeIngredients() {
 		ingredient := Ingredient{
 			ID:       uuid.New(),
 			Name:     "Spaghetti",
-			Quantity: 1.0,
-			Unit:     "lb",
+			Amount:   1.0,
+			Unit:     MeasurementUnitPound,
 		}
 
 		// Act
@@ -221,8 +221,8 @@ func (suite *RecipeTestSuite) TestRecipeIngredients() {
 		ingredient := Ingredient{
 			ID:       uuid.New(),
 			Name:     "", // Invalid - empty name
-			Quantity: 1.0,
-			Unit:     "lb",
+			Amount:   1.0,
+			Unit:     MeasurementUnitPound,
 		}
 
 		// Act
@@ -322,8 +322,8 @@ func (suite *RecipeTestSuite) TestRecipePublishing() {
 		recipe.AddIngredient(Ingredient{
 			ID:       uuid.New(),
 			Name:     "Test Ingredient",
-			Quantity: 1.0,
-			Unit:     "cup",
+			Amount:   1.0,
+			Unit:     MeasurementUnitCup,
 		})
 		// Don't add instructions
 
@@ -552,8 +552,8 @@ func (suite *RecipeTestSuite) TestRecipeValidation() {
 		recipe.AddIngredient(Ingredient{
 			ID:       uuid.New(),
 			Name:     "Test Ingredient",
-			Quantity: 1.0,
-			Unit:     "cup",
+			Amount:   1.0,
+			Unit:     MeasurementUnitCup,
 		})
 
 		// Act
@@ -587,7 +587,7 @@ func BenchmarkRecipeAddIngredient(b *testing.B) {
 	ingredient := Ingredient{
 		ID:       uuid.New(),
 		Name:     "Test Ingredient",
-		Quantity: 1.0,
+		Amount:   1.0,
 		Unit:     "cup",
 	}
 
