@@ -87,7 +87,7 @@ func (r *CacheRepository) MSet(ctx context.Context, items map[string][]byte, ttl
 // Increment atomically increments a counter
 func (r *CacheRepository) Increment(ctx context.Context, key string) (int64, error) {
 	// Default 1 hour expiration for counters
-	return r.cacheService.redis.Increment(ctx, key, time.Hour)
+	return r.cacheService.Increment(ctx, key, time.Hour)
 }
 
 // Decrement atomically decrements a counter

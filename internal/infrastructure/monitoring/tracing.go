@@ -6,6 +6,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -202,7 +203,7 @@ func (t *TracingProvider) RecordError(ctx context.Context, err error) {
 }
 
 // SetSpanStatus sets the status of the current span
-func (t *TracingProvider) SetSpanStatus(ctx context.Context, code trace.StatusCode, description string) {
+func (t *TracingProvider) SetSpanStatus(ctx context.Context, code codes.Code, description string) {
 	span := trace.SpanFromContext(ctx)
 	if span != nil {
 		span.SetStatus(trace.Status{
