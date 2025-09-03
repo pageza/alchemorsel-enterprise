@@ -66,6 +66,7 @@ func (suite *ChatWorkflowE2ETestSuite) TestNewUserRecipeCreationJourney() {
 		// Expect conversation creation notification
 		convCreatedMsg, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
 		suite.NoError(err)
+		suite.Equal("conversation_created", convCreatedMsg.Type)
 		
 		// Expect AI response with guidance
 		aiResponse, err := conn.WaitForMessageType("chat_response", 5*time.Second)
