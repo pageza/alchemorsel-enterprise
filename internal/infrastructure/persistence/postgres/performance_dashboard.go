@@ -40,7 +40,7 @@ func NewPerformanceDashboard(
 type DashboardData struct {
 	Timestamp         time.Time             `json:"timestamp"`
 	Overview          PerformanceOverview   `json:"overview"`
-	ConnectionMetrics ConnectionMetrics     `json:"connection_metrics"`
+	ConnectionMetrics *ConnectionMetrics    `json:"connection_metrics"`
 	QueryMetrics      QueryAnalysis         `json:"query_metrics"`
 	CacheMetrics      CacheMetrics          `json:"cache_metrics"`
 	IndexHealth       IndexHealthScore      `json:"index_health"`
@@ -143,7 +143,7 @@ func (pd *PerformanceDashboard) GetDashboardData(ctx context.Context) (*Dashboar
 	dashboard := &DashboardData{
 		Timestamp:         timestamp,
 		Overview:          overview,
-		ConnectionMetrics: connMetrics,
+		ConnectionMetrics: &connMetrics,
 		QueryMetrics:      queryAnalysis,
 		CacheMetrics:      cacheMetrics,
 		Alerts:            alerts,

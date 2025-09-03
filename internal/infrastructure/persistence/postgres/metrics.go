@@ -257,7 +257,7 @@ func (m *ConnectionMetrics) GetRecommendations() []string {
 // MetricsReport provides a comprehensive metrics report
 type MetricsReport struct {
 	Timestamp     time.Time            `json:"timestamp"`
-	Metrics       ConnectionMetrics    `json:"metrics"`
+	Metrics       *ConnectionMetrics   `json:"metrics"`
 	Health        HealthStatus         `json:"health"`
 	Recommendations []string           `json:"recommendations"`
 }
@@ -280,7 +280,7 @@ func (m *ConnectionMetrics) GenerateReport() MetricsReport {
 	
 	return MetricsReport{
 		Timestamp:       time.Now(),
-		Metrics:         snapshot,
+		Metrics:         &snapshot,
 		Health:          health,
 		Recommendations: recommendations,
 	}
