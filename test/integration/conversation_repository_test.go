@@ -282,7 +282,7 @@ func (suite *ConversationRepositoryTestSuite) TestGetConversationMessages() {
 	conv := suite.createTestConversation(userID, conversation.IntentRecipeCreation)
 
 	// Create messages in conversation
-	messages := []*conversation.Message{
+	_ = []*conversation.Message{
 		suite.createTestMessage(conv.ID, conversation.RoleUser, "I want to make pasta"),
 		suite.createTestMessage(conv.ID, conversation.RoleAssistant, "What type of pasta?"),
 		suite.createTestMessage(conv.ID, conversation.RoleUser, "Carbonara"),
