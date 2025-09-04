@@ -159,10 +159,14 @@ func (h *HealthCheck) Check(ctx context.Context) Response {
 
 	// Run checks concurrently
 	var wg sync.WaitGroup
-	checksChan := make(chan Check, len(h.checkers))
-
+	
 	h.mu.RLock()
+	checksChan := make(chan Check, len(h.checkers))
 	for name, checker := range h.checkers {
+		// Skip nil checkers (used to effectively remove checkers)
+		if checker == nil {
+			continue
+		}
 		wg.Add(1)
 		go func(n string, c Checker) {
 			defer wg.Done()
