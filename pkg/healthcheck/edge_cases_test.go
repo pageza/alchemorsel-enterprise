@@ -334,7 +334,7 @@ func TestEdgeCase_EnterpriseHealthCheckMaintenanceTransitions(t *testing.T) {
 
 // TestEdgeCase_EnterpriseHealthCheckWithNilTimes tests maintenance mode with nil times
 func TestEdgeCase_EnterpriseHealthCheckWithNilTimes(t *testing.T) {
-	ehc := NewEnterpriseHealthCheck("1.0.0", zap.NewNop())
+	ehc := CreateTestEnterpriseHealthCheck("1.0.0", zap.NewNop())
 
 	// Should handle nil times gracefully
 	ehc.SetMaintenanceMode(true, "Maintenance", nil, nil)
@@ -475,7 +475,7 @@ func (p *PanicChecker) Check(ctx context.Context) Check {
 
 // TestEdgeCase_SystemInfoEdgeCases tests system info edge cases
 func TestEdgeCase_SystemInfoEdgeCases(t *testing.T) {
-	ehc := NewEnterpriseHealthCheck("1.0.0", zap.NewNop())
+	ehc := CreateTestEnterpriseHealthCheck("1.0.0", zap.NewNop())
 	ctx := context.Background()
 
 	response := ehc.CheckWithMode(ctx, ModeStandard)

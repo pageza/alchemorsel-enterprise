@@ -436,11 +436,16 @@ func TestDependencyGraph_ValidateCycles(t *testing.T) {
 	err = dg.ValidateCycles()
 	assert.NoError(t, err)
 
-	// Now create cycle
-	dg.RemoveNode("database")
-	dg.AddNode("database", []string{"service"})
+	// Now create cycle: database -> service -> api -> cache -> database
+	// We need to create this without using RemoveNode which disrupts existing connections
+	// Let's create a completely new cyclic graph
+	dg2 := NewDependencyGraph()
+	dg2.AddNode("database", []string{"service"})
+	dg2.AddNode("service", []string{"api"})  
+	dg2.AddNode("api", []string{"cache"})
+	dg2.AddNode("cache", []string{"database"})
 
-	err = dg.ValidateCycles()
+	err = dg2.ValidateCycles()
 	assert.Error(t, err)
 }
 

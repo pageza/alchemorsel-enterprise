@@ -493,3 +493,12 @@ func AssertEnterpriseResponseStructure(t *testing.T, response EnterpriseResponse
 	require.True(t, response.SystemInfo.CPUCores > 0, "CPU cores should be positive")
 	require.True(t, response.SystemInfo.Memory.Total > 0, "Memory total should be positive")
 }
+
+// CreateTestEnterpriseHealthCheck creates an enterprise health check with disabled metrics for testing
+// This avoids Prometheus metrics registration conflicts when running multiple tests
+func CreateTestEnterpriseHealthCheck(version string, logger *zap.Logger) *EnterpriseHealthCheck {
+	// Use disabled metrics to avoid registration conflicts in tests
+	config := MetricsConfig{Enabled: false}
+	metrics := NewHealthMetricsWithConfig(config)
+	return NewEnterpriseHealthCheckWithMetrics(version, logger, metrics)
+}

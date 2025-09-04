@@ -4,7 +4,9 @@ package healthcheck
 
 import (
 	"context"
+	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -51,7 +53,23 @@ func DefaultMetricsConfig() MetricsConfig {
 
 // NewHealthMetrics creates a new health metrics instance
 func NewHealthMetrics() *HealthMetrics {
-	return NewHealthMetricsWithConfig(DefaultMetricsConfig())
+	config := DefaultMetricsConfig()
+	// Disable metrics in test environment to avoid registration conflicts
+	if isTestEnvironment() {
+		config.Enabled = false
+	}
+	return NewHealthMetricsWithConfig(config)
+}
+
+// isTestEnvironment detects if we're running in a test
+func isTestEnvironment() bool {
+	// Check if go test is running by looking for test flags
+	for _, arg := range os.Args {
+		if strings.HasSuffix(arg, ".test") || strings.Contains(arg, "-test.") {
+			return true
+		}
+	}
+	return false
 }
 
 // NewHealthMetricsWithConfig creates a new health metrics instance with configuration

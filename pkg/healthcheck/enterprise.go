@@ -121,11 +121,14 @@ func (e *EnterpriseHealthCheck) SetMaintenanceMode(enabled bool, message string,
 	e.maintenanceMode = enabled
 
 	if enabled && e.logger != nil {
-		e.logger.Warn("Maintenance mode enabled",
-			zap.String("message", message),
-			zap.Time("start_time", *startTime),
-			zap.Time("end_time", *endTime),
-		)
+		fields := []zap.Field{zap.String("message", message)}
+		if startTime != nil {
+			fields = append(fields, zap.Time("start_time", *startTime))
+		}
+		if endTime != nil {
+			fields = append(fields, zap.Time("end_time", *endTime))
+		}
+		e.logger.Warn("Maintenance mode enabled", fields...)
 	}
 }
 

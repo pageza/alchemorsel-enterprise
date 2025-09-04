@@ -5,6 +5,7 @@ package healthcheck
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -165,6 +166,20 @@ func (h *HealthCheck) Check(ctx context.Context) Response {
 		wg.Add(1)
 		go func(n string, c Checker) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					// Handle panics from checkers gracefully
+					check := Check{
+						Name:        n,
+						Status:      StatusUnhealthy,
+						Message:     fmt.Sprintf("Checker panicked: %v", r),
+						LastChecked: time.Now(),
+						Duration:    0,
+						Metadata:    map[string]interface{}{"panic": true, "error": fmt.Sprintf("%v", r)},
+					}
+					checksChan <- check
+				}
+			}()
 			check := c.Check(checkCtx)
 			check.Name = n
 			checksChan <- check

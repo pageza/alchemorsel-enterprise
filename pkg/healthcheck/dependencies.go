@@ -366,7 +366,20 @@ func (bd *BasicDependency) GetDependencies() []string {
 func (bd *BasicDependency) Check(ctx context.Context) DependencyStatus {
 	start := time.Now()
 
-	check := bd.checker.Check(ctx)
+	var check Check
+	if bd.checker == nil {
+		// Handle nil checker gracefully
+		check = Check{
+			Name:        bd.name,
+			Status:      StatusUnhealthy,
+			Message:     "No checker provided",
+			LastChecked: start,
+			Duration:    time.Since(start),
+			Metadata:    map[string]interface{}{"error": "nil_checker"},
+		}
+	} else {
+		check = bd.checker.Check(ctx)
+	}
 
 	// Safe type assertion for metadata
 	var metadata map[string]interface{}
