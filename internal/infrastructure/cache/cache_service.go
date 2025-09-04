@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
@@ -62,9 +64,10 @@ type CacheMetrics struct {
 	WriteOps     int64         `json:"write_ops"`
 	ReadOps      int64         `json:"read_ops"`
 	InvalidOps   int64         `json:"invalid_ops"`
-	AvgReadTime  time.Duration `json:"avg_read_time"`
-	AvgWriteTime time.Duration `json:"avg_write_time"`
+	AvgReadTime  int64         `json:"avg_read_time"`  // stored as nanoseconds for atomic ops
+	AvgWriteTime int64         `json:"avg_write_time"` // stored as nanoseconds for atomic ops
 	LastReset    time.Time     `json:"last_reset"`
+	mu           sync.RWMutex  // protects LastReset
 }
 
 // CacheEntry represents a cached item with metadata
@@ -111,20 +114,20 @@ func NewCacheService(redis *RedisClient, config *CacheConfig, logger *zap.Logger
 func (c *CacheService) Get(ctx context.Context, key string) ([]byte, error) {
 	start := time.Now()
 	defer func() {
-		c.metrics.ReadOps++
+		atomic.AddInt64(&c.metrics.ReadOps, 1)
 		c.updateAvgReadTime(time.Since(start))
 	}()
 
 	// Validate key
 	if err := c.validateKey(key); err != nil {
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return nil, err
 	}
 
 	// Try L1 cache (local memory) first
 	if data, found := c.localCache.Get(key); found {
-		c.metrics.L1Hits++
-		c.metrics.TotalHits++
+		atomic.AddInt64(&c.metrics.L1Hits, 1)
+		atomic.AddInt64(&c.metrics.TotalHits, 1)
 		c.logger.Debug("Cache L1 hit", zap.String("key", key))
 
 		// Decompress if needed
@@ -133,7 +136,7 @@ func (c *CacheService) Get(ctx context.Context, key string) ([]byte, error) {
 			if err != nil {
 				c.logger.Error("Failed to decompress L1 cache data", zap.String("key", key), zap.Error(err))
 				c.localCache.Delete(key) // Remove corrupted entry
-				c.metrics.Errors++
+				atomic.AddInt64(&c.metrics.Errors, 1)
 			} else {
 				return decompressed, nil
 			}
@@ -142,20 +145,20 @@ func (c *CacheService) Get(ctx context.Context, key string) ([]byte, error) {
 		}
 	}
 
-	c.metrics.L1Misses++
+	atomic.AddInt64(&c.metrics.L1Misses, 1)
 
 	// Try L2 cache (Redis)
 	redisData, err := c.redis.Get(ctx, key)
 	if err == nil {
-		c.metrics.L2Hits++
-		c.metrics.TotalHits++
+		atomic.AddInt64(&c.metrics.L2Hits, 1)
+		atomic.AddInt64(&c.metrics.TotalHits, 1)
 		c.logger.Debug("Cache L2 hit", zap.String("key", key))
 
 		// Deserialize cache entry
 		var entry CacheEntry
 		if err := c.serializer.Deserialize(redisData, &entry); err != nil {
 			c.logger.Error("Failed to deserialize cache entry", zap.String("key", key), zap.Error(err))
-			c.metrics.Errors++
+			atomic.AddInt64(&c.metrics.Errors, 1)
 			return nil, err
 		}
 
@@ -165,7 +168,7 @@ func (c *CacheService) Get(ctx context.Context, key string) ([]byte, error) {
 			data, err = c.compressor.Decompress(entry.Data)
 			if err != nil {
 				c.logger.Error("Failed to decompress cache data", zap.String("key", key), zap.Error(err))
-				c.metrics.Errors++
+				atomic.AddInt64(&c.metrics.Errors, 1)
 				return nil, err
 			}
 		} else {
@@ -182,12 +185,12 @@ func (c *CacheService) Get(ctx context.Context, key string) ([]byte, error) {
 
 	if err != ErrKeyNotFound {
 		c.logger.Error("Redis cache error", zap.String("key", key), zap.Error(err))
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return nil, err
 	}
 
-	c.metrics.L2Misses++
-	c.metrics.TotalMisses++
+	atomic.AddInt64(&c.metrics.L2Misses, 1)
+	atomic.AddInt64(&c.metrics.TotalMisses, 1)
 	c.logger.Debug("Cache miss", zap.String("key", key))
 
 	return nil, ErrKeyNotFound
@@ -197,18 +200,18 @@ func (c *CacheService) Get(ctx context.Context, key string) ([]byte, error) {
 func (c *CacheService) Set(ctx context.Context, key string, data []byte, ttl time.Duration) error {
 	start := time.Now()
 	defer func() {
-		c.metrics.WriteOps++
+		atomic.AddInt64(&c.metrics.WriteOps, 1)
 		c.updateAvgWriteTime(time.Since(start))
 	}()
 
 	// Validate inputs
 	if err := c.validateKey(key); err != nil {
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return err
 	}
 
 	if err := c.validateValue(data); err != nil {
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return err
 	}
 
@@ -241,7 +244,7 @@ func (c *CacheService) Set(ctx context.Context, key string, data []byte, ttl tim
 	// Serialize cache entry
 	serializedEntry, err := c.serializer.Serialize(entry)
 	if err != nil {
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return fmt.Errorf("failed to serialize cache entry: %w", err)
 	}
 
@@ -251,7 +254,7 @@ func (c *CacheService) Set(ctx context.Context, key string, data []byte, ttl tim
 	// Store in L2 cache (Redis)
 	if err := c.redis.Set(ctx, key, serializedEntry, ttl); err != nil {
 		c.logger.Error("Failed to set Redis cache", zap.String("key", key), zap.Error(err))
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return err
 	}
 
@@ -292,7 +295,7 @@ func (c *CacheService) SetWithTags(ctx context.Context, key string, data []byte,
 
 // Delete removes data from all cache layers
 func (c *CacheService) Delete(ctx context.Context, keys ...string) error {
-	c.metrics.InvalidOps++
+	atomic.AddInt64(&c.metrics.InvalidOps, 1)
 
 	// Remove from L1 cache
 	for _, key := range keys {
@@ -302,7 +305,7 @@ func (c *CacheService) Delete(ctx context.Context, keys ...string) error {
 	// Remove from L2 cache
 	if err := c.redis.Delete(ctx, keys...); err != nil {
 		c.logger.Error("Failed to delete from Redis cache", zap.Strings("keys", keys), zap.Error(err))
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return err
 	}
 
@@ -328,7 +331,7 @@ func (c *CacheService) Exists(ctx context.Context, keys ...string) (map[string]b
 	if len(missingKeys) > 0 {
 		count, err := c.redis.Exists(ctx, missingKeys...)
 		if err != nil {
-			c.metrics.Errors++
+			atomic.AddInt64(&c.metrics.Errors, 1)
 			return nil, err
 		}
 
@@ -364,7 +367,7 @@ func (c *CacheService) MGet(ctx context.Context, keys []string) (map[string][]by
 					if err != nil {
 						c.logger.Error("Failed to decompress L1 cache data", zap.String("key", key), zap.Error(err))
 						c.localCache.Delete(key)
-						c.metrics.Errors++
+						atomic.AddInt64(&c.metrics.Errors, 1)
 						missingKeys = append(missingKeys, key)
 						continue
 					}
@@ -373,13 +376,13 @@ func (c *CacheService) MGet(ctx context.Context, keys []string) (map[string][]by
 					finalData = entry.Data
 				}
 				result[key] = finalData
-				c.metrics.L1Hits++
+				atomic.AddInt64(&c.metrics.L1Hits, 1)
 			} else {
 				missingKeys = append(missingKeys, key)
 			}
 		} else {
 			missingKeys = append(missingKeys, key)
-			c.metrics.L1Misses++
+			atomic.AddInt64(&c.metrics.L1Misses, 1)
 		}
 	}
 
@@ -388,7 +391,7 @@ func (c *CacheService) MGet(ctx context.Context, keys []string) (map[string][]by
 		redisResults, err := c.redis.MGet(ctx, missingKeys)
 		if err != nil {
 			c.logger.Error("Redis MGet failed", zap.Strings("keys", missingKeys), zap.Error(err))
-			c.metrics.Errors++
+			atomic.AddInt64(&c.metrics.Errors, 1)
 			return result, err
 		}
 
@@ -396,7 +399,7 @@ func (c *CacheService) MGet(ctx context.Context, keys []string) (map[string][]by
 			var entry CacheEntry
 			if err := c.serializer.Deserialize(data, &entry); err != nil {
 				c.logger.Error("Failed to deserialize cache entry", zap.String("key", key), zap.Error(err))
-				c.metrics.Errors++
+				atomic.AddInt64(&c.metrics.Errors, 1)
 				continue
 			}
 
@@ -405,7 +408,7 @@ func (c *CacheService) MGet(ctx context.Context, keys []string) (map[string][]by
 				decompressed, err := c.compressor.Decompress(entry.Data)
 				if err != nil {
 					c.logger.Error("Failed to decompress cache data", zap.String("key", key), zap.Error(err))
-					c.metrics.Errors++
+					atomic.AddInt64(&c.metrics.Errors, 1)
 					continue
 				}
 				finalData = decompressed
@@ -414,7 +417,7 @@ func (c *CacheService) MGet(ctx context.Context, keys []string) (map[string][]by
 			}
 
 			result[key] = finalData
-			c.metrics.L2Hits++
+			atomic.AddInt64(&c.metrics.L2Hits, 1)
 
 			// Populate L1 cache
 			entry.LastAccess = time.Now()
@@ -425,8 +428,8 @@ func (c *CacheService) MGet(ctx context.Context, keys []string) (map[string][]by
 		// Count misses
 		for _, key := range missingKeys {
 			if _, found := redisResults[key]; !found {
-				c.metrics.L2Misses++
-				c.metrics.TotalMisses++
+				atomic.AddInt64(&c.metrics.L2Misses, 1)
+				atomic.AddInt64(&c.metrics.TotalMisses, 1)
 			}
 		}
 	}
@@ -448,12 +451,12 @@ func (c *CacheService) MSet(ctx context.Context, items map[string][]byte, ttl ti
 	// Prepare entries for both cache layers
 	for key, data := range items {
 		if err := c.validateKey(key); err != nil {
-			c.metrics.Errors++
+			atomic.AddInt64(&c.metrics.Errors, 1)
 			return err
 		}
 
 		if err := c.validateValue(data); err != nil {
-			c.metrics.Errors++
+			atomic.AddInt64(&c.metrics.Errors, 1)
 			return err
 		}
 
@@ -484,7 +487,7 @@ func (c *CacheService) MSet(ctx context.Context, items map[string][]byte, ttl ti
 		// Serialize for L2 cache
 		serializedEntry, err := c.serializer.Serialize(entry)
 		if err != nil {
-			c.metrics.Errors++
+			atomic.AddInt64(&c.metrics.Errors, 1)
 			return fmt.Errorf("failed to serialize cache entry for key %s: %w", key, err)
 		}
 		serializedItems[key] = serializedEntry
@@ -493,7 +496,7 @@ func (c *CacheService) MSet(ctx context.Context, items map[string][]byte, ttl ti
 	// Store in L2 cache
 	if err := c.redis.MSet(ctx, serializedItems, ttl); err != nil {
 		c.logger.Error("Failed to MSet Redis cache", zap.Int("items", len(items)), zap.Error(err))
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return err
 	}
 
@@ -515,60 +518,96 @@ func (c *CacheService) InvalidateByPattern(ctx context.Context, pattern string) 
 func (c *CacheService) GetStats() *CacheStats {
 	redisMetrics := c.redis.GetMetrics()
 
-	totalOperations := c.metrics.ReadOps + c.metrics.WriteOps
+	// Read all metrics atomically
+	readOps := atomic.LoadInt64(&c.metrics.ReadOps)
+	writeOps := atomic.LoadInt64(&c.metrics.WriteOps)
+	totalHits := atomic.LoadInt64(&c.metrics.TotalHits)
+	totalMisses := atomic.LoadInt64(&c.metrics.TotalMisses)
+	l1Hits := atomic.LoadInt64(&c.metrics.L1Hits)
+	l1Misses := atomic.LoadInt64(&c.metrics.L1Misses)
+	l2Hits := atomic.LoadInt64(&c.metrics.L2Hits)
+	l2Misses := atomic.LoadInt64(&c.metrics.L2Misses)
+	errors := atomic.LoadInt64(&c.metrics.Errors)
+	invalidOps := atomic.LoadInt64(&c.metrics.InvalidOps)
+	avgReadTime := time.Duration(atomic.LoadInt64(&c.metrics.AvgReadTime))
+	avgWriteTime := time.Duration(atomic.LoadInt64(&c.metrics.AvgWriteTime))
+
+	totalOperations := readOps + writeOps
 	hitRatio := float64(0)
-	if totalHits := c.metrics.TotalHits; totalHits > 0 {
-		hitRatio = float64(totalHits) / float64(totalHits+c.metrics.TotalMisses)
+	if totalHits > 0 {
+		hitRatio = float64(totalHits) / float64(totalHits+totalMisses)
 	}
 
 	l1HitRatio := float64(0)
-	if l1Total := c.metrics.L1Hits + c.metrics.L1Misses; l1Total > 0 {
-		l1HitRatio = float64(c.metrics.L1Hits) / float64(l1Total)
+	if l1Total := l1Hits + l1Misses; l1Total > 0 {
+		l1HitRatio = float64(l1Hits) / float64(l1Total)
 	}
 
 	l2HitRatio := float64(0)
-	if l2Total := c.metrics.L2Hits + c.metrics.L2Misses; l2Total > 0 {
-		l2HitRatio = float64(c.metrics.L2Hits) / float64(l2Total)
+	if l2Total := l2Hits + l2Misses; l2Total > 0 {
+		l2HitRatio = float64(l2Hits) / float64(l2Total)
 	}
 
 	return &CacheStats{
 		// Overall metrics
 		TotalOperations: totalOperations,
-		TotalHits:       c.metrics.TotalHits,
-		TotalMisses:     c.metrics.TotalMisses,
-		TotalErrors:     c.metrics.Errors,
+		TotalHits:       totalHits,
+		TotalMisses:     totalMisses,
+		TotalErrors:     errors,
 		HitRatio:        hitRatio,
 
 		// L1 (Local) cache metrics
-		L1Hits:     c.metrics.L1Hits,
-		L1Misses:   c.metrics.L1Misses,
+		L1Hits:     l1Hits,
+		L1Misses:   l1Misses,
 		L1HitRatio: l1HitRatio,
 		L1Size:     int64(c.localCache.Size()),
 
 		// L2 (Redis) cache metrics
-		L2Hits:     c.metrics.L2Hits,
-		L2Misses:   c.metrics.L2Misses,
+		L2Hits:     l2Hits,
+		L2Misses:   l2Misses,
 		L2HitRatio: l2HitRatio,
 
 		// Performance metrics
-		AvgReadTime:  c.metrics.AvgReadTime,
-		AvgWriteTime: c.metrics.AvgWriteTime,
+		AvgReadTime:  avgReadTime,
+		AvgWriteTime: avgWriteTime,
 
 		// Redis-specific metrics
 		RedisMetrics: redisMetrics,
 
 		// Operations breakdown
-		ReadOperations:    c.metrics.ReadOps,
-		WriteOperations:   c.metrics.WriteOps,
-		InvalidOperations: c.metrics.InvalidOps,
+		ReadOperations:    readOps,
+		WriteOperations:   writeOps,
+		InvalidOperations: invalidOps,
 
-		LastReset: c.metrics.LastReset,
+		LastReset: func() time.Time {
+			c.metrics.mu.RLock()
+			defer c.metrics.mu.RUnlock()
+			return c.metrics.LastReset
+		}(),
 	}
 }
 
 // ResetStats resets all cache statistics
 func (c *CacheService) ResetStats() {
-	c.metrics = &CacheMetrics{LastReset: time.Now()}
+	// Reset all atomic counters to zero
+	atomic.StoreInt64(&c.metrics.L1Hits, 0)
+	atomic.StoreInt64(&c.metrics.L1Misses, 0)
+	atomic.StoreInt64(&c.metrics.L2Hits, 0)
+	atomic.StoreInt64(&c.metrics.L2Misses, 0)
+	atomic.StoreInt64(&c.metrics.TotalHits, 0)
+	atomic.StoreInt64(&c.metrics.TotalMisses, 0)
+	atomic.StoreInt64(&c.metrics.Errors, 0)
+	atomic.StoreInt64(&c.metrics.WriteOps, 0)
+	atomic.StoreInt64(&c.metrics.ReadOps, 0)
+	atomic.StoreInt64(&c.metrics.InvalidOps, 0)
+	atomic.StoreInt64(&c.metrics.AvgReadTime, 0)
+	atomic.StoreInt64(&c.metrics.AvgWriteTime, 0)
+	
+	// Reset LastReset time with mutex protection
+	c.metrics.mu.Lock()
+	c.metrics.LastReset = time.Now()
+	c.metrics.mu.Unlock()
+	
 	c.logger.Info("Cache statistics reset")
 }
 
@@ -615,22 +654,28 @@ func (c *CacheService) validateValue(data []byte) error {
 }
 
 func (c *CacheService) updateAvgReadTime(duration time.Duration) {
-	if c.metrics.ReadOps == 1 {
-		c.metrics.AvgReadTime = duration
+	readOps := atomic.LoadInt64(&c.metrics.ReadOps)
+	if readOps == 1 {
+		atomic.StoreInt64(&c.metrics.AvgReadTime, int64(duration))
 	} else {
 		// Exponential moving average with α = 0.1
 		alpha := 0.1
-		c.metrics.AvgReadTime = time.Duration(float64(c.metrics.AvgReadTime)*(1-alpha) + float64(duration)*alpha)
+		currentAvg := time.Duration(atomic.LoadInt64(&c.metrics.AvgReadTime))
+		newAvg := time.Duration(float64(currentAvg)*(1-alpha) + float64(duration)*alpha)
+		atomic.StoreInt64(&c.metrics.AvgReadTime, int64(newAvg))
 	}
 }
 
 func (c *CacheService) updateAvgWriteTime(duration time.Duration) {
-	if c.metrics.WriteOps == 1 {
-		c.metrics.AvgWriteTime = duration
+	writeOps := atomic.LoadInt64(&c.metrics.WriteOps)
+	if writeOps == 1 {
+		atomic.StoreInt64(&c.metrics.AvgWriteTime, int64(duration))
 	} else {
 		// Exponential moving average with α = 0.1
 		alpha := 0.1
-		c.metrics.AvgWriteTime = time.Duration(float64(c.metrics.AvgWriteTime)*(1-alpha) + float64(duration)*alpha)
+		currentAvg := time.Duration(atomic.LoadInt64(&c.metrics.AvgWriteTime))
+		newAvg := time.Duration(float64(currentAvg)*(1-alpha) + float64(duration)*alpha)
+		atomic.StoreInt64(&c.metrics.AvgWriteTime, int64(newAvg))
 	}
 }
 
@@ -701,7 +746,7 @@ func (c *CacheService) Increment(ctx context.Context, key string) (int64, error)
 	result, err := c.redis.client.Incr(ctx, key).Result()
 	if err != nil {
 		c.logger.Error("Cache increment failed", zap.String("key", key), zap.Error(err))
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return 0, err
 	}
 	return result, nil
@@ -712,7 +757,7 @@ func (c *CacheService) Decrement(ctx context.Context, key string) (int64, error)
 	result, err := c.redis.client.Decr(ctx, key).Result()
 	if err != nil {
 		c.logger.Error("Cache decrement failed", zap.String("key", key), zap.Error(err))
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return 0, err
 	}
 	return result, nil
@@ -723,7 +768,7 @@ func (c *CacheService) SAdd(ctx context.Context, key string, members ...string) 
 	err := c.redis.client.SAdd(ctx, key, members).Err()
 	if err != nil {
 		c.logger.Error("Cache sadd failed", zap.String("key", key), zap.Strings("members", members), zap.Error(err))
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return err
 	}
 	return nil
@@ -734,7 +779,7 @@ func (c *CacheService) SMembers(ctx context.Context, key string) ([]string, erro
 	members, err := c.redis.client.SMembers(ctx, key).Result()
 	if err != nil {
 		c.logger.Error("Cache smembers failed", zap.String("key", key), zap.Error(err))
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return nil, err
 	}
 	return members, nil
@@ -745,7 +790,7 @@ func (c *CacheService) SRem(ctx context.Context, key string, members ...string) 
 	err := c.redis.client.SRem(ctx, key, members).Err()
 	if err != nil {
 		c.logger.Error("Cache srem failed", zap.String("key", key), zap.Strings("members", members), zap.Error(err))
-		c.metrics.Errors++
+		atomic.AddInt64(&c.metrics.Errors, 1)
 		return err
 	}
 	return nil
