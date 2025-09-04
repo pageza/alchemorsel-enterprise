@@ -130,8 +130,10 @@ func TestNewEnterpriseAIService(t *testing.T) {
 func TestGenerateRecipe(t *testing.T) {
 	service, mockCache := createTestService(t)
 
-	// Mock cache miss
+	// Mock cache miss for recipe cache
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
+	// Mock cache set for rate limiter
+	mockCache.On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(nil)
 
 	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
 	constraints := outbound.AIConstraints{
@@ -153,8 +155,10 @@ func TestGenerateRecipe(t *testing.T) {
 func TestGenerateIngredientSuggestions(t *testing.T) {
 	service, mockCache := createTestService(t)
 
-	// Mock cache miss
+	// Mock cache miss for recipe cache
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
+	// Mock cache set for rate limiter
+	mockCache.On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(nil)
 
 	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
 	partial := []string{"tomatoes", "basil"}
@@ -173,8 +177,10 @@ func TestGenerateIngredientSuggestions(t *testing.T) {
 func TestAnalyzeNutritionalContent(t *testing.T) {
 	service, mockCache := createTestService(t)
 
-	// Mock cache miss
+	// Mock cache miss for recipe cache
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
+	// Mock cache set for rate limiter
+	mockCache.On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(nil)
 
 	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
 	ingredients := []string{"chicken breast", "broccoli", "rice"}
@@ -194,6 +200,8 @@ func TestOptimizeRecipe(t *testing.T) {
 
 	// Mock cache miss
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
+	// Mock cache set for rate limiter
+	mockCache.On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(nil)
 
 	// Create a mock recipe
 	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
@@ -568,6 +576,8 @@ func TestFullWorkflow(t *testing.T) {
 
 	// Mock cache behavior
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
+	// Mock cache set for rate limiter
+	mockCache.On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(nil)
 
 	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
 
@@ -606,6 +616,7 @@ func TestFullWorkflow(t *testing.T) {
 func BenchmarkGenerateRecipe(b *testing.B) {
 	service, mockCache := createTestService(b)
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
+	mockCache.On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(nil)
 
 	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
 	constraints := outbound.AIConstraints{}
