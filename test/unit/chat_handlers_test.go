@@ -80,7 +80,7 @@ func (suite *ChatHandlerTestSuite) TestHandleChatMessage() {
 			setupMocks: func() {
 				// Mock conversation creation
 				suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.MatchedBy(func(conv *conversation.Conversation) bool {
-					return conv.UserID == suite.testUser.ID && conv.Intent == conversation.IntentRecipeCreation
+					return conv.UserID == suite.testUser.ID().String() && conv.Intent == conversation.IntentRecipeCreation
 				})).Return(nil).Once()
 
 				// Mock message creation
@@ -89,7 +89,7 @@ func (suite *ChatHandlerTestSuite) TestHandleChatMessage() {
 				})).Return(nil).Once()
 
 				// Mock getting conversation for processing
-				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID, conversation.IntentRecipeCreation)
+				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentRecipeCreation)
 				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, mock.AnythingOfType("string")).Return(testConv, nil).Once()
 
 				// Mock getting messages for AI context
@@ -123,7 +123,7 @@ func (suite *ChatHandlerTestSuite) TestHandleChatMessage() {
 			setupMocks: func() {
 				// Mock conversation creation
 				suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.MatchedBy(func(conv *conversation.Conversation) bool {
-					return conv.UserID == suite.testUser.ID && conv.Intent == conversation.IntentCookingHelp
+					return conv.UserID == suite.testUser.ID().String() && conv.Intent == conversation.IntentCookingHelp
 				})).Return(nil).Once()
 
 				// Mock message creation and processing
@@ -131,7 +131,7 @@ func (suite *ChatHandlerTestSuite) TestHandleChatMessage() {
 					return msg.Content == "How do I cook rice?"
 				})).Return(nil).Once()
 
-				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID, conversation.IntentCookingHelp)
+				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentCookingHelp)
 				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, mock.AnythingOfType("string")).Return(testConv, nil).Once()
 				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, mock.AnythingOfType("string"), 20, 0).Return([]*conversation.Message{}, nil).Once()
 
@@ -206,7 +206,7 @@ func (suite *ChatHandlerTestSuite) TestHandleChatMessage() {
 					return msg.ConversationID == "existing-conv-id" && msg.Content == "What ingredients do I need?"
 				})).Return(nil).Once()
 
-				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID, conversation.IntentRecipeCreation)
+				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentRecipeCreation)
 				testConv.ID = "existing-conv-id"
 				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, "existing-conv-id").Return(testConv, nil).Once()
 				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, "existing-conv-id", 20, 0).Return([]*conversation.Message{}, nil).Once()
@@ -302,10 +302,10 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationList() {
 			name: "Successful List",
 			setupMocks: func() {
 				conversations := []*conversation.Conversation{
-					suite.testSuite.CreateTestConversation(suite.testUser.ID, conversation.IntentRecipeCreation),
-					suite.testSuite.CreateTestConversation(suite.testUser.ID, conversation.IntentCookingHelp),
+					suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentRecipeCreation),
+					suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentCookingHelp),
 				}
-				suite.testSuite.MockConversationRepo.On("GetUserConversations", mock.Anything, suite.testUser.ID, 50, 0).
+				suite.testSuite.MockConversationRepo.On("GetUserConversations", mock.Anything, suite.testUser.ID().String(), 50, 0).
 					Return(conversations, nil).Once()
 			},
 			expectedStatus: http.StatusOK,
@@ -353,7 +353,7 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationList() {
 
 // TestHandleConversationHistory tests the conversation history handler
 func (suite *ChatHandlerTestSuite) TestHandleConversationHistory() {
-	userConv := suite.testSuite.CreateTestConversation(suite.testUser.ID, conversation.IntentRecipeCreation)
+	userConv := suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentRecipeCreation)
 	otherUserConv := suite.testSuite.CreateTestConversation("other-user-id", conversation.IntentCookingHelp)
 
 	testCases := []struct {
@@ -449,7 +449,7 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationHistory() {
 
 // TestHandleConversationDelete tests the conversation deletion handler
 func (suite *ChatHandlerTestSuite) TestHandleConversationDelete() {
-	userConv := suite.testSuite.CreateTestConversation(suite.testUser.ID, conversation.IntentRecipeCreation)
+	userConv := suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentRecipeCreation)
 	otherUserConv := suite.testSuite.CreateTestConversation("other-user-id", conversation.IntentCookingHelp)
 
 	testCases := []struct {
@@ -544,18 +544,18 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationStats() {
 				conversations := []*conversation.Conversation{
 					{
 						ID:     uuid.New().String(),
-						UserID: suite.testUser.ID,
+						UserID: suite.testUser.ID().String(),
 						Intent: conversation.IntentRecipeCreation,
 						Status: conversation.StatusActive,
 					},
 					{
 						ID:     uuid.New().String(),
-						UserID: suite.testUser.ID,
+						UserID: suite.testUser.ID().String(),
 						Intent: conversation.IntentCookingHelp,
 						Status: conversation.StatusArchived,
 					},
 				}
-				suite.testSuite.MockConversationRepo.On("GetUserConversations", mock.Anything, suite.testUser.ID, 1000, 0).
+				suite.testSuite.MockConversationRepo.On("GetUserConversations", mock.Anything, suite.testUser.ID().String(), 1000, 0).
 					Return(conversations, nil).Once()
 			},
 			expectedStatus: http.StatusOK,
@@ -620,7 +620,7 @@ func (suite *ChatHandlerTestSuite) TestHandleAIChatHTMX() {
 				suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.Anything).Return(nil).Once()
 				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.Anything).Return(nil).Once()
 				
-				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID, conversation.IntentRecipeCreation)
+				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentRecipeCreation)
 				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, mock.AnythingOfType("string")).Return(testConv, nil).Once()
 				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, mock.AnythingOfType("string"), 20, 0).Return([]*conversation.Message{}, nil).Once()
 

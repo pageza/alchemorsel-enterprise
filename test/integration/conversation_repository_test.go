@@ -55,7 +55,7 @@ func (suite *ConversationRepositoryTestSuite) TearDownSuite() {
 
 // SetupTest cleans up data before each test
 func (suite *ConversationRepositoryTestSuite) SetupTest() {
-	testutils.CleanupTestData(suite.T(), suite.db)
+	suite.testDB.TruncateAllTables()
 }
 
 // TestConversationCRUD tests basic CRUD operations for conversations
