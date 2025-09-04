@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/alchemorsel/v3/internal/application/conversation"
+	"github.com/alchemorsel/v3/internal/domain/user"
 	"github.com/alchemorsel/v3/internal/infrastructure/http/handlers"
 	"github.com/alchemorsel/v3/test/testutils"
 	"github.com/google/uuid"
@@ -28,7 +29,7 @@ type ChatHandlerTestSuite struct {
 	chatHandler     *handlers.ChatHandler
 	convService     *conversation.Service
 	testSuite       *testutils.ConversationTestSuite
-	testUser        *handlers.User
+	testUser        *user.User
 	ctx             context.Context
 }
 
@@ -40,7 +41,7 @@ func (suite *ChatHandlerTestSuite) SetupSuite() {
 	suite.ctx = context.Background()
 	
 	// Create test user
-	suite.testUser = &handlers.User{
+	suite.testUser = &user.User{
 		ID:    suite.testSuite.GetTestUserID("testuser"),
 		Email: "test@example.com",
 		Name:  "Test User",
@@ -754,7 +755,7 @@ func TestChatHandlerPerformance(t *testing.T) {
 	testSuite := testutils.NewConversationTestSuite()
 	chatHandler := handlers.NewChatHandler(testSuite.ConversationService)
 	
-	testUser := &handlers.User{
+	testUser := &user.User{
 		ID:    testSuite.GetTestUserID("testuser"),
 		Email: "test@example.com",
 		Name:  "Test User",

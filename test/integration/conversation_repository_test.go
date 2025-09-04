@@ -31,7 +31,7 @@ func (suite *ConversationRepositoryTestSuite) SetupSuite() {
 	suite.ctx = context.Background()
 	
 	// Setup test database
-	suite.db = testutils.SetupTestDatabase(suite.T())
+	suite.db = testutils.SetupTestDatabase(suite.T()).GormDB
 	
 	// Create repositories
 	suite.conversationRepo = gorm.NewConversationRepository(suite.db)
