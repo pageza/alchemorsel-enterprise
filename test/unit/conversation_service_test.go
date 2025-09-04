@@ -290,7 +290,7 @@ func (suite *ConversationServiceTestSuite) TestProcessMessage() {
 					CreatedAt: time.Now(),
 					UpdatedAt: time.Now(),
 				}
-				
+
 				// Clear any existing standard mock behavior that might interfere
 				suite.testSuite.MockConversationRepo.ExpectedCalls = nil
 				suite.testSuite.MockMessageRepo.ExpectedCalls = nil
@@ -298,10 +298,10 @@ func (suite *ConversationServiceTestSuite) TestProcessMessage() {
 				suite.testSuite.MockAIService.ExpectedCalls = nil
 				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
 				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
-				
+
 				// Mock getting conversation (called by ProcessMessage after AddMessage)
 				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, conv.ID).Return(conv, nil).Times(1)
-				
+
 				// Mock adding user message
 				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.MatchedBy(func(msg *conversation.Message) bool {
 					return msg.Role == conversation.RoleUser && msg.Content == "I want to make carbonara"
@@ -315,12 +315,11 @@ func (suite *ConversationServiceTestSuite) TestProcessMessage() {
 				suite.testSuite.MockOllamaClient.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
 					Return("Great! I'll help you make carbonara. What ingredients do you have?", nil).Once()
 
-
 				// Mock setting AI metadata context
 				suite.testSuite.MockContextRepo.On("SetContext", mock.Anything, mock.MatchedBy(func(ctx *conversation.ConversationContext) bool {
 					return ctx.ConversationID == conv.ID && ctx.ContextType == "ai_metadata"
 				})).Return(nil).Once()
-				
+
 				return conv
 			},
 			expectedResp: "Great! I'll help you make carbonara. What ingredients do you have?",
@@ -341,7 +340,7 @@ func (suite *ConversationServiceTestSuite) TestProcessMessage() {
 					CreatedAt: time.Now(),
 					UpdatedAt: time.Now(),
 				}
-				
+
 				// Clear any existing standard mock behavior that might interfere
 				suite.testSuite.MockConversationRepo.ExpectedCalls = nil
 				suite.testSuite.MockMessageRepo.ExpectedCalls = nil
@@ -352,7 +351,7 @@ func (suite *ConversationServiceTestSuite) TestProcessMessage() {
 
 				// Mock getting conversation (called by ProcessMessage after AddMessage)
 				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, conv.ID).Return(conv, nil).Times(1)
-				
+
 				// Mock adding user message
 				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.MatchedBy(func(msg *conversation.Message) bool {
 					return msg.Role == conversation.RoleUser && msg.Content == "How do I cook rice?"
@@ -370,7 +369,7 @@ func (suite *ConversationServiceTestSuite) TestProcessMessage() {
 				suite.testSuite.MockContextRepo.On("SetContext", mock.Anything, mock.MatchedBy(func(ctx *conversation.ConversationContext) bool {
 					return ctx.ConversationID == conv.ID && ctx.ContextType == "ai_metadata"
 				})).Return(nil).Once()
-				
+
 				return conv
 			},
 			expectedResp: "I'm here to help with your cooking question!",
