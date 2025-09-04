@@ -159,7 +159,7 @@ func (h *HealthCheck) Check(ctx context.Context) Response {
 
 	// Run checks concurrently
 	var wg sync.WaitGroup
-	
+
 	h.mu.RLock()
 	checksChan := make(chan Check, len(h.checkers))
 	for name, checker := range h.checkers {
