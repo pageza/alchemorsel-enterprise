@@ -44,30 +44,30 @@ type TokenUsage struct {
 type ProviderType string
 
 const (
-	ProviderTypeOpenAI     ProviderType = "openai"
-	ProviderTypeAnthropic  ProviderType = "anthropic"
-	ProviderTypeMock       ProviderType = "mock"
+	ProviderTypeOpenAI    ProviderType = "openai"
+	ProviderTypeAnthropic ProviderType = "anthropic"
+	ProviderTypeMock      ProviderType = "mock"
 )
 
 // RequestStatus represents the status of an AI request
 type RequestStatus string
 
 const (
-	RequestStatusPending   RequestStatus = "pending"
+	RequestStatusPending    RequestStatus = "pending"
 	RequestStatusProcessing RequestStatus = "processing"
-	RequestStatusCompleted RequestStatus = "completed"
-	RequestStatusFailed    RequestStatus = "failed"
-	RequestStatusCanceled  RequestStatus = "canceled"
+	RequestStatusCompleted  RequestStatus = "completed"
+	RequestStatusFailed     RequestStatus = "failed"
+	RequestStatusCanceled   RequestStatus = "canceled"
 )
 
 // FinishReason represents why the AI stopped generating
 type FinishReason string
 
 const (
-	FinishReasonStop       FinishReason = "stop"
-	FinishReasonLength     FinishReason = "length"
-	FinishReasonTimeout    FinishReason = "timeout"
-	FinishReasonError      FinishReason = "error"
+	FinishReasonStop    FinishReason = "stop"
+	FinishReasonLength  FinishReason = "length"
+	FinishReasonTimeout FinishReason = "timeout"
+	FinishReasonError   FinishReason = "error"
 )
 
 // NewAIRequest creates a new AI request
@@ -169,7 +169,7 @@ func (r *AIRequest) StartProcessing() error {
 	if r.status != RequestStatusPending {
 		return errors.New("can only start processing pending requests")
 	}
-	
+
 	r.status = RequestStatusProcessing
 	return nil
 }
@@ -179,17 +179,17 @@ func (r *AIRequest) Complete(response *AIResponse) error {
 	if r.status != RequestStatusProcessing {
 		return errors.New("can only complete processing requests")
 	}
-	
+
 	r.status = RequestStatusCompleted
 	r.response = response
-	
+
 	if response.usage != nil {
 		r.tokensUsed = response.usage.TotalTokens
 	}
-	
+
 	now := time.Now()
 	r.completedAt = &now
-	
+
 	return nil
 }
 
@@ -198,13 +198,13 @@ func (r *AIRequest) Fail(errorMessage string) error {
 	if r.status == RequestStatusCompleted {
 		return errors.New("cannot fail a completed request")
 	}
-	
+
 	r.status = RequestStatusFailed
 	r.errorMessage = errorMessage
-	
+
 	now := time.Now()
 	r.completedAt = &now
-	
+
 	return nil
 }
 
@@ -213,12 +213,12 @@ func (r *AIRequest) Cancel() error {
 	if r.status == RequestStatusCompleted || r.status == RequestStatusFailed {
 		return errors.New("cannot cancel completed or failed request")
 	}
-	
+
 	r.status = RequestStatusCanceled
-	
+
 	now := time.Now()
 	r.completedAt = &now
-	
+
 	return nil
 }
 
@@ -281,14 +281,14 @@ func NewRecipeGenerationRequest(
 	if len(ingredients) == 0 {
 		return nil, errors.New("at least one ingredient is required")
 	}
-	
+
 	if servings <= 0 {
 		return nil, errors.New("servings must be greater than 0")
 	}
 
 	// Build prompt from parameters
 	prompt := buildRecipePrompt(ingredients, cuisine, dietaryRestrictions, servings)
-	
+
 	aiRequest, err := NewAIRequest(userID, prompt, ProviderTypeMock, "recipe-generator")
 	if err != nil {
 		return nil, err
@@ -333,11 +333,11 @@ func validatePrompt(prompt string) error {
 	if prompt == "" {
 		return errors.New("prompt cannot be empty")
 	}
-	
+
 	if len(prompt) > 10000 {
 		return errors.New("prompt too long")
 	}
-	
+
 	return nil
 }
 
@@ -349,13 +349,13 @@ func buildRecipePrompt(ingredients []string, cuisine string, dietaryRestrictions
 		}
 		prompt += ingredient
 	}
-	
+
 	prompt += ". "
-	
+
 	if cuisine != "" {
 		prompt += "The recipe should be " + cuisine + " cuisine. "
 	}
-	
+
 	if len(dietaryRestrictions) > 0 {
 		prompt += "Please accommodate these dietary restrictions: "
 		for i, restriction := range dietaryRestrictions {
@@ -366,9 +366,9 @@ func buildRecipePrompt(ingredients []string, cuisine string, dietaryRestrictions
 		}
 		prompt += ". "
 	}
-	
+
 	prompt += "The recipe should serve " + string(rune(servings)) + " people. "
 	prompt += "Please provide a complete recipe with ingredients list, instructions, and estimated cooking time."
-	
+
 	return prompt
 }

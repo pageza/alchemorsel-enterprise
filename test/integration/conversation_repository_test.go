@@ -32,16 +32,16 @@ type ConversationRepositoryTestSuite struct {
 // SetupSuite initializes the test suite with a test database
 func (suite *ConversationRepositoryTestSuite) SetupSuite() {
 	suite.ctx = context.Background()
-	
+
 	// Setup test database
 	suite.testDB = testutils.SetupTestDatabase(suite.T())
 	suite.db = suite.testDB.GormDB
-	
+
 	// Create repositories
 	suite.conversationRepo = gorm.NewConversationRepository(suite.db)
 	suite.messageRepo = gorm.NewMessageRepository(suite.db)
 	suite.contextRepo = gorm.NewContextRepository(suite.db)
-	
+
 	// Create test users
 	suite.testUsers = []string{
 		"550e8400-e29b-41d4-a716-446655440001",
@@ -158,8 +158,8 @@ func (suite *ConversationRepositoryTestSuite) TestGetUserConversations() {
 		suite.Len(conversations, 2)
 
 		// Verify conversations are ordered by updated_at DESC
-		suite.True(conversations[0].UpdatedAt.After(conversations[1].UpdatedAt) || 
-				  conversations[0].UpdatedAt.Equal(conversations[1].UpdatedAt))
+		suite.True(conversations[0].UpdatedAt.After(conversations[1].UpdatedAt) ||
+			conversations[0].UpdatedAt.Equal(conversations[1].UpdatedAt))
 
 		// Verify all conversations belong to user1
 		for _, conv := range conversations {
@@ -300,7 +300,7 @@ func (suite *ConversationRepositoryTestSuite) TestGetConversationMessages() {
 		// Verify messages are ordered by created_at ASC
 		for i := 1; i < len(retrieved); i++ {
 			suite.True(retrieved[i].CreatedAt.After(retrieved[i-1].CreatedAt) ||
-					  retrieved[i].CreatedAt.Equal(retrieved[i-1].CreatedAt))
+				retrieved[i].CreatedAt.Equal(retrieved[i-1].CreatedAt))
 		}
 	})
 
@@ -318,7 +318,7 @@ func (suite *ConversationRepositoryTestSuite) TestGetConversationMessages() {
 
 		// Verify order and no overlap
 		suite.True(page2[0].CreatedAt.After(page1[1].CreatedAt) ||
-				  page2[0].CreatedAt.Equal(page1[1].CreatedAt))
+			page2[0].CreatedAt.Equal(page1[1].CreatedAt))
 	})
 
 	// Test with different conversation
@@ -798,11 +798,11 @@ func TestRepositoryDataIntegrity(t *testing.T) {
 
 		// Test complex metadata
 		complexMetadata := map[string]interface{}{
-			"string_field":  "test string",
-			"int_field":     42,
-			"float_field":   3.14,
-			"bool_field":    true,
-			"array_field":   []string{"a", "b", "c"},
+			"string_field": "test string",
+			"int_field":    42,
+			"float_field":  3.14,
+			"bool_field":   true,
+			"array_field":  []string{"a", "b", "c"},
 			"object_field": map[string]interface{}{
 				"nested_string": "nested value",
 				"nested_int":    123,
@@ -833,11 +833,11 @@ func TestRepositoryDataIntegrity(t *testing.T) {
 		assert.Equal(t, 3.14, retrieved.Metadata["float_field"])
 		assert.Equal(t, true, retrieved.Metadata["bool_field"])
 		assert.Equal(t, []interface{}{"a", "b", "c"}, retrieved.Metadata["array_field"])
-		
+
 		nestedObj := retrieved.Metadata["object_field"].(map[string]interface{})
 		assert.Equal(t, "nested value", nestedObj["nested_string"])
 		assert.Equal(t, float64(123), nestedObj["nested_int"])
-		
+
 		assert.Nil(t, retrieved.Metadata["null_field"])
 	})
 

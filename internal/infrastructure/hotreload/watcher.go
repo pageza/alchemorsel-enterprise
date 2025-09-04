@@ -17,13 +17,13 @@ import (
 
 // FileWatcher provides advanced file watching capabilities
 type FileWatcher struct {
-	watcher    *fsnotify.Watcher
-	handlers   map[string]FileHandler
-	debouncer  map[string]*time.Timer
-	mutex      sync.RWMutex
-	ctx        context.Context
-	cancel     context.CancelFunc
-	
+	watcher   *fsnotify.Watcher
+	handlers  map[string]FileHandler
+	debouncer map[string]*time.Timer
+	mutex     sync.RWMutex
+	ctx       context.Context
+	cancel    context.CancelFunc
+
 	// Configuration
 	debounceDelay time.Duration
 	maxEvents     int
@@ -90,7 +90,7 @@ func NewFileWatcher() (*FileWatcher, error) {
 func (fw *FileWatcher) RegisterHandler(pattern string, handler FileHandler) {
 	fw.mutex.Lock()
 	defer fw.mutex.Unlock()
-	
+
 	fw.handlers[pattern] = handler
 	log.Printf("Registered file handler: %s - %s", pattern, handler.GetDescription())
 }
@@ -103,9 +103,9 @@ func (fw *FileWatcher) AddWatchPath(path string) error {
 		}
 
 		// Skip hidden directories and common excludes
-		if info.IsDir() && (strings.HasPrefix(info.Name(), ".") || 
-			info.Name() == "tmp" || 
-			info.Name() == "vendor" || 
+		if info.IsDir() && (strings.HasPrefix(info.Name(), ".") ||
+			info.Name() == "tmp" ||
+			info.Name() == "vendor" ||
 			info.Name() == "node_modules") {
 			return filepath.SkipDir
 		}
@@ -140,13 +140,13 @@ func (fw *FileWatcher) watchLoop() {
 		select {
 		case <-fw.ctx.Done():
 			return
-			
+
 		case event, ok := <-fw.watcher.Events:
 			if !ok {
 				return
 			}
 			fw.handleEvent(event)
-			
+
 		case err, ok := <-fw.watcher.Errors:
 			if !ok {
 				return
@@ -159,7 +159,7 @@ func (fw *FileWatcher) watchLoop() {
 // handleEvent processes a file system event
 func (fw *FileWatcher) handleEvent(event fsnotify.Event) {
 	// Skip temporary and backup files
-	if strings.HasSuffix(event.Name, "~") || 
+	if strings.HasSuffix(event.Name, "~") ||
 		strings.HasSuffix(event.Name, ".tmp") ||
 		strings.Contains(event.Name, ".git") {
 		return
@@ -224,12 +224,12 @@ func NewTemplateWatcher(templatePaths []string, reloadServer *LiveReloadServer) 
 
 func (tw *TemplateWatcher) HandleChange(event FileChangeEvent) error {
 	log.Printf("Template changed: %s", event.Path)
-	
+
 	// Trigger browser reload
 	if tw.reloadServer != nil {
 		tw.reloadServer.TriggerReload(event.Path)
 	}
-	
+
 	return nil
 }
 
@@ -255,21 +255,21 @@ func NewStaticAssetWatcher(assetPaths []string, reloadServer *LiveReloadServer, 
 
 func (saw *StaticAssetWatcher) HandleChange(event FileChangeEvent) error {
 	log.Printf("Static asset changed: %s", event.Path)
-	
+
 	ext := filepath.Ext(event.Path)
-	
+
 	// Run build command if specified
 	if saw.buildCommand != "" && (ext == ".scss" || ext == ".sass" || ext == ".less") {
 		if err := saw.runBuildCommand(); err != nil {
 			log.Printf("Build command failed: %v", err)
 		}
 	}
-	
+
 	// Trigger browser reload
 	if saw.reloadServer != nil {
 		saw.reloadServer.TriggerReload(event.Path)
 	}
-	
+
 	return nil
 }
 
@@ -302,12 +302,12 @@ func NewMigrationWatcher(migrationPath string, db *sql.DB, autoMigrate bool) *Mi
 
 func (mw *MigrationWatcher) HandleChange(event FileChangeEvent) error {
 	log.Printf("Migration file changed: %s", event.Path)
-	
+
 	if mw.autoMigrate && mw.db != nil {
 		log.Printf("Auto-migrating database...")
 		return mw.runMigrations()
 	}
-	
+
 	log.Printf("Auto-migration disabled. Please run migrations manually.")
 	return nil
 }
@@ -325,10 +325,10 @@ func (mw *MigrationWatcher) runMigrations() error {
 	// This would run database migrations
 	// Implementation depends on migration system (migrate, goose, etc.)
 	log.Printf("Running database migrations from %s", mw.migrationPath)
-	
+
 	// Example migration logic would go here
 	// For now, just log the action
-	
+
 	return nil
 }
 
@@ -344,12 +344,12 @@ func NewConfigWatcher(configPaths []string, restartFn func() error) *ConfigWatch
 
 func (cw *ConfigWatcher) HandleChange(event FileChangeEvent) error {
 	log.Printf("Configuration changed: %s", event.Path)
-	
+
 	if cw.restartFn != nil {
 		log.Printf("Triggering application restart due to config change...")
 		return cw.restartFn()
 	}
-	
+
 	return nil
 }
 

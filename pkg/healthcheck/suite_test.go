@@ -107,7 +107,7 @@ func (suite *HealthCheckTestSuite) TestMetricsCollection() {
 // TestPerformanceRequirements tests performance requirements
 func (suite *HealthCheckTestSuite) TestPerformanceRequirements() {
 	hc := New("1.0.0", suite.logger)
-	
+
 	// Register fast checkers
 	for i := 0; i < 5; i++ {
 		name := suite.helper.GetTestName(i)
@@ -116,7 +116,7 @@ func (suite *HealthCheckTestSuite) TestPerformanceRequirements() {
 	}
 
 	ctx := suite.helper.CreateContext()
-	
+
 	start := suite.helper.GetStartTime()
 	response := hc.Check(ctx)
 	duration := suite.helper.GetElapsed(start)
@@ -128,7 +128,7 @@ func (suite *HealthCheckTestSuite) TestPerformanceRequirements() {
 // TestErrorHandling tests comprehensive error handling
 func (suite *HealthCheckTestSuite) TestErrorHandling() {
 	hc := New("1.0.0", suite.logger)
-	
+
 	// Register failing checker
 	failingChecker := NewFailingChecker("failing", "Test failure")
 	hc.Register("failing", failingChecker)
@@ -149,10 +149,10 @@ func (suite *HealthCheckTestSuite) TestConcurrentAccess() {
 	hc.Register("concurrent", checker)
 
 	ctx := suite.helper.CreateContext()
-	
+
 	// Run concurrent health checks
 	suite.helper.RunConcurrentChecks(hc, ctx, 10, 5)
-	
+
 	// Verify final state
 	response := hc.Check(ctx)
 	suite.Equal(StatusHealthy, response.Status)
@@ -188,7 +188,7 @@ func (h *TestHealthCheckHelper) GetElapsed(start time.Time) time.Duration {
 // RunConcurrentChecks runs health checks concurrently
 func (h *TestHealthCheckHelper) RunConcurrentChecks(hc *HealthCheck, ctx context.Context, numGoroutines, numChecks int) {
 	done := make(chan bool, numGoroutines)
-	
+
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
 			defer func() { done <- true }()
@@ -197,7 +197,7 @@ func (h *TestHealthCheckHelper) RunConcurrentChecks(hc *HealthCheck, ctx context
 			}
 		}()
 	}
-	
+
 	// Wait for all goroutines to complete
 	for i := 0; i < numGoroutines; i++ {
 		<-done
@@ -266,7 +266,7 @@ func (suite *IntegrationTestSuite) TestFullSystemIntegration() {
 	// Register real services
 	dbChecker := NewDatabaseChecker(pgPool)
 	redisChecker := NewRedisChecker(redisClient)
-	
+
 	ehc.Register("database", dbChecker)
 	ehc.Register("redis", redisChecker)
 
@@ -302,7 +302,7 @@ type BenchmarkSuite struct {
 // SetupSuite runs before benchmark suite
 func (suite *BenchmarkSuite) SetupSuite() {
 	suite.helper = NewTestHealthCheckHelper(suite.T())
-	
+
 	// Setup basic health check
 	suite.hc = New("1.0.0", zap.NewNop())
 	for i := 0; i < 5; i++ {
@@ -335,10 +335,10 @@ func (suite *BenchmarkSuite) TearDownSuite() {
 // TestBenchmarkBasicHealthCheck benchmarks basic health checks
 func (suite *BenchmarkSuite) TestBenchmarkBasicHealthCheck() {
 	ctx := context.Background()
-	
+
 	// Warm up
 	suite.hc.Check(ctx)
-	
+
 	// Simple performance test
 	start := time.Now()
 	for i := 0; i < 100; i++ {
@@ -346,7 +346,7 @@ func (suite *BenchmarkSuite) TestBenchmarkBasicHealthCheck() {
 		suite.Equal(StatusHealthy, response.Status)
 	}
 	duration := time.Since(start)
-	
+
 	avgDuration := duration / 100
 	suite.Less(avgDuration, 10*time.Millisecond, "Average health check should be under 10ms")
 }
@@ -354,10 +354,10 @@ func (suite *BenchmarkSuite) TestBenchmarkBasicHealthCheck() {
 // TestBenchmarkEnterpriseHealthCheck benchmarks enterprise health checks
 func (suite *BenchmarkSuite) TestBenchmarkEnterpriseHealthCheck() {
 	ctx := context.Background()
-	
+
 	// Warm up
 	suite.ehc.CheckWithMode(ctx, ModeDeep)
-	
+
 	// Performance test
 	start := time.Now()
 	for i := 0; i < 50; i++ {
@@ -366,7 +366,7 @@ func (suite *BenchmarkSuite) TestBenchmarkEnterpriseHealthCheck() {
 		suite.Equal(StatusHealthy, response.Status)
 	}
 	duration := time.Since(start)
-	
+
 	avgDuration := duration / 50
 	suite.Less(avgDuration, 50*time.Millisecond, "Average enterprise health check should be under 50ms")
 }
@@ -375,4 +375,3 @@ func (suite *BenchmarkSuite) TestBenchmarkEnterpriseHealthCheck() {
 func TestBenchmarkSuite_RunAll(t *testing.T) {
 	suite.Run(t, new(BenchmarkSuite))
 }
-

@@ -39,14 +39,14 @@ type RedisMetrics struct {
 
 // HealthCheck monitors Redis connection health
 type HealthCheck struct {
-	IsHealthy      bool      `json:"is_healthy"`
-	LastCheck      time.Time `json:"last_check"`
-	LastError      string    `json:"last_error,omitempty"`
-	CheckInterval  time.Duration
-	timeout        time.Duration
-	checkTicker    *time.Ticker
-	stopChan       chan struct{}
-	mu             sync.RWMutex
+	IsHealthy     bool      `json:"is_healthy"`
+	LastCheck     time.Time `json:"last_check"`
+	LastError     string    `json:"last_error,omitempty"`
+	CheckInterval time.Duration
+	timeout       time.Duration
+	checkTicker   *time.Ticker
+	stopChan      chan struct{}
+	mu            sync.RWMutex
 }
 
 // CircuitBreaker implements circuit breaker pattern for Redis
@@ -83,16 +83,16 @@ func NewRedisClient(cfg *config.RedisConfig, logger *zap.Logger) (*RedisClient, 
 		PoolSize:     cfg.PoolSize,
 		MinIdleConns: cfg.MinIdleConns,
 		MaxIdleConns: cfg.MaxIdleConns,
-		
+
 		// Connection timeouts
 		DialTimeout:  cfg.DialTimeout,
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
-		
+
 		// Connection lifecycle
 		ConnMaxLifetime: cfg.ConnMaxLifetime,
 		ConnMaxIdleTime: time.Minute * 5,
-		
+
 		// Connection pool settings
 		PoolTimeout: time.Second * 10,
 	}
@@ -419,12 +419,12 @@ func (r *RedisClient) ScanKeys(ctx context.Context, pattern string) ([]string, e
 
 	var keys []string
 	start := time.Now()
-	
+
 	iter := r.client.Scan(ctx, 0, pattern, 0).Iterator()
 	for iter.Next(ctx) {
 		keys = append(keys, iter.Val())
 	}
-	
+
 	err := iter.Err()
 	duration := time.Since(start)
 

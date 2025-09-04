@@ -15,17 +15,17 @@ import (
 
 // RUMHandler handles Real User Monitoring data collection
 type RUMHandler struct {
-	logger       *zap.Logger
-	metrics      *MetricsCollector
-	tracing      *TracingProvider
-	storage      RUMStorage
+	logger  *zap.Logger
+	metrics *MetricsCollector
+	tracing *TracingProvider
+	storage RUMStorage
 }
 
 // RUMData represents the structure of RUM data
 type RUMData struct {
-	Type     string                 `json:"type"`
+	Type     string                   `json:"type"`
 	Data     []map[string]interface{} `json:"data"`
-	Metadata map[string]interface{} `json:"metadata"`
+	Metadata map[string]interface{}   `json:"metadata"`
 }
 
 // RUMMetric represents a single RUM metric

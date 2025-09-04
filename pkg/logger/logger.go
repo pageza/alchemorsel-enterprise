@@ -24,7 +24,7 @@ func New(cfg Config) (*zap.Logger, error) {
 	if err := level.UnmarshalText([]byte(cfg.Level)); err != nil {
 		level = zapcore.InfoLevel
 	}
-	
+
 	// Configure encoder
 	var encoderConfig zapcore.EncoderConfig
 	if cfg.Development {
@@ -34,7 +34,7 @@ func New(cfg Config) (*zap.Logger, error) {
 		encoderConfig = zap.NewProductionEncoderConfig()
 		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
-	
+
 	// Choose encoder format
 	var encoder zapcore.Encoder
 	switch cfg.Format {
@@ -43,20 +43,20 @@ func New(cfg Config) (*zap.Logger, error) {
 	default:
 		encoder = zapcore.NewJSONEncoder(encoderConfig)
 	}
-	
+
 	// Configure output
 	outputPaths := cfg.OutputPaths
 	if len(outputPaths) == 0 {
 		outputPaths = []string{"stdout"}
 	}
-	
+
 	writeSyncer := zapcore.NewMultiWriteSyncer(
 		zapcore.AddSync(os.Stdout),
 	)
-	
+
 	// Create core
 	core := zapcore.NewCore(encoder, writeSyncer, level)
-	
+
 	// Add caller info for development
 	var options []zap.Option
 	if cfg.Development {
@@ -64,9 +64,9 @@ func New(cfg Config) (*zap.Logger, error) {
 	} else {
 		options = append(options, zap.AddCaller())
 	}
-	
+
 	// Create logger
 	logger := zap.New(core, options...)
-	
+
 	return logger, nil
 }

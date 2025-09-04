@@ -38,41 +38,41 @@ func NewPerformanceDashboard(
 
 // DashboardData represents comprehensive dashboard data
 type DashboardData struct {
-	Timestamp         time.Time             `json:"timestamp"`
-	Overview          PerformanceOverview   `json:"overview"`
-	ConnectionMetrics *ConnectionMetrics    `json:"connection_metrics"`
-	QueryMetrics      QueryAnalysis         `json:"query_metrics"`
-	CacheMetrics      CacheMetrics          `json:"cache_metrics"`
-	IndexHealth       IndexHealthScore      `json:"index_health"`
-	Alerts            []PerformanceAlert    `json:"alerts"`
-	Recommendations   []string              `json:"recommendations"`
-	TrendData         TrendData             `json:"trend_data"`
+	Timestamp         time.Time           `json:"timestamp"`
+	Overview          PerformanceOverview `json:"overview"`
+	ConnectionMetrics *ConnectionMetrics  `json:"connection_metrics"`
+	QueryMetrics      QueryAnalysis       `json:"query_metrics"`
+	CacheMetrics      CacheMetrics        `json:"cache_metrics"`
+	IndexHealth       IndexHealthScore    `json:"index_health"`
+	Alerts            []PerformanceAlert  `json:"alerts"`
+	Recommendations   []string            `json:"recommendations"`
+	TrendData         TrendData           `json:"trend_data"`
 }
 
 // PerformanceOverview provides high-level performance summary
 type PerformanceOverview struct {
-	HealthScore       float64 `json:"health_score"`
-	Status            string  `json:"status"`
-	QPS               float64 `json:"queries_per_second"`
-	AvgResponseTime   time.Duration `json:"avg_response_time"`
-	CacheHitRatio     float64 `json:"cache_hit_ratio"`
-	IndexUsageRatio   float64 `json:"index_usage_ratio"`
-	ConnectionUtil    float64 `json:"connection_utilization"`
-	ErrorRate         float64 `json:"error_rate"`
+	HealthScore     float64       `json:"health_score"`
+	Status          string        `json:"status"`
+	QPS             float64       `json:"queries_per_second"`
+	AvgResponseTime time.Duration `json:"avg_response_time"`
+	CacheHitRatio   float64       `json:"cache_hit_ratio"`
+	IndexUsageRatio float64       `json:"index_usage_ratio"`
+	ConnectionUtil  float64       `json:"connection_utilization"`
+	ErrorRate       float64       `json:"error_rate"`
 }
 
 // PerformanceAlert represents a performance alert
 type PerformanceAlert struct {
-	ID          string               `json:"id"`
-	Severity    AlertSeverity        `json:"severity"`
-	Category    AlertCategory        `json:"category"`
-	Title       string               `json:"title"`
-	Description string               `json:"description"`
-	Metric      string               `json:"metric"`
-	Value       interface{}          `json:"value"`
-	Threshold   interface{}          `json:"threshold"`
-	Timestamp   time.Time            `json:"timestamp"`
-	Actions     []RecommendedAction  `json:"actions"`
+	ID          string              `json:"id"`
+	Severity    AlertSeverity       `json:"severity"`
+	Category    AlertCategory       `json:"category"`
+	Title       string              `json:"title"`
+	Description string              `json:"description"`
+	Metric      string              `json:"metric"`
+	Value       interface{}         `json:"value"`
+	Threshold   interface{}         `json:"threshold"`
+	Timestamp   time.Time           `json:"timestamp"`
+	Actions     []RecommendedAction `json:"actions"`
 }
 
 // AlertSeverity represents alert severity levels
@@ -105,41 +105,41 @@ type RecommendedAction struct {
 
 // TrendData represents performance trends over time
 type TrendData struct {
-	TimePoints    []time.Time `json:"time_points"`
-	QPS           []float64   `json:"qps"`
-	ResponseTimes []float64   `json:"response_times"`
-	CacheHitRates []float64   `json:"cache_hit_rates"`
-	ConnectionUtil []float64  `json:"connection_util"`
-	ErrorRates    []float64   `json:"error_rates"`
+	TimePoints     []time.Time `json:"time_points"`
+	QPS            []float64   `json:"qps"`
+	ResponseTimes  []float64   `json:"response_times"`
+	CacheHitRates  []float64   `json:"cache_hit_rates"`
+	ConnectionUtil []float64   `json:"connection_util"`
+	ErrorRates     []float64   `json:"error_rates"`
 }
 
 // GetDashboardData retrieves comprehensive dashboard data
 func (pd *PerformanceDashboard) GetDashboardData(ctx context.Context) (*DashboardData, error) {
 	timestamp := time.Now()
-	
+
 	// Gather all metrics
 	connMetrics := pd.connectionManager.GetMetrics().GetSnapshot()
 	queryAnalysis := pd.queryMonitor.GetQueryAnalysis()
 	cacheMetrics := pd.queryCache.GetMetrics()
-	
+
 	// Get index analysis (cached for performance)
 	indexReport, err := pd.getIndexReport(ctx)
 	if err != nil {
 		pd.logger.Warn("Failed to get index report", zap.Error(err))
 	}
-	
+
 	// Calculate overview
 	overview := pd.calculateOverview(&connMetrics, queryAnalysis, cacheMetrics, indexReport)
-	
+
 	// Generate alerts
 	alerts := pd.generateAlerts(&connMetrics, queryAnalysis, cacheMetrics, indexReport)
-	
+
 	// Compile recommendations
 	recommendations := pd.compileRecommendations(&connMetrics, queryAnalysis, cacheMetrics, indexReport)
-	
+
 	// Get trend data
 	trendData := pd.getTrendData()
-	
+
 	dashboard := &DashboardData{
 		Timestamp:         timestamp,
 		Overview:          overview,
@@ -150,11 +150,11 @@ func (pd *PerformanceDashboard) GetDashboardData(ctx context.Context) (*Dashboar
 		Recommendations:   recommendations,
 		TrendData:         trendData,
 	}
-	
+
 	if indexReport != nil {
 		dashboard.IndexHealth = indexReport.OverallIndexHealth
 	}
-	
+
 	return dashboard, nil
 }
 
@@ -165,10 +165,10 @@ func (pd *PerformanceDashboard) calculateOverview(
 	cacheMetrics CacheMetrics,
 	indexReport *IndexAnalysisReport,
 ) PerformanceOverview {
-	
+
 	// Calculate health score (0-100)
 	healthScore := 100.0
-	
+
 	// Connection health (25% weight)
 	connUtil := connMetrics.GetConnectionEfficiency()
 	if connUtil > 90 {
@@ -178,7 +178,7 @@ func (pd *PerformanceDashboard) calculateOverview(
 	} else if connUtil < 10 {
 		healthScore -= 10
 	}
-	
+
 	// Query health (30% weight)
 	if queryAnalysis.FailureRate > 1 {
 		healthScore -= 30
@@ -187,7 +187,7 @@ func (pd *PerformanceDashboard) calculateOverview(
 	} else if queryAnalysis.SlowQueryRatio > 5 {
 		healthScore -= 15
 	}
-	
+
 	// Cache health (25% weight)
 	if cacheMetrics.HitRatio < 70 {
 		healthScore -= 25
@@ -196,17 +196,17 @@ func (pd *PerformanceDashboard) calculateOverview(
 	} else if cacheMetrics.HitRatio < 90 {
 		healthScore -= 10
 	}
-	
+
 	// Index health (20% weight)
 	if indexReport != nil {
 		indexHealthPenalty := (100 - indexReport.OverallIndexHealth.Score) * 0.2
 		healthScore -= indexHealthPenalty
 	}
-	
+
 	if healthScore < 0 {
 		healthScore = 0
 	}
-	
+
 	// Determine status
 	status := "healthy"
 	if healthScore < 50 {
@@ -214,19 +214,19 @@ func (pd *PerformanceDashboard) calculateOverview(
 	} else if healthScore < 75 {
 		status = "warning"
 	}
-	
+
 	// Calculate QPS
 	qps := 0.0
 	if queryAnalysis.TotalQueries > 0 && time.Since(queryAnalysis.Timestamp) > 0 {
 		qps = float64(queryAnalysis.TotalQueries) / time.Since(queryAnalysis.Timestamp).Seconds()
 	}
-	
+
 	// Get index usage ratio
 	indexUsageRatio := 0.0
 	if indexReport != nil {
 		indexUsageRatio = indexReport.OverallIndexHealth.IndexUsageRatio
 	}
-	
+
 	return PerformanceOverview{
 		HealthScore:     healthScore,
 		Status:          status,
@@ -246,10 +246,10 @@ func (pd *PerformanceDashboard) generateAlerts(
 	cacheMetrics CacheMetrics,
 	indexReport *IndexAnalysisReport,
 ) []PerformanceAlert {
-	
+
 	var alerts []PerformanceAlert
 	timestamp := time.Now()
-	
+
 	// Connection alerts
 	connUtil := connMetrics.GetConnectionEfficiency()
 	if connUtil > 90 {
@@ -296,7 +296,7 @@ func (pd *PerformanceDashboard) generateAlerts(
 			},
 		})
 	}
-	
+
 	// Query performance alerts
 	if queryAnalysis.SlowQueryRatio > 10 {
 		alerts = append(alerts, PerformanceAlert{
@@ -323,7 +323,7 @@ func (pd *PerformanceDashboard) generateAlerts(
 			},
 		})
 	}
-	
+
 	if queryAnalysis.FailureRate > 1 {
 		alerts = append(alerts, PerformanceAlert{
 			ID:          "query_failure_critical",
@@ -344,7 +344,7 @@ func (pd *PerformanceDashboard) generateAlerts(
 			},
 		})
 	}
-	
+
 	// Cache alerts
 	if cacheMetrics.HitRatio < 70 && cacheMetrics.Hits+cacheMetrics.Misses > 100 {
 		alerts = append(alerts, PerformanceAlert{
@@ -366,7 +366,7 @@ func (pd *PerformanceDashboard) generateAlerts(
 			},
 		})
 	}
-	
+
 	// Index alerts
 	if indexReport != nil {
 		if indexReport.OverallIndexHealth.IndexUsageRatio < 90 {
@@ -389,7 +389,7 @@ func (pd *PerformanceDashboard) generateAlerts(
 				},
 			})
 		}
-		
+
 		if len(indexReport.UnusedIndexes) > 0 {
 			alerts = append(alerts, PerformanceAlert{
 				ID:          "unused_indexes",
@@ -411,7 +411,7 @@ func (pd *PerformanceDashboard) generateAlerts(
 			})
 		}
 	}
-	
+
 	return alerts
 }
 
@@ -422,25 +422,25 @@ func (pd *PerformanceDashboard) compileRecommendations(
 	cacheMetrics CacheMetrics,
 	indexReport *IndexAnalysisReport,
 ) []string {
-	
+
 	var recommendations []string
-	
+
 	// Add connection recommendations
 	recommendations = append(recommendations, connMetrics.GetRecommendations()...)
-	
+
 	// Add query recommendations
 	recommendations = append(recommendations, queryAnalysis.Recommendations...)
-	
+
 	// Add index recommendations
 	if indexReport != nil {
 		recommendations = append(recommendations, indexReport.Recommendations...)
 	}
-	
+
 	// Add cache-specific recommendations
 	if cacheMetrics.HitRatio < 90 && cacheMetrics.Hits+cacheMetrics.Misses > 100 {
 		recommendations = append(recommendations, "Consider increasing cache TTL or implementing more aggressive caching")
 	}
-	
+
 	// Remove duplicates
 	seen := make(map[string]bool)
 	var unique []string
@@ -450,7 +450,7 @@ func (pd *PerformanceDashboard) compileRecommendations(
 			unique = append(unique, rec)
 		}
 	}
-	
+
 	return unique
 }
 
@@ -484,7 +484,7 @@ func (pd *PerformanceDashboard) ExportDashboardData(ctx context.Context) ([]byte
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return json.MarshalIndent(data, "", "  ")
 }
 
@@ -494,7 +494,7 @@ func (pd *PerformanceDashboard) GetHealthStatus(ctx context.Context) (string, fl
 	if err != nil {
 		return "unknown", 0, err
 	}
-	
+
 	return data.Overview.Status, data.Overview.HealthScore, nil
 }
 
@@ -502,10 +502,10 @@ func (pd *PerformanceDashboard) GetHealthStatus(ctx context.Context) (string, fl
 func (pd *PerformanceDashboard) StartMonitoring(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	
+
 	pd.logger.Info("Starting database performance monitoring",
 		zap.Duration("interval", interval))
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -524,7 +524,7 @@ func (pd *PerformanceDashboard) performHealthCheck(ctx context.Context) {
 		pd.logger.Error("Failed to get health status", zap.Error(err))
 		return
 	}
-	
+
 	if status == "critical" {
 		pd.logger.Error("Database performance critical",
 			zap.String("status", status),

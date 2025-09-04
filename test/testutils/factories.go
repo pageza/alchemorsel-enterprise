@@ -44,21 +44,21 @@ type RecipeBuilder struct {
 // NewRecipeBuilder creates a new recipe builder with default values
 func NewRecipeBuilder() *RecipeBuilder {
 	faker := gofakeit.New(time.Now().UnixNano())
-	
+
 	return &RecipeBuilder{
-		title:       faker.Sentence(3),
-		description: faker.Paragraph(2, 3, 5, " "),
-		authorID:    uuid.New(),
-		ingredients: []recipe.Ingredient{},
+		title:        faker.Sentence(3),
+		description:  faker.Paragraph(2, 3, 5, " "),
+		authorID:     uuid.New(),
+		ingredients:  []recipe.Ingredient{},
 		instructions: []recipe.Instruction{},
-		cuisine:     recipe.CuisineTypeItalian,
-		category:    recipe.CategoryTypeMainCourse,
-		difficulty:  recipe.DifficultyLevelMedium,
-		prepTime:    15 * time.Minute,
-		cookTime:    30 * time.Minute,
-		servings:    4,
-		tags:        []string{"test", "recipe"},
-		aiGenerated: false,
+		cuisine:      recipe.CuisineTypeItalian,
+		category:     recipe.CategoryTypeMainCourse,
+		difficulty:   recipe.DifficultyLevelMedium,
+		prepTime:     15 * time.Minute,
+		cookTime:     30 * time.Minute,
+		servings:     4,
+		tags:         []string{"test", "recipe"},
+		aiGenerated:  false,
 	}
 }
 
@@ -170,16 +170,16 @@ func (rb *RecipeBuilder) BuildValid() (*recipe.Recipe, error) {
 	if len(rb.ingredients) == 0 {
 		rb.WithIngredients([]recipe.Ingredient{
 			{
-				ID:       uuid.New(),
-				Name:     "Spaghetti",
+				ID:     uuid.New(),
+				Name:   "Spaghetti",
 				Amount: 1.0,
-				Unit:     recipe.MeasurementUnitPound,
+				Unit:   recipe.MeasurementUnitPound,
 			},
 			{
-				ID:       uuid.New(),
-				Name:     "Tomato Sauce",
+				ID:     uuid.New(),
+				Name:   "Tomato Sauce",
 				Amount: 2.0,
-				Unit:     recipe.MeasurementUnitCup,
+				Unit:   recipe.MeasurementUnitCup,
 			},
 		})
 	}
@@ -230,22 +230,22 @@ func (rf *RecipeFactory) CreateValidRecipe() (*recipe.Recipe, error) {
 func (rf *RecipeFactory) CreateItalianRecipe() (*recipe.Recipe, error) {
 	ingredients := []recipe.Ingredient{
 		{
-			ID:       uuid.New(),
-			Name:     "Spaghetti",
+			ID:     uuid.New(),
+			Name:   "Spaghetti",
 			Amount: 1.0,
-			Unit:     recipe.MeasurementUnitPound,
+			Unit:   recipe.MeasurementUnitPound,
 		},
 		{
-			ID:       uuid.New(),
-			Name:     "Parmesan Cheese",
+			ID:     uuid.New(),
+			Name:   "Parmesan Cheese",
 			Amount: 0.5,
-			Unit:     recipe.MeasurementUnitCup,
+			Unit:   recipe.MeasurementUnitCup,
 		},
 		{
-			ID:       uuid.New(),
-			Name:     "Extra Virgin Olive Oil",
+			ID:     uuid.New(),
+			Name:   "Extra Virgin Olive Oil",
 			Amount: 3.0,
-			Unit:     recipe.MeasurementUnitTablespoon,
+			Unit:   recipe.MeasurementUnitTablespoon,
 		},
 	}
 
@@ -285,10 +285,10 @@ func (rf *RecipeFactory) CreateComplexRecipe() (*recipe.Recipe, error) {
 	ingredients := make([]recipe.Ingredient, 0, 10)
 	for i := 0; i < 10; i++ {
 		ingredients = append(ingredients, recipe.Ingredient{
-			ID:       uuid.New(),
-			Name:     rf.faker.Noun(),
-			Amount:   float64(rf.faker.Float32Range(0.5, 3.0)),
-			Unit:     rf.randomUnit(),
+			ID:     uuid.New(),
+			Name:   rf.faker.Noun(),
+			Amount: float64(rf.faker.Float32Range(0.5, 3.0)),
+			Unit:   rf.randomUnit(),
 		})
 	}
 
@@ -346,7 +346,7 @@ type UserBuilder struct {
 // NewUserBuilder creates a new user builder with default values
 func NewUserBuilder() *UserBuilder {
 	faker := gofakeit.New(time.Now().UnixNano())
-	
+
 	return &UserBuilder{
 		email:    faker.Email(),
 		username: faker.Username(),
@@ -478,7 +478,7 @@ func CreateTestDataSet(userCount, recipeCount int) (*TestDataSet, error) {
 	for i := 0; i < recipeCount; i++ {
 		// Pick random user as author
 		authorIndex := rand.Intn(len(users))
-		
+
 		recipe, err := NewRecipeBuilder().
 			WithAuthor(users[authorIndex].ID()).
 			BuildValid()

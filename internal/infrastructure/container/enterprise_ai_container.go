@@ -16,11 +16,11 @@ import (
 
 // EnterpriseAIContainer manages enterprise AI service dependencies
 type EnterpriseAIContainer struct {
-	config          *config.Config
-	logger          *zap.Logger
-	cacheService    *cache.CacheService
-	aiService       *ai.EnterpriseAIService
-	aiHandler       *handlers.EnterpriseAIHandler
+	config       *config.Config
+	logger       *zap.Logger
+	cacheService *cache.CacheService
+	aiService    *ai.EnterpriseAIService
+	aiHandler    *handlers.EnterpriseAIHandler
 }
 
 // NewEnterpriseAIContainer creates a new enterprise AI container
@@ -52,24 +52,24 @@ func (c *EnterpriseAIContainer) GetAIHandler() *handlers.EnterpriseAIHandler {
 func (c *EnterpriseAIContainer) createAIService() *ai.EnterpriseAIService {
 	// Create enterprise configuration from main config
 	enterpriseConfig := &ai.EnterpriseConfig{
-		PrimaryProvider:      c.getAIProvider(),
-		FallbackProviders:    c.getFallbackProviders(),
-		DailyBudgetCents:     c.getDailyBudget(),
-		MonthlyBudgetCents:   c.getMonthlyBudget(),
-		CostAlertThresholds:  []float64{0.7, 0.9, 1.0},
-		RequestsPerMinute:    c.getRequestsPerMinute(),
-		RequestsPerHour:      c.getRequestsPerHour(),
-		RequestsPerDay:       c.getRequestsPerDay(),
-		MinQualityScore:      c.getMinQualityScore(),
-		QualityCheckEnabled:  c.getQualityCheckEnabled(),
-		CacheEnabled:         c.getCacheEnabled(),
-		CacheTTL:             c.getCacheTTL(),
-		MetricsEnabled:       c.getMetricsEnabled(),
-		AlertsEnabled:        c.getAlertsEnabled(),
-		ModelSettings:        c.getModelSettings(),
+		PrimaryProvider:     c.getAIProvider(),
+		FallbackProviders:   c.getFallbackProviders(),
+		DailyBudgetCents:    c.getDailyBudget(),
+		MonthlyBudgetCents:  c.getMonthlyBudget(),
+		CostAlertThresholds: []float64{0.7, 0.9, 1.0},
+		RequestsPerMinute:   c.getRequestsPerMinute(),
+		RequestsPerHour:     c.getRequestsPerHour(),
+		RequestsPerDay:      c.getRequestsPerDay(),
+		MinQualityScore:     c.getMinQualityScore(),
+		QualityCheckEnabled: c.getQualityCheckEnabled(),
+		CacheEnabled:        c.getCacheEnabled(),
+		CacheTTL:            c.getCacheTTL(),
+		MetricsEnabled:      c.getMetricsEnabled(),
+		AlertsEnabled:       c.getAlertsEnabled(),
+		ModelSettings:       c.getModelSettings(),
 	}
 
-	// For now, use nil cache repository to get basic compilation  
+	// For now, use nil cache repository to get basic compilation
 	// TODO: Implement proper cache repository adapter
 	var cacheRepo outbound.CacheRepository = nil
 
@@ -196,7 +196,7 @@ func (c *EnterpriseAIContainer) getModelSettings() map[string]ai.ModelConfig {
 			MaxTokens:      2048,
 			Temperature:    0.7,
 			TopP:           0.9,
-			CostPerToken:   0.001,  // Very low for self-hosted
+			CostPerToken:   0.001, // Very low for self-hosted
 			RequestTimeout: 30 * time.Second,
 			QualityWeight:  1.0,
 		},
@@ -204,7 +204,7 @@ func (c *EnterpriseAIContainer) getModelSettings() map[string]ai.ModelConfig {
 			MaxTokens:      4096,
 			Temperature:    0.7,
 			TopP:           0.9,
-			CostPerToken:   0.03,   // Higher for external API
+			CostPerToken:   0.03, // Higher for external API
 			RequestTimeout: 60 * time.Second,
 			QualityWeight:  1.2,
 		},

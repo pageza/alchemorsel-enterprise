@@ -64,7 +64,7 @@ func TestHealthCheck_Check_NoCheckers(t *testing.T) {
 func TestHealthCheck_Check_SingleHealthyChecker(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
 	ctx := context.Background()
-	
+
 	checker := NewMockChecker("database").WithStatus(StatusHealthy).WithMessage("Connection OK")
 	hc.Register("database", checker)
 
@@ -73,7 +73,7 @@ func TestHealthCheck_Check_SingleHealthyChecker(t *testing.T) {
 	AssertResponseStructure(t, response)
 	assert.Equal(t, StatusHealthy, response.Status)
 	assert.Len(t, response.Checks, 1)
-	
+
 	check := response.Checks[0]
 	AssertCheckResult(t, check, StatusHealthy, "database")
 	assert.Equal(t, "Connection OK", check.Message)
@@ -82,7 +82,7 @@ func TestHealthCheck_Check_SingleHealthyChecker(t *testing.T) {
 func TestHealthCheck_Check_SingleUnhealthyChecker(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
 	ctx := context.Background()
-	
+
 	checker := NewMockChecker("database").WithStatus(StatusUnhealthy).WithMessage("Connection failed")
 	hc.Register("database", checker)
 
@@ -91,7 +91,7 @@ func TestHealthCheck_Check_SingleUnhealthyChecker(t *testing.T) {
 	AssertResponseStructure(t, response)
 	assert.Equal(t, StatusUnhealthy, response.Status)
 	assert.Len(t, response.Checks, 1)
-	
+
 	check := response.Checks[0]
 	AssertCheckResult(t, check, StatusUnhealthy, "database")
 	assert.Equal(t, "Connection failed", check.Message)
@@ -100,7 +100,7 @@ func TestHealthCheck_Check_SingleUnhealthyChecker(t *testing.T) {
 func TestHealthCheck_Check_SingleDegradedChecker(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
 	ctx := context.Background()
-	
+
 	checker := NewMockChecker("cache").WithStatus(StatusDegraded).WithMessage("High latency")
 	hc.Register("cache", checker)
 
@@ -109,7 +109,7 @@ func TestHealthCheck_Check_SingleDegradedChecker(t *testing.T) {
 	AssertResponseStructure(t, response)
 	assert.Equal(t, StatusDegraded, response.Status)
 	assert.Len(t, response.Checks, 1)
-	
+
 	check := response.Checks[0]
 	AssertCheckResult(t, check, StatusDegraded, "cache")
 	assert.Equal(t, "High latency", check.Message)
@@ -118,7 +118,7 @@ func TestHealthCheck_Check_SingleDegradedChecker(t *testing.T) {
 func TestHealthCheck_Check_MultipleCheckers(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
 	ctx := context.Background()
-	
+
 	// Register multiple checkers with different statuses
 	hc.Register("database", NewMockChecker("database").WithStatus(StatusHealthy))
 	hc.Register("cache", NewMockChecker("cache").WithStatus(StatusDegraded))
@@ -134,7 +134,7 @@ func TestHealthCheck_Check_MultipleCheckers(t *testing.T) {
 func TestHealthCheck_Check_MultipleCheckersWithUnhealthy(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
 	ctx := context.Background()
-	
+
 	// Register multiple checkers with one unhealthy
 	hc.Register("database", NewMockChecker("database").WithStatus(StatusUnhealthy))
 	hc.Register("cache", NewMockChecker("cache").WithStatus(StatusDegraded))
@@ -150,7 +150,7 @@ func TestHealthCheck_Check_MultipleCheckersWithUnhealthy(t *testing.T) {
 func TestHealthCheck_Check_ConcurrentExecution(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
 	ctx := context.Background()
-	
+
 	// Register checkers with delays to test concurrency
 	delay := 50 * time.Millisecond
 	hc.Register("slow1", NewMockChecker("slow1").WithDelay(delay))
@@ -164,18 +164,18 @@ func TestHealthCheck_Check_ConcurrentExecution(t *testing.T) {
 	AssertResponseStructure(t, response)
 	assert.Equal(t, StatusHealthy, response.Status)
 	assert.Len(t, response.Checks, 3)
-	
+
 	// Should complete in roughly the delay time (concurrent) rather than 3x delay (sequential)
 	assert.Less(t, elapsed, 2*delay, "Checks should run concurrently")
 }
 
 func TestHealthCheck_Check_ContextTimeout(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
-	
+
 	// Create context with very short timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
-	
+
 	// Register slow checker
 	hc.Register("slow", NewSlowChecker("slow", 100*time.Millisecond))
 
@@ -189,12 +189,12 @@ func TestHealthCheck_Check_ContextTimeout(t *testing.T) {
 func TestHealthCheck_Check_WithMetadata(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
 	ctx := context.Background()
-	
+
 	metadata := map[string]interface{}{
 		"connections": 10,
 		"version":     "5.7",
 	}
-	
+
 	checker := NewMockChecker("database").
 		WithStatus(StatusHealthy).
 		WithMetadata(metadata)
@@ -204,7 +204,7 @@ func TestHealthCheck_Check_WithMetadata(t *testing.T) {
 
 	AssertResponseStructure(t, response)
 	assert.Len(t, response.Checks, 1)
-	
+
 	check := response.Checks[0]
 	assert.Equal(t, metadata, check.Metadata)
 }
@@ -212,7 +212,7 @@ func TestHealthCheck_Check_WithMetadata(t *testing.T) {
 func TestHealthCheck_Check_Caching(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
 	hc.SetCacheTTL(100 * time.Millisecond)
-	
+
 	ctx := context.Background()
 	checker := NewMockChecker("test").WithStatus(StatusHealthy)
 	hc.Register("test", checker)
@@ -255,11 +255,11 @@ func TestHealthCheck_Handler(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusOK, resp.Code)
-	
+
 	var response Response
 	err := json.Unmarshal(resp.Body.Bytes(), &response)
 	require.NoError(t, err)
-	
+
 	AssertResponseStructure(t, response)
 	assert.Equal(t, StatusHealthy, response.Status)
 }
@@ -280,11 +280,11 @@ func TestHealthCheck_Handler_Unhealthy(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
-	
+
 	var response Response
 	err := json.Unmarshal(resp.Body.Bytes(), &response)
 	require.NoError(t, err)
-	
+
 	AssertResponseStructure(t, response)
 	assert.Equal(t, StatusUnhealthy, response.Status)
 }
@@ -303,11 +303,11 @@ func TestHealthCheck_LivenessHandler(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusOK, resp.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(resp.Body.Bytes(), &response)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, "alive", response["status"])
 	assert.Contains(t, response, "timestamp")
 }
@@ -328,11 +328,11 @@ func TestHealthCheck_ReadinessHandler_Ready(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusOK, resp.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(resp.Body.Bytes(), &response)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, "ready", response["status"])
 	assert.Contains(t, response, "timestamp")
 }
@@ -353,11 +353,11 @@ func TestHealthCheck_ReadinessHandler_NotReady(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
-	
+
 	var response map[string]interface{}
 	err := json.Unmarshal(resp.Body.Bytes(), &response)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, "not_ready", response["status"])
 	assert.Equal(t, "Health checks failed", response["reason"])
 	assert.Contains(t, response, "checks")
@@ -423,9 +423,9 @@ func BenchmarkHealthCheck_Check_SingleChecker(b *testing.B) {
 	hc := New("1.0.0", zap.NewNop())
 	checker := NewMockChecker("test").WithStatus(StatusHealthy)
 	hc.Register("test", checker)
-	
+
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		hc.Check(ctx)
@@ -434,15 +434,15 @@ func BenchmarkHealthCheck_Check_SingleChecker(b *testing.B) {
 
 func BenchmarkHealthCheck_Check_MultipleCheckers(b *testing.B) {
 	hc := New("1.0.0", zap.NewNop())
-	
+
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("checker_%d", i)
 		checker := NewMockChecker(name).WithStatus(StatusHealthy)
 		hc.Register(name, checker)
 	}
-	
+
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		hc.Check(ctx)
@@ -452,15 +452,15 @@ func BenchmarkHealthCheck_Check_MultipleCheckers(b *testing.B) {
 func BenchmarkHealthCheck_Check_WithCaching(b *testing.B) {
 	hc := New("1.0.0", zap.NewNop())
 	hc.SetCacheTTL(1 * time.Hour) // Long cache for benchmarking
-	
+
 	checker := NewMockChecker("test").WithStatus(StatusHealthy)
 	hc.Register("test", checker)
-	
+
 	ctx := context.Background()
-	
+
 	// Prime the cache
 	hc.Check(ctx)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		hc.Check(ctx)

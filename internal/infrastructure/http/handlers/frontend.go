@@ -76,28 +76,28 @@ type Message struct {
 
 // UserDashboard represents dashboard data for logged-in users
 type UserDashboard struct {
-	User               *user.UserDTO             `json:"user"`
-	RecipeStats        *UserRecipeStats          `json:"recipe_stats"`
-	ConversationStats  *UserConversationStats    `json:"conversation_stats"`
-	RecentRecipes      []inbound.RecipeDTO       `json:"recent_recipes"`
-	FeaturedRecipes    []inbound.RecipeDTO       `json:"featured_recipes"`
-	QuickActions       []QuickAction             `json:"quick_actions"`
+	User              *user.UserDTO          `json:"user"`
+	RecipeStats       *UserRecipeStats       `json:"recipe_stats"`
+	ConversationStats *UserConversationStats `json:"conversation_stats"`
+	RecentRecipes     []inbound.RecipeDTO    `json:"recent_recipes"`
+	FeaturedRecipes   []inbound.RecipeDTO    `json:"featured_recipes"`
+	QuickActions      []QuickAction          `json:"quick_actions"`
 }
 
 // UserRecipeStats contains user recipe statistics
 type UserRecipeStats struct {
-	TotalRecipes    int `json:"total_recipes"`
-	PublishedRecipes int `json:"published_recipes"`
-	TotalLikes      int `json:"total_likes"`
-	TotalViews      int `json:"total_views"`
-	AvgRating       float64 `json:"avg_rating"`
+	TotalRecipes     int     `json:"total_recipes"`
+	PublishedRecipes int     `json:"published_recipes"`
+	TotalLikes       int     `json:"total_likes"`
+	TotalViews       int     `json:"total_views"`
+	AvgRating        float64 `json:"avg_rating"`
 }
 
 // UserConversationStats contains user AI conversation statistics
 type UserConversationStats struct {
-	TotalConversations int `json:"total_conversations"`
+	TotalConversations  int `json:"total_conversations"`
 	ActiveConversations int `json:"active_conversations"`
-	RecipesGenerated   int `json:"recipes_generated"`
+	RecipesGenerated    int `json:"recipes_generated"`
 }
 
 // QuickAction represents a dashboard quick action
@@ -111,9 +111,9 @@ type QuickAction struct {
 // HandleHome renders the home page with critical 14KB optimization
 func (h *FrontendHandlers) HandleHome(w http.ResponseWriter, r *http.Request) {
 	user := h.getUserFromRequest(r)
-	
+
 	data := PageData{
-		Title:       "Alchemorsel - AI-Powered Recipe Platform", 
+		Title:       "Alchemorsel - AI-Powered Recipe Platform",
 		Description: "Discover, create, and share recipes with AI assistance",
 		Keywords:    "recipes, cooking, AI, food, ingredients",
 		User:        user,
@@ -124,8 +124,8 @@ func (h *FrontendHandlers) HandleHome(w http.ResponseWriter, r *http.Request) {
 	if user != nil {
 		dashboard, err := h.buildUserDashboard(r.Context(), user)
 		if err != nil {
-			h.logger.Error("Failed to build user dashboard", 
-				zap.Error(err), 
+			h.logger.Error("Failed to build user dashboard",
+				zap.Error(err),
 				zap.String("user_id", user.ID.String()),
 			)
 			// Still render page but without dashboard data
@@ -187,7 +187,7 @@ func (h *FrontendHandlers) HandleNewRecipe(w http.ResponseWriter, r *http.Reques
 // HandleRecipeDetail renders a specific recipe
 func (h *FrontendHandlers) HandleRecipeDetail(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	// TODO: Get recipe from service
 	_ = id
 
@@ -212,7 +212,7 @@ func (h *FrontendHandlers) HandleRecipeDetail(w http.ResponseWriter, r *http.Req
 // HandleEditRecipe renders the edit recipe form
 func (h *FrontendHandlers) HandleEditRecipe(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	data := PageData{
 		Title: "Edit Recipe - Alchemorsel",
 		HTMX:  r.Header.Get("HX-Request") == "true",
@@ -281,59 +281,59 @@ func (h *FrontendHandlers) HandleRecipeSearch(w http.ResponseWriter, r *http.Req
 	diet := r.FormValue("diet")
 	difficulty := r.FormValue("difficulty")
 	maxCookTime := r.FormValue("max_cook_time")
-	
+
 	// Simulate search delay for demo
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Enhanced demo data with filtering capabilities
 	allResults := []map[string]interface{}{
 		{
-			"id": "1", 
-			"title": "Pasta Carbonara", 
+			"id":          "1",
+			"title":       "Pasta Carbonara",
 			"description": "Classic Italian pasta dish with eggs, cheese, and pancetta",
-			"cuisine": "italian",
-			"difficulty": "medium",
-			"cookTime": "25",
-			"diet": "",
+			"cuisine":     "italian",
+			"difficulty":  "medium",
+			"cookTime":    "25",
+			"diet":        "",
 		},
 		{
-			"id": "2", 
-			"title": "Chicken Tikka Masala", 
+			"id":          "2",
+			"title":       "Chicken Tikka Masala",
 			"description": "Creamy Indian curry with tender marinated chicken",
-			"cuisine": "indian",
-			"difficulty": "hard",
-			"cookTime": "45",
-			"diet": "",
+			"cuisine":     "indian",
+			"difficulty":  "hard",
+			"cookTime":    "45",
+			"diet":        "",
 		},
 		{
-			"id": "3", 
-			"title": "Vegetarian Pad Thai", 
+			"id":          "3",
+			"title":       "Vegetarian Pad Thai",
 			"description": "Thai stir-fried noodles with vegetables and tofu",
-			"cuisine": "thai",
-			"difficulty": "medium",
-			"cookTime": "20",
-			"diet": "vegetarian",
+			"cuisine":     "thai",
+			"difficulty":  "medium",
+			"cookTime":    "20",
+			"diet":        "vegetarian",
 		},
 		{
-			"id": "4", 
-			"title": "Quick Quinoa Salad", 
+			"id":          "4",
+			"title":       "Quick Quinoa Salad",
 			"description": "Healthy and quick quinoa salad with fresh vegetables",
-			"cuisine": "american",
-			"difficulty": "easy",
-			"cookTime": "15",
-			"diet": "vegan",
+			"cuisine":     "american",
+			"difficulty":  "easy",
+			"cookTime":    "15",
+			"diet":        "vegan",
 		},
 		{
-			"id": "5", 
-			"title": "French Onion Soup", 
+			"id":          "5",
+			"title":       "French Onion Soup",
 			"description": "Classic French soup with caramelized onions and cheese",
-			"cuisine": "french",
-			"difficulty": "medium",
-			"cookTime": "60",
-			"diet": "vegetarian",
+			"cuisine":     "french",
+			"difficulty":  "medium",
+			"cookTime":    "60",
+			"diet":        "vegetarian",
 		},
 	}
-	
+
 	// Filter results based on search criteria
 	results := []map[string]interface{}{}
 	for _, result := range allResults {
@@ -345,22 +345,22 @@ func (h *FrontendHandlers) HandleRecipeSearch(w http.ResponseWriter, r *http.Req
 				continue
 			}
 		}
-		
+
 		// Filter by cuisine
 		if cuisine != "" && result["cuisine"].(string) != cuisine {
 			continue
 		}
-		
+
 		// Filter by diet
 		if diet != "" && result["diet"].(string) != diet {
 			continue
 		}
-		
+
 		// Filter by difficulty
 		if difficulty != "" && result["difficulty"].(string) != difficulty {
 			continue
 		}
-		
+
 		// Filter by max cook time
 		if maxCookTime != "" {
 			maxTime, _ := strconv.Atoi(maxCookTime)
@@ -369,7 +369,7 @@ func (h *FrontendHandlers) HandleRecipeSearch(w http.ResponseWriter, r *http.Req
 				continue
 			}
 		}
-		
+
 		results = append(results, result)
 	}
 
@@ -384,10 +384,10 @@ func (h *FrontendHandlers) HandleRecipeSearch(w http.ResponseWriter, r *http.Req
 // HandleRecipeLike handles recipe like/unlike
 func (h *FrontendHandlers) HandleRecipeLike(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	// TODO: Implement actual like logic
 	liked := r.FormValue("liked") != "true"
-	
+
 	data := map[string]interface{}{
 		"id":    id,
 		"liked": liked,
@@ -401,7 +401,7 @@ func (h *FrontendHandlers) HandleRecipeLike(w http.ResponseWriter, r *http.Reque
 func (h *FrontendHandlers) HandleRecipeRating(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	ratingStr := r.FormValue("rating")
-	
+
 	rating, err := strconv.Atoi(ratingStr)
 	if err != nil || rating < 1 || rating > 5 {
 		http.Error(w, "Invalid rating", http.StatusBadRequest)
@@ -412,8 +412,8 @@ func (h *FrontendHandlers) HandleRecipeRating(w http.ResponseWriter, r *http.Req
 	_ = id
 
 	data := map[string]interface{}{
-		"id":     id,
-		"rating": rating,
+		"id":      id,
+		"rating":  rating,
 		"average": 4.2, // Would be calculated average
 	}
 
@@ -425,7 +425,7 @@ func (h *FrontendHandlers) HandleCreateRecipe(w http.ResponseWriter, r *http.Req
 	// Parse form data
 	title := r.FormValue("title")
 	description := r.FormValue("description")
-	
+
 	if title == "" {
 		h.renderError(w, "Title is required")
 		return
@@ -442,7 +442,7 @@ func (h *FrontendHandlers) HandleCreateRecipe(w http.ResponseWriter, r *http.Req
 func (h *FrontendHandlers) HandleUpdateRecipe(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	title := r.FormValue("title")
-	
+
 	if title == "" {
 		h.renderError(w, "Title is required")
 		return
@@ -457,7 +457,7 @@ func (h *FrontendHandlers) HandleUpdateRecipe(w http.ResponseWriter, r *http.Req
 // HandleDeleteRecipe handles recipe deletion
 func (h *FrontendHandlers) HandleDeleteRecipe(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	// TODO: Delete recipe using service
 	_ = id
 
@@ -470,19 +470,19 @@ func (h *FrontendHandlers) HandleDeleteRecipe(w http.ResponseWriter, r *http.Req
 // HandleAIChat handles AI chat messages and generates recipes using AI
 func (h *FrontendHandlers) HandleAIChat(w http.ResponseWriter, r *http.Request) {
 	message := strings.TrimSpace(r.FormValue("message"))
-	
+
 	// Input validation
 	if message == "" {
 		h.renderError(w, "Message cannot be empty")
 		return
 	}
-	
+
 	// Check message length limit
 	if len(message) > 1000 {
 		h.renderError(w, "Message is too long. Please keep it under 1000 characters.")
 		return
 	}
-	
+
 	// Validate input for dangerous patterns using XSS protection
 	if err := h.xssProtection.ValidateInput(message); err != nil {
 		h.logger.Warn("XSS pattern detected in AI chat message",
@@ -498,7 +498,7 @@ func (h *FrontendHandlers) HandleAIChat(w http.ResponseWriter, r *http.Request) 
 	user := h.getUserFromRequest(r)
 
 	// Log the AI chat request with sanitized message
-	h.logger.Info("AI chat request received", 
+	h.logger.Info("AI chat request received",
 		zap.String("message", h.xssProtection.StripHTML(message)),
 		zap.String("user_id", getUserID(user)),
 	)
@@ -529,10 +529,10 @@ func (h *FrontendHandlers) HandleAIChat(w http.ResponseWriter, r *http.Request) 
 func (h *FrontendHandlers) isRecipeRequest(message string) bool {
 	lowerMessage := strings.ToLower(message)
 	recipeKeywords := []string{
-		"recipe", "create", "make", "cook", "generate", "suggest", 
+		"recipe", "create", "make", "cook", "generate", "suggest",
 		"how to make", "i want to", "show me", "give me",
 	}
-	
+
 	for _, keyword := range recipeKeywords {
 		if strings.Contains(lowerMessage, keyword) {
 			return true
@@ -545,18 +545,18 @@ func (h *FrontendHandlers) isRecipeRequest(message string) bool {
 func (h *FrontendHandlers) generateRecipeWithAI(ctx context.Context, message string, user *user.UserDTO) string {
 	// Build AI constraints from the message
 	constraints := h.buildAIConstraints(message)
-	
+
 	// Call AI service to generate recipe
 	aiResponse, err := h.aiService.GenerateRecipe(ctx, message, constraints)
 	if err != nil {
-		h.logger.Error("Failed to generate recipe with AI", 
+		h.logger.Error("Failed to generate recipe with AI",
 			zap.Error(err),
 			zap.String("message", message),
 		)
 		return h.buildErrorResponse("I had trouble generating that recipe. Please try again with different ingredients or description.")
 	}
 
-	// For now, just return the AI response as text 
+	// For now, just return the AI response as text
 	// TODO: Implement proper recipe creation and persistence
 	h.logger.Info("Generated AI recipe",
 		zap.String("title", aiResponse.Title),
@@ -570,23 +570,23 @@ func (h *FrontendHandlers) generateRecipeWithAI(ctx context.Context, message str
 // buildAIConstraints extracts constraints from the user message
 func (h *FrontendHandlers) buildAIConstraints(message string) outbound.AIConstraints {
 	lowerMessage := strings.ToLower(message)
-	
+
 	constraints := outbound.AIConstraints{
-		ServingSize: 4, // default
+		ServingSize: 4,        // default
 		SkillLevel:  "medium", // default
 	}
 
 	// Extract dietary requirements
 	dietaryKeywords := map[string]string{
-		"vegetarian": "vegetarian",
-		"vegan":      "vegan",
+		"vegetarian":  "vegetarian",
+		"vegan":       "vegan",
 		"gluten-free": "gluten-free",
-		"dairy-free": "dairy-free",
-		"low-carb":   "low-carb",
-		"keto":       "keto",
-		"healthy":    "healthy",
+		"dairy-free":  "dairy-free",
+		"low-carb":    "low-carb",
+		"keto":        "keto",
+		"healthy":     "healthy",
 	}
-	
+
 	for keyword, dietary := range dietaryKeywords {
 		if strings.Contains(lowerMessage, keyword) {
 			constraints.Dietary = append(constraints.Dietary, dietary)
@@ -595,16 +595,16 @@ func (h *FrontendHandlers) buildAIConstraints(message string) outbound.AIConstra
 
 	// Extract cuisine
 	cuisineKeywords := map[string]string{
-		"italian":   "italian",
-		"mexican":   "mexican",
-		"asian":     "asian",
-		"indian":    "indian",
-		"french":    "french",
-		"thai":      "thai",
-		"chinese":   "chinese",
-		"japanese":  "japanese",
+		"italian":  "italian",
+		"mexican":  "mexican",
+		"asian":    "asian",
+		"indian":   "indian",
+		"french":   "french",
+		"thai":     "thai",
+		"chinese":  "chinese",
+		"japanese": "japanese",
 	}
-	
+
 	for keyword, cuisine := range cuisineKeywords {
 		if strings.Contains(lowerMessage, keyword) {
 			constraints.Cuisine = cuisine
@@ -645,10 +645,10 @@ func (h *FrontendHandlers) createRecipeFromAI(aiResponse *outbound.AIRecipeRespo
 			Amount: aiIngredient.Amount,
 			Unit:   h.parseUnit(aiIngredient.Unit),
 		}
-		
+
 		if err := domainRecipe.AddIngredient(ingredient); err != nil {
-			h.logger.Warn("Failed to add ingredient", 
-				zap.Error(err), 
+			h.logger.Warn("Failed to add ingredient",
+				zap.Error(err),
 				zap.String("ingredient", aiIngredient.Name),
 			)
 		}
@@ -660,10 +660,10 @@ func (h *FrontendHandlers) createRecipeFromAI(aiResponse *outbound.AIRecipeRespo
 			StepNumber:  i + 1,
 			Description: instructionText,
 		}
-		
+
 		if err := domainRecipe.AddInstruction(instruction); err != nil {
-			h.logger.Warn("Failed to add instruction", 
-				zap.Error(err), 
+			h.logger.Warn("Failed to add instruction",
+				zap.Error(err),
 				zap.Int("step", i+1),
 			)
 		}
@@ -680,26 +680,26 @@ func (h *FrontendHandlers) createRecipeFromAI(aiResponse *outbound.AIRecipeRespo
 // parseUnit converts string unit to domain measurement unit
 func (h *FrontendHandlers) parseUnit(unit string) recipe.MeasurementUnit {
 	unitMap := map[string]recipe.MeasurementUnit{
-		"tsp":   recipe.MeasurementUnitTeaspoon,
-		"tbsp":  recipe.MeasurementUnitTablespoon,
-		"cup":   recipe.MeasurementUnitCup,
-		"cups":  recipe.MeasurementUnitCup,
-		"oz":    recipe.MeasurementUnitOunce,
-		"ml":    recipe.MeasurementUnitMilliliter,
-		"l":     recipe.MeasurementUnitLiter,
-		"g":     recipe.MeasurementUnitGram,
-		"kg":    recipe.MeasurementUnitKilogram,
-		"lb":    recipe.MeasurementUnitPound,
-		"piece": recipe.MeasurementUnitPiece,
+		"tsp":    recipe.MeasurementUnitTeaspoon,
+		"tbsp":   recipe.MeasurementUnitTablespoon,
+		"cup":    recipe.MeasurementUnitCup,
+		"cups":   recipe.MeasurementUnitCup,
+		"oz":     recipe.MeasurementUnitOunce,
+		"ml":     recipe.MeasurementUnitMilliliter,
+		"l":      recipe.MeasurementUnitLiter,
+		"g":      recipe.MeasurementUnitGram,
+		"kg":     recipe.MeasurementUnitKilogram,
+		"lb":     recipe.MeasurementUnitPound,
+		"piece":  recipe.MeasurementUnitPiece,
 		"pieces": recipe.MeasurementUnitPiece,
-		"dash":  recipe.MeasurementUnitDash,
-		"pinch": recipe.MeasurementUnitPinch,
+		"dash":   recipe.MeasurementUnitDash,
+		"pinch":  recipe.MeasurementUnitPinch,
 	}
-	
+
 	if mappedUnit, exists := unitMap[strings.ToLower(unit)]; exists {
 		return mappedUnit
 	}
-	
+
 	return recipe.MeasurementUnitPiece // default
 }
 
@@ -711,7 +711,7 @@ func (h *FrontendHandlers) generateCookingAdvice(message string) string {
 		"🤖 AI Chef: I understand you're looking for cooking help! For the best results, tell me what dish you'd like to make or what ingredients you want to use, and I'll create a custom recipe.",
 		"🤖 AI Chef: Great question! I'm designed to create personalized recipes based on your preferences. Try saying something like 'generate a chicken curry recipe' or 'I want to cook with tomatoes and herbs'.",
 	}
-	
+
 	// Simple response selection based on message content
 	responseIndex := 0
 	if strings.Contains(strings.ToLower(message), "help") {
@@ -721,13 +721,13 @@ func (h *FrontendHandlers) generateCookingAdvice(message string) string {
 	} else if strings.Contains(strings.ToLower(message), "how") {
 		responseIndex = 3
 	}
-	
+
 	if responseIndex >= len(responses) {
 		responseIndex = 0
 	}
-	
+
 	response := responses[responseIndex]
-	
+
 	// Add recipe examples
 	response += `<br><br><strong>Try these examples:</strong>
 		<ul>
@@ -736,7 +736,7 @@ func (h *FrontendHandlers) generateCookingAdvice(message string) string {
 			<li>"Generate a vegetarian stir-fry recipe"</li>
 			<li>"Make me a healthy salad with avocado"</li>
 		</ul>`
-	
+
 	return h.buildAIMessageHTML(response)
 }
 
@@ -746,11 +746,11 @@ func (h *FrontendHandlers) buildUserMessageHTML(message string, user *user.UserD
 	if user != nil {
 		userName = html.EscapeString(user.Name)
 	}
-	
+
 	// Sanitize the message using XSS protection service
 	sanitizedMessage := h.xssProtection.StripHTML(message)
 	escapedMessage := html.EscapeString(sanitizedMessage)
-	
+
 	return fmt.Sprintf(`
 		<div class="chat-message user-message" style="margin-bottom: 1rem;">
 			<div style="display: flex; align-items: flex-start; gap: 0.75rem; justify-content: flex-end;">
@@ -772,7 +772,7 @@ func (h *FrontendHandlers) buildUserMessageHTML(message string, user *user.UserD
 func (h *FrontendHandlers) buildAIMessageHTML(content string) string {
 	// Sanitize AI response content to allow safe HTML but prevent XSS
 	sanitizedContent := h.xssProtection.SanitizeHTML(content)
-	
+
 	return fmt.Sprintf(`
 		<div class="chat-message ai-message" style="margin-bottom: 1rem;">
 			<div style="display: flex; align-items: flex-start; gap: 0.75rem;">
@@ -799,7 +799,7 @@ func (h *FrontendHandlers) buildAuthRequiredResponse() string {
 			<a href="/login" class="btn btn-primary" style="background: #3182ce; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin: 2px;">Login</a>
 			<a href="/register" class="btn" style="background: #e2e8f0; color: #4a5568; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin: 2px;">Register</a>
 		</div>`
-	
+
 	return h.buildAIMessageHTML(content)
 }
 
@@ -815,7 +815,9 @@ func (h *FrontendHandlers) buildRecipeCreatedResponse(domainRecipe *recipe.Recip
 	if len(aiResponse.Ingredients) > 0 {
 		var names []string
 		for i, ing := range aiResponse.Ingredients {
-			if i >= 3 { break }
+			if i >= 3 {
+				break
+			}
 			names = append(names, ing.Name)
 		}
 		ingredientPreview = strings.Join(names, ", ")
@@ -856,7 +858,7 @@ func (h *FrontendHandlers) buildRecipeCreatedResponse(domainRecipe *recipe.Recip
 		string(domainRecipe.Difficulty()),
 		domainRecipe.ID().String(),
 	)
-	
+
 	return h.buildAIMessageHTML(content)
 }
 
@@ -892,7 +894,7 @@ func (h *FrontendHandlers) HandleAIChatStream(w http.ResponseWriter, r *http.Req
 		if f, ok := w.(http.Flusher); ok {
 			f.Flush()
 		}
-		
+
 		if i < len(responses)-1 {
 			time.Sleep(500 * time.Millisecond)
 		}
@@ -960,7 +962,7 @@ func (h *FrontendHandlers) HandleNotifications(w http.ResponseWriter, r *http.Re
 // HandleFeedback handles user feedback
 func (h *FrontendHandlers) HandleFeedback(w http.ResponseWriter, r *http.Request) {
 	feedback := r.FormValue("feedback")
-	
+
 	if feedback == "" {
 		h.renderError(w, "Feedback cannot be empty")
 		return
@@ -976,19 +978,19 @@ func (h *FrontendHandlers) HandleFeedback(w http.ResponseWriter, r *http.Request
 func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	password := r.FormValue("password")
-	
+
 	h.logger.Info("Login attempt",
 		zap.String("email", email),
 		zap.String("remote_addr", r.RemoteAddr),
 		zap.String("user_agent", r.UserAgent()),
 	)
-	
+
 	if email == "" || password == "" {
 		h.logger.Warn("Login failed - missing credentials", zap.String("email", email))
 		h.renderError(w, "Email and password are required")
 		return
 	}
-	
+
 	// Authenticate user
 	userDTO, err := h.userService.Login(r.Context(), user.LoginCommand{
 		Email:    email,
@@ -1003,12 +1005,12 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 		h.renderError(w, "Invalid credentials")
 		return
 	}
-	
+
 	h.logger.Info("User authenticated successfully",
 		zap.String("user_id", userDTO.User.ID.String()),
 		zap.String("email", userDTO.User.Email),
 	)
-	
+
 	// Create session
 	session, err := h.authService.CreateSession(
 		userDTO.User.ID.String(),
@@ -1016,7 +1018,7 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 		r.UserAgent(),
 	)
 	if err != nil {
-		h.logger.Error("Failed to create session", 
+		h.logger.Error("Failed to create session",
 			zap.Error(err),
 			zap.String("user_id", userDTO.User.ID.String()),
 		)
@@ -1028,7 +1030,7 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 		zap.String("session_id", session.SessionID),
 		zap.String("user_id", userDTO.User.ID.String()),
 	)
-	
+
 	// Generate access token
 	userRoles := []string{userDTO.User.Role}
 	h.logger.Debug("Generating access token for login",
@@ -1046,7 +1048,7 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 		r.UserAgent(),
 	)
 	if err != nil {
-		h.logger.Error("Failed to generate access token", 
+		h.logger.Error("Failed to generate access token",
 			zap.Error(err),
 			zap.String("user_id", userDTO.User.ID.String()),
 			zap.String("session_id", session.SessionID),
@@ -1059,7 +1061,7 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 		zap.String("user_id", userDTO.User.ID.String()),
 		zap.String("token_length", fmt.Sprintf("%d", len(accessToken))),
 	)
-	
+
 	// Set secure session cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session",
@@ -1070,7 +1072,7 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(7 * 24 * time.Hour / time.Second), // 7 days
 	})
-	
+
 	// Set JWT token cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
@@ -1081,7 +1083,7 @@ func (h *FrontendHandlers) HandleAuthLogin(w http.ResponseWriter, r *http.Reques
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   3600, // 1 hour
 	})
-	
+
 	// Return HTMX redirect
 	w.Header().Set("HX-Redirect", "/dashboard")
 	w.WriteHeader(http.StatusOK)
@@ -1093,23 +1095,23 @@ func (h *FrontendHandlers) HandleAuthRegister(w http.ResponseWriter, r *http.Req
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 	passwordConfirm := r.FormValue("password_confirm")
-	
+
 	// Validation
 	if name == "" || email == "" || password == "" {
 		h.renderError(w, "All fields are required")
 		return
 	}
-	
+
 	if password != passwordConfirm {
 		h.renderError(w, "Passwords do not match")
 		return
 	}
-	
+
 	if len(password) < 8 {
 		h.renderError(w, "Password must be at least 8 characters")
 		return
 	}
-	
+
 	// Register user
 	userDTO, err := h.userService.Register(r.Context(), user.RegisterCommand{
 		Name:     name,
@@ -1124,7 +1126,7 @@ func (h *FrontendHandlers) HandleAuthRegister(w http.ResponseWriter, r *http.Req
 		}
 		return
 	}
-	
+
 	// Create session
 	session, err := h.authService.CreateSession(
 		userDTO.User.ID.String(),
@@ -1136,7 +1138,7 @@ func (h *FrontendHandlers) HandleAuthRegister(w http.ResponseWriter, r *http.Req
 		h.renderError(w, "Registration successful but login failed")
 		return
 	}
-	
+
 	// Generate access token
 	userRoles := []string{userDTO.User.Role}
 	accessToken, err := h.authService.GenerateAccessToken(
@@ -1152,7 +1154,7 @@ func (h *FrontendHandlers) HandleAuthRegister(w http.ResponseWriter, r *http.Req
 		h.renderError(w, "Registration successful but login failed")
 		return
 	}
-	
+
 	// Set cookies
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session",
@@ -1163,7 +1165,7 @@ func (h *FrontendHandlers) HandleAuthRegister(w http.ResponseWriter, r *http.Req
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(7 * 24 * time.Hour / time.Second),
 	})
-	
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
 		Value:    accessToken,
@@ -1173,7 +1175,7 @@ func (h *FrontendHandlers) HandleAuthRegister(w http.ResponseWriter, r *http.Req
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   3600, // 1 hour
 	})
-	
+
 	// Return HTMX redirect
 	w.Header().Set("HX-Redirect", "/dashboard")
 	w.WriteHeader(http.StatusOK)
@@ -1189,7 +1191,7 @@ func (h *FrontendHandlers) HandleAuthLogout(w http.ResponseWriter, r *http.Reque
 		HttpOnly: true,
 		MaxAge:   -1,
 	})
-	
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
 		Value:    "",
@@ -1197,7 +1199,7 @@ func (h *FrontendHandlers) HandleAuthLogout(w http.ResponseWriter, r *http.Reque
 		HttpOnly: true,
 		MaxAge:   -1,
 	})
-	
+
 	// Redirect to home
 	http.Redirect(w, r, "/", http.StatusFound)
 }
@@ -1221,20 +1223,20 @@ func (h *FrontendHandlers) getUserFromRequest(r *http.Request) *user.UserDTO {
 				)
 				return userDTO
 			}
-			h.logger.Warn("Failed to get user by ID from context", 
+			h.logger.Warn("Failed to get user by ID from context",
 				zap.Error(err),
 				zap.String("user_id", userIDStr),
 			)
 		}
 	}
-	
+
 	// Fallback: try to validate token from cookie
 	cookie, err := r.Cookie("auth_token")
 	if err != nil {
 		h.logger.Debug("No auth_token cookie found", zap.Error(err))
 		return nil
 	}
-	
+
 	h.logger.Debug("Found auth_token cookie, validating token",
 		zap.String("token_length", fmt.Sprintf("%d", len(cookie.Value))),
 	)
@@ -1247,18 +1249,18 @@ func (h *FrontendHandlers) getUserFromRequest(r *http.Request) *user.UserDTO {
 		)
 		return nil
 	}
-	
+
 	// Parse user ID from string to UUID
 	userID, err := uuid.Parse(claims.UserID)
 	if err != nil {
 		return nil
 	}
-	
+
 	userDTO, err := h.userService.GetUserByID(r.Context(), userID)
 	if err != nil {
 		return nil
 	}
-	
+
 	return userDTO
 }
 
@@ -1267,9 +1269,9 @@ func (h *FrontendHandlers) getUserFromRequest(r *http.Request) *user.UserDTO {
 // renderTemplate renders a template with the given data
 func (h *FrontendHandlers) renderTemplate(w http.ResponseWriter, templateName string, data interface{}) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	
+
 	if err := h.templates.ExecuteTemplate(w, templateName, data); err != nil {
-		h.logger.Error("Failed to render template", 
+		h.logger.Error("Failed to render template",
 			zap.String("template", templateName),
 			zap.Error(err),
 		)
@@ -1309,21 +1311,21 @@ func (h *FrontendHandlers) buildRecipeAIResponseText(aiResponse *outbound.AIReci
 	response := fmt.Sprintf("🤖 I've created a recipe for you!\n\n")
 	response += fmt.Sprintf("**%s**\n\n", aiResponse.Title)
 	response += fmt.Sprintf("%s\n\n", aiResponse.Description)
-	
+
 	response += "**Ingredients:**\n"
 	for _, ing := range aiResponse.Ingredients {
 		response += fmt.Sprintf("• %.1f %s %s\n", ing.Amount, ing.Unit, ing.Name)
 	}
-	
+
 	response += "\n**Instructions:**\n"
 	for i, inst := range aiResponse.Instructions {
 		response += fmt.Sprintf("%d. %s\n", i+1, inst)
 	}
-	
+
 	if aiResponse.Nutrition != nil {
 		response += fmt.Sprintf("\n**Nutrition:** %d calories\n", aiResponse.Nutrition.Calories)
 	}
-	
+
 	return response
 }
 
@@ -1340,7 +1342,7 @@ func (h *FrontendHandlers) buildUserDashboard(ctx context.Context, user *user.Us
 		OrderBy:  "created_at",
 		Order:    "desc",
 	}
-	
+
 	userRecipes, err := h.recipeService.GetRecipesByUser(ctx, user.ID, paginationParams)
 	if err != nil {
 		h.logger.Warn("Failed to fetch user recipes for dashboard",
@@ -1414,53 +1416,53 @@ func (h *FrontendHandlers) buildUserDashboard(ctx context.Context, user *user.Us
 // calculateRecipeStats computes statistics from user recipes
 func (h *FrontendHandlers) calculateRecipeStats(recipes []inbound.RecipeDTO) *UserRecipeStats {
 	stats := &UserRecipeStats{}
-	
+
 	totalLikes := 0
 	totalViews := 0
 	totalRating := 0.0
 	publishedCount := 0
-	
+
 	for _, recipe := range recipes {
 		totalLikes += recipe.Likes
 		totalViews += recipe.Views
 		totalRating += recipe.Rating
-		
+
 		if recipe.Status == recipe.Status { // Assuming published status check
 			publishedCount++
 		}
 	}
-	
+
 	stats.TotalRecipes = len(recipes)
 	stats.PublishedRecipes = publishedCount
 	stats.TotalLikes = totalLikes
 	stats.TotalViews = totalViews
-	
+
 	if len(recipes) > 0 {
 		stats.AvgRating = totalRating / float64(len(recipes))
 	}
-	
+
 	return stats
 }
 
 // buildConversationStats converts conversation service stats to dashboard format
 func (h *FrontendHandlers) buildConversationStats(stats map[string]interface{}) *UserConversationStats {
 	convStats := &UserConversationStats{}
-	
+
 	if totalConv, ok := stats["total_conversations"].(int); ok {
 		convStats.TotalConversations = totalConv
 	}
-	
+
 	if activeConv, ok := stats["active_conversations"].(int); ok {
 		convStats.ActiveConversations = activeConv
 	}
-	
+
 	// Count recipe-related conversations as recipes generated
 	if intents, ok := stats["intents"].(map[string]interface{}); ok {
 		if recipeCount, ok := intents["recipe_generation"].(int); ok {
 			convStats.RecipesGenerated = recipeCount
 		}
 	}
-	
+
 	return convStats
 }
 
@@ -1476,6 +1478,6 @@ func (h *FrontendHandlers) getFeaturedRecipes(ctx context.Context) ([]inbound.Re
 	if err != nil {
 		return []inbound.RecipeDTO{}, err
 	}
-	
+
 	return trendingRecipes.Recipes, nil
 }

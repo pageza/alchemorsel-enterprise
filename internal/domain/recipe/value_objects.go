@@ -101,22 +101,22 @@ func (r Rating) Validate() error {
 
 // Image represents a recipe image
 type Image struct {
-	ID          uuid.UUID
-	URL         string
+	ID           uuid.UUID
+	URL          string
 	ThumbnailURL string
-	Caption     string
-	IsPrimary   bool
-	UploadedAt  time.Time
+	Caption      string
+	IsPrimary    bool
+	UploadedAt   time.Time
 }
 
 // Video represents a recipe video
 type Video struct {
-	ID          uuid.UUID
-	URL         string
+	ID           uuid.UUID
+	URL          string
 	ThumbnailURL string
-	Duration    time.Duration
-	Caption     string
-	UploadedAt  time.Time
+	Duration     time.Duration
+	Caption      string
+	UploadedAt   time.Time
 }
 
 // MeasurementUnit represents units of measurement
@@ -130,12 +130,12 @@ const (
 	MeasurementUnitOunce      MeasurementUnit = "oz"
 	MeasurementUnitMilliliter MeasurementUnit = "ml"
 	MeasurementUnitLiter      MeasurementUnit = "l"
-	
+
 	// Weight units
 	MeasurementUnitGram     MeasurementUnit = "g"
 	MeasurementUnitKilogram MeasurementUnit = "kg"
 	MeasurementUnitPound    MeasurementUnit = "lb"
-	
+
 	// Count units
 	MeasurementUnitPiece MeasurementUnit = "piece"
 	MeasurementUnitDash  MeasurementUnit = "dash"
@@ -155,16 +155,16 @@ const (
 type CuisineType string
 
 const (
-	CuisineTypeItalian     CuisineType = "italian"
-	CuisineTypeFrench      CuisineType = "french"
-	CuisineTypeChinese     CuisineType = "chinese"
-	CuisineTypeJapanese    CuisineType = "japanese"
-	CuisineTypeIndian      CuisineType = "indian"
-	CuisineTypeMexican     CuisineType = "mexican"
-	CuisineTypeAmerican    CuisineType = "american"
+	CuisineTypeItalian       CuisineType = "italian"
+	CuisineTypeFrench        CuisineType = "french"
+	CuisineTypeChinese       CuisineType = "chinese"
+	CuisineTypeJapanese      CuisineType = "japanese"
+	CuisineTypeIndian        CuisineType = "indian"
+	CuisineTypeMexican       CuisineType = "mexican"
+	CuisineTypeAmerican      CuisineType = "american"
 	CuisineTypeMediterranean CuisineType = "mediterranean"
-	CuisineTypeThai        CuisineType = "thai"
-	CuisineTypeOther       CuisineType = "other"
+	CuisineTypeThai          CuisineType = "thai"
+	CuisineTypeOther         CuisineType = "other"
 )
 
 // CategoryType represents recipe categories

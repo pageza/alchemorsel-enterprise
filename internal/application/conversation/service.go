@@ -33,13 +33,13 @@ const (
 type ConversationIntent string
 
 const (
-	IntentRecipeCreation      ConversationIntent = "recipe_creation"
-	IntentCookingHelp         ConversationIntent = "cooking_help"
-	IntentIngredientSubst     ConversationIntent = "ingredient_substitution"
-	IntentMealPlanning        ConversationIntent = "meal_planning"
-	IntentGeneralQuestion     ConversationIntent = "general_question"
-	IntentTechnicalSupport    ConversationIntent = "technical_support"
-	IntentGeneral             ConversationIntent = "general"
+	IntentRecipeCreation   ConversationIntent = "recipe_creation"
+	IntentCookingHelp      ConversationIntent = "cooking_help"
+	IntentIngredientSubst  ConversationIntent = "ingredient_substitution"
+	IntentMealPlanning     ConversationIntent = "meal_planning"
+	IntentGeneralQuestion  ConversationIntent = "general_question"
+	IntentTechnicalSupport ConversationIntent = "technical_support"
+	IntentGeneral          ConversationIntent = "general"
 )
 
 // Conversation represents a conversation
@@ -103,10 +103,10 @@ type ContextRepository interface {
 
 // IntentClassifier classifies user messages to determine intent
 type IntentClassifier struct {
-	recipePatterns      []*regexp.Regexp
-	helpPatterns        []*regexp.Regexp
+	recipePatterns       []*regexp.Regexp
+	helpPatterns         []*regexp.Regexp
 	substitutionPatterns []*regexp.Regexp
-	planningPatterns    []*regexp.Regexp
+	planningPatterns     []*regexp.Regexp
 }
 
 // NewIntentClassifier creates a new intent classifier
@@ -144,35 +144,35 @@ func NewIntentClassifier() *IntentClassifier {
 // ClassifyIntent analyzes a message and determines the conversation intent
 func (ic *IntentClassifier) ClassifyIntent(message string) ConversationIntent {
 	message = strings.ToLower(strings.TrimSpace(message))
-	
+
 	// Check recipe creation patterns first (highest priority)
 	for _, pattern := range ic.recipePatterns {
 		if pattern.MatchString(message) {
 			return IntentRecipeCreation
 		}
 	}
-	
+
 	// Check substitution patterns
 	for _, pattern := range ic.substitutionPatterns {
 		if pattern.MatchString(message) {
 			return IntentIngredientSubst
 		}
 	}
-	
+
 	// Check meal planning patterns
 	for _, pattern := range ic.planningPatterns {
 		if pattern.MatchString(message) {
 			return IntentMealPlanning
 		}
 	}
-	
+
 	// Check help patterns
 	for _, pattern := range ic.helpPatterns {
 		if pattern.MatchString(message) {
 			return IntentCookingHelp
 		}
 	}
-	
+
 	// Default to general question
 	return IntentGeneralQuestion
 }
@@ -206,7 +206,7 @@ func NewService(
 func (s *Service) CreateConversation(ctx context.Context, userID string, firstMessage string) (*Conversation, error) {
 	// Classify intent from first message
 	intent := s.intentClassifier.ClassifyIntent(firstMessage)
-	
+
 	conversation := &Conversation{
 		ID:        uuid.New().String(),
 		UserID:    userID,
@@ -216,15 +216,15 @@ func (s *Service) CreateConversation(ctx context.Context, userID string, firstMe
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	
+
 	// Generate title based on intent
 	conversation.Title = s.generateConversationTitle(intent, firstMessage)
-	
+
 	err := s.conversationRepo.CreateConversation(ctx, conversation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create conversation: %w", err)
 	}
-	
+
 	return conversation, nil
 }
 
@@ -238,12 +238,12 @@ func (s *Service) AddMessage(ctx context.Context, conversationID string, role Me
 		Metadata:       metadata,
 		CreatedAt:      time.Now(),
 	}
-	
+
 	err := s.messageRepo.CreateMessage(ctx, message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create message: %w", err)
 	}
-	
+
 	return message, nil
 }
 
@@ -258,12 +258,12 @@ func (s *Service) GetConversationWithMessages(ctx context.Context, conversationI
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get conversation: %w", err)
 	}
-	
+
 	messages, err := s.messageRepo.GetConversationMessages(ctx, conversationID, 100, 0)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get messages: %w", err)
 	}
-	
+
 	return conversation, messages, nil
 }
 
@@ -281,7 +281,7 @@ func (s *Service) SetContext(ctx context.Context, conversationID, contextType st
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
-	
+
 	return s.contextRepo.SetContext(ctx, context)
 }
 
@@ -291,7 +291,7 @@ func (s *Service) GetContext(ctx context.Context, conversationID, contextType st
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return context.ContextData, nil
 }
 
@@ -302,19 +302,19 @@ func (s *Service) ProcessMessage(ctx context.Context, conversationID, userMessag
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to add user message: %w", err)
 	}
-	
+
 	// Get conversation to understand context and intent
 	conversation, err := s.GetConversation(ctx, conversationID)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get conversation: %w", err)
 	}
-	
+
 	// Generate AI response based on intent and context
 	response, err := s.generateResponse(ctx, conversation, userMessage)
 	if err != nil {
 		return userMsg, "", fmt.Errorf("failed to generate response: %w", err)
 	}
-	
+
 	return userMsg, response, nil
 }
 
@@ -395,7 +395,7 @@ func (s *Service) extractDishName(message string) string {
 		regexp.MustCompile(`(?i)cook (.+?)(?:\.|$|\s+please|\s+with)`),
 		regexp.MustCompile(`(?i)create (.+?)(?:\.|$|\s+please|\s+with)`),
 	}
-	
+
 	for _, pattern := range patterns {
 		matches := pattern.FindStringSubmatch(message)
 		if len(matches) > 1 {
@@ -405,7 +405,7 @@ func (s *Service) extractDishName(message string) string {
 			}
 		}
 	}
-	
+
 	return ""
 }
 
@@ -437,10 +437,10 @@ func (s *Service) ArchiveConversation(ctx context.Context, conversationID string
 	if err != nil {
 		return err
 	}
-	
+
 	conversation.Status = StatusArchived
 	conversation.UpdatedAt = time.Now()
-	
+
 	return s.conversationRepo.UpdateConversation(ctx, conversation)
 }
 
@@ -449,19 +449,19 @@ func (s *Service) RenameConversation(ctx context.Context, conversationID string,
 	if strings.TrimSpace(newTitle) == "" {
 		return fmt.Errorf("conversation title cannot be empty")
 	}
-	
+
 	if len(newTitle) > 200 {
 		return fmt.Errorf("conversation title cannot exceed 200 characters")
 	}
-	
+
 	conversation, err := s.GetConversation(ctx, conversationID)
 	if err != nil {
 		return err
 	}
-	
+
 	conversation.Title = strings.TrimSpace(newTitle)
 	conversation.UpdatedAt = time.Now()
-	
+
 	return s.conversationRepo.UpdateConversation(ctx, conversation)
 }
 
@@ -471,10 +471,10 @@ func (s *Service) DeleteConversation(ctx context.Context, conversationID string)
 	if err != nil {
 		return err
 	}
-	
+
 	conversation.Status = StatusDeleted
 	conversation.UpdatedAt = time.Now()
-	
+
 	return s.conversationRepo.UpdateConversation(ctx, conversation)
 }
 
@@ -484,18 +484,18 @@ func (s *Service) GetConversationStats(ctx context.Context, userID string) (map[
 	if err != nil {
 		return nil, err
 	}
-	
+
 	stats := map[string]interface{}{
-		"total_conversations": len(conversations),
-		"active_conversations": 0,
+		"total_conversations":    len(conversations),
+		"active_conversations":   0,
 		"archived_conversations": 0,
-		"intents": make(map[ConversationIntent]int),
+		"intents":                make(map[ConversationIntent]int),
 	}
-	
+
 	intentCounts := make(map[ConversationIntent]int)
 	activeCount := 0
 	archivedCount := 0
-	
+
 	for _, conv := range conversations {
 		switch conv.Status {
 		case StatusActive:
@@ -503,13 +503,13 @@ func (s *Service) GetConversationStats(ctx context.Context, userID string) (map[
 		case StatusArchived:
 			archivedCount++
 		}
-		
+
 		intentCounts[conv.Intent]++
 	}
-	
+
 	stats["active_conversations"] = activeCount
 	stats["archived_conversations"] = archivedCount
 	stats["intents"] = intentCounts
-	
+
 	return stats, nil
 }

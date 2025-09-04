@@ -21,12 +21,12 @@ type StateManager struct {
 	stateFile     string
 	stateRegistry map[string]StateProvider
 	mutex         sync.RWMutex
-	
+
 	// Configuration
-	enableRedis    bool
-	enableFile     bool
-	saveInterval   time.Duration
-	retentionTime  time.Duration
+	enableRedis   bool
+	enableFile    bool
+	saveInterval  time.Duration
+	retentionTime time.Duration
 }
 
 // StateProvider interface for components that can save/restore state
@@ -38,27 +38,27 @@ type StateProvider interface {
 
 // ApplicationState represents the complete application state
 type ApplicationState struct {
-	Timestamp    time.Time              `json:"timestamp"`
-	Version      string                 `json:"version"`
-	Environment  string                 `json:"environment"`
+	Timestamp       time.Time              `json:"timestamp"`
+	Version         string                 `json:"version"`
+	Environment     string                 `json:"environment"`
 	ComponentStates map[string]interface{} `json:"component_states"`
 }
 
 // SessionState represents user session state
 type SessionState struct {
-	UserID        string            `json:"user_id,omitempty"`
+	UserID        string                 `json:"user_id,omitempty"`
 	SessionData   map[string]interface{} `json:"session_data"`
-	Authenticated bool              `json:"authenticated"`
-	LastActivity  time.Time         `json:"last_activity"`
-	ExpiresAt     time.Time         `json:"expires_at"`
+	Authenticated bool                   `json:"authenticated"`
+	LastActivity  time.Time              `json:"last_activity"`
+	ExpiresAt     time.Time              `json:"expires_at"`
 }
 
 // CacheState represents cache state
 type CacheState struct {
-	Keys     []string          `json:"keys"`
-	Values   map[string]string `json:"values"`
-	TTLs     map[string]int64  `json:"ttls"`
-	SavedAt  time.Time         `json:"saved_at"`
+	Keys    []string          `json:"keys"`
+	Values  map[string]string `json:"values"`
+	TTLs    map[string]int64  `json:"ttls"`
+	SavedAt time.Time         `json:"saved_at"`
 }
 
 // DatabaseState represents database connection state
@@ -71,12 +71,12 @@ type DatabaseState struct {
 
 // StateManagerConfig configures the state manager
 type StateManagerConfig struct {
-	RedisURL        string
-	StateFile       string
-	EnableRedis     bool
-	EnableFile      bool
-	SaveInterval    time.Duration
-	RetentionTime   time.Duration
+	RedisURL      string
+	StateFile     string
+	EnableRedis   bool
+	EnableFile    bool
+	SaveInterval  time.Duration
+	RetentionTime time.Duration
 }
 
 // DefaultStateManagerConfig returns sensible defaults
@@ -114,11 +114,11 @@ func NewStateManager(config *StateManagerConfig) (*StateManager, error) {
 			sm.enableRedis = false
 		} else {
 			sm.redisClient = redis.NewClient(opt)
-			
+
 			// Test Redis connection
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			
+
 			if err := sm.redisClient.Ping(ctx).Err(); err != nil {
 				log.Printf("Redis connection failed: %v", err)
 				sm.enableRedis = false
@@ -143,10 +143,10 @@ func NewStateManager(config *StateManagerConfig) (*StateManager, error) {
 func (sm *StateManager) RegisterStateProvider(provider StateProvider) {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
-	
+
 	key := provider.GetStateKey()
 	sm.stateRegistry[key] = provider
-	
+
 	log.Printf("Registered state provider: %s", key)
 }
 
@@ -320,7 +320,7 @@ func (sm *StateManager) StartPeriodicSave(ctx context.Context) {
 			}
 		}
 	}()
-	
+
 	log.Printf("Started periodic state saving every %s", sm.saveInterval)
 }
 
@@ -374,13 +374,13 @@ func NewSessionStateProvider() *SessionStateProvider {
 func (ssp *SessionStateProvider) SaveState() (interface{}, error) {
 	ssp.mutex.RLock()
 	defer ssp.mutex.RUnlock()
-	
+
 	// Copy sessions to avoid race conditions
 	sessionsCopy := make(map[string]*SessionState)
 	for k, v := range ssp.sessions {
 		sessionsCopy[k] = v
 	}
-	
+
 	return sessionsCopy, nil
 }
 
@@ -389,29 +389,29 @@ func (ssp *SessionStateProvider) RestoreState(data interface{}) error {
 	if !ok {
 		return fmt.Errorf("invalid session state data")
 	}
-	
+
 	ssp.mutex.Lock()
 	defer ssp.mutex.Unlock()
-	
+
 	ssp.sessions = make(map[string]*SessionState)
-	
+
 	for k, v := range sessions {
 		sessionData, err := json.Marshal(v)
 		if err != nil {
 			continue
 		}
-		
+
 		var session SessionState
 		if err := json.Unmarshal(sessionData, &session); err != nil {
 			continue
 		}
-		
+
 		// Only restore non-expired sessions
 		if time.Now().Before(session.ExpiresAt) {
 			ssp.sessions[k] = &session
 		}
 	}
-	
+
 	log.Printf("Restored %d active sessions", len(ssp.sessions))
 	return nil
 }
@@ -437,19 +437,19 @@ func NewCacheStateProvider() *CacheStateProvider {
 func (csp *CacheStateProvider) SaveState() (interface{}, error) {
 	csp.mutex.RLock()
 	defer csp.mutex.RUnlock()
-	
+
 	// Convert TTLs to Unix timestamps for serialization
 	ttlsUnix := make(map[string]int64)
 	for k, v := range csp.ttls {
 		ttlsUnix[k] = v.Unix()
 	}
-	
+
 	state := CacheState{
 		Values:  csp.cache,
 		TTLs:    ttlsUnix,
 		SavedAt: time.Now(),
 	}
-	
+
 	// Only include non-expired entries
 	for k := range csp.cache {
 		if expiry, exists := csp.ttls[k]; exists && time.Now().After(expiry) {
@@ -459,7 +459,7 @@ func (csp *CacheStateProvider) SaveState() (interface{}, error) {
 			state.Keys = append(state.Keys, k)
 		}
 	}
-	
+
 	return state, nil
 }
 
@@ -468,18 +468,18 @@ func (csp *CacheStateProvider) RestoreState(data interface{}) error {
 	if err != nil {
 		return err
 	}
-	
+
 	var state CacheState
 	if err := json.Unmarshal(stateData, &state); err != nil {
 		return err
 	}
-	
+
 	csp.mutex.Lock()
 	defer csp.mutex.Unlock()
-	
+
 	csp.cache = make(map[string]string)
 	csp.ttls = make(map[string]time.Time)
-	
+
 	// Restore non-expired entries
 	for k, v := range state.Values {
 		if ttlUnix, exists := state.TTLs[k]; exists {
@@ -490,7 +490,7 @@ func (csp *CacheStateProvider) RestoreState(data interface{}) error {
 			}
 		}
 	}
-	
+
 	log.Printf("Restored %d cache entries", len(csp.cache))
 	return nil
 }

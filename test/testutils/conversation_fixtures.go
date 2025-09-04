@@ -31,14 +31,14 @@ type ScenarioMessageFlow struct {
 	UserMessage      string
 	ExpectedResponse string
 	ContextUpdates   map[string]interface{}
-	Delay           time.Duration
+	Delay            time.Duration
 }
 
 // CreateRecipeCreationFixture creates a complete recipe creation conversation fixture
 func CreateRecipeCreationFixture() *ConversationFixture {
 	userID := "fixture-user-" + uuid.New().String()
 	conversationID := uuid.New().String()
-	
+
 	conv := &conversation.Conversation{
 		ID:     conversationID,
 		UserID: userID,
@@ -53,7 +53,7 @@ func CreateRecipeCreationFixture() *ConversationFixture {
 		CreatedAt: time.Now().Add(-30 * time.Minute),
 		UpdatedAt: time.Now().Add(-5 * time.Minute),
 	}
-	
+
 	messages := []*conversation.Message{
 		{
 			ID:             uuid.New().String(),
@@ -116,8 +116,8 @@ func CreateRecipeCreationFixture() *ConversationFixture {
 			Role:           conversation.RoleAssistant,
 			Content:        "Excellent! Here's a traditional carbonara recipe for 4 servings: [Recipe details would follow...]",
 			Metadata: map[string]interface{}{
-				"ai_provider": "test",
-				"confidence":  0.95,
+				"ai_provider":      "test",
+				"confidence":       0.95,
 				"recipe_generated": true,
 			},
 			TokensUsed:       45,
@@ -126,7 +126,7 @@ func CreateRecipeCreationFixture() *ConversationFixture {
 			CreatedAt:        time.Now().Add(-25 * time.Minute),
 		},
 	}
-	
+
 	contexts := []*conversation.ConversationContext{
 		{
 			ConversationID: conversationID,
@@ -145,16 +145,16 @@ func CreateRecipeCreationFixture() *ConversationFixture {
 			ConversationID: conversationID,
 			ContextType:    "ai_metadata",
 			ContextData: map[string]interface{}{
-				"total_tokens":     107,
+				"total_tokens":      107,
 				"avg_response_time": 156,
-				"model_used":       "test-model",
-				"provider":         "test",
+				"model_used":        "test-model",
+				"provider":          "test",
 			},
 			CreatedAt: time.Now().Add(-25 * time.Minute),
 			UpdatedAt: time.Now().Add(-25 * time.Minute),
 		},
 	}
-	
+
 	return &ConversationFixture{
 		Conversation: conv,
 		Messages:     messages,
@@ -166,7 +166,7 @@ func CreateRecipeCreationFixture() *ConversationFixture {
 func CreateCookingHelpFixture() *ConversationFixture {
 	userID := "fixture-user-" + uuid.New().String()
 	conversationID := uuid.New().String()
-	
+
 	conv := &conversation.Conversation{
 		ID:     conversationID,
 		UserID: userID,
@@ -180,7 +180,7 @@ func CreateCookingHelpFixture() *ConversationFixture {
 		CreatedAt: time.Now().Add(-15 * time.Minute),
 		UpdatedAt: time.Now().Add(-2 * time.Minute),
 	}
-	
+
 	messages := []*conversation.Message{
 		{
 			ID:             uuid.New().String(),
@@ -229,22 +229,22 @@ func CreateCookingHelpFixture() *ConversationFixture {
 			CreatedAt:        time.Now().Add(-12 * time.Minute),
 		},
 	}
-	
+
 	contexts := []*conversation.ConversationContext{
 		{
 			ConversationID: conversationID,
 			ContextType:    "cooking_help",
 			ContextData: map[string]interface{}{
-				"topic":        "steak_searing",
-				"skill_level":  "beginner",
-				"help_type":    "technique",
-				"equipment":    []string{"pan", "stove"},
+				"topic":       "steak_searing",
+				"skill_level": "beginner",
+				"help_type":   "technique",
+				"equipment":   []string{"pan", "stove"},
 			},
 			CreatedAt: time.Now().Add(-15 * time.Minute),
 			UpdatedAt: time.Now().Add(-12 * time.Minute),
 		},
 	}
-	
+
 	return &ConversationFixture{
 		Conversation: conv,
 		Messages:     messages,
@@ -256,7 +256,7 @@ func CreateCookingHelpFixture() *ConversationFixture {
 func CreateIngredientSubstitutionFixture() *ConversationFixture {
 	userID := "fixture-user-" + uuid.New().String()
 	conversationID := uuid.New().String()
-	
+
 	conv := &conversation.Conversation{
 		ID:     conversationID,
 		UserID: userID,
@@ -270,7 +270,7 @@ func CreateIngredientSubstitutionFixture() *ConversationFixture {
 		CreatedAt: time.Now().Add(-10 * time.Minute),
 		UpdatedAt: time.Now().Add(-1 * time.Minute),
 	}
-	
+
 	messages := []*conversation.Message{
 		{
 			ID:             uuid.New().String(),
@@ -319,23 +319,23 @@ func CreateIngredientSubstitutionFixture() *ConversationFixture {
 			CreatedAt:        time.Now().Add(-7 * time.Minute),
 		},
 	}
-	
+
 	contexts := []*conversation.ConversationContext{
 		{
 			ConversationID: conversationID,
 			ContextType:    "substitution",
 			ContextData: map[string]interface{}{
 				"original_ingredient": "heavy cream",
-				"recipe_type":        "alfredo sauce",
-				"substitution":       "milk + butter",
-				"ratio":              "3:1",
-				"success":            true,
+				"recipe_type":         "alfredo sauce",
+				"substitution":        "milk + butter",
+				"ratio":               "3:1",
+				"success":             true,
 			},
 			CreatedAt: time.Now().Add(-10 * time.Minute),
 			UpdatedAt: time.Now().Add(-7 * time.Minute),
 		},
 	}
-	
+
 	return &ConversationFixture{
 		Conversation: conv,
 		Messages:     messages,
@@ -347,7 +347,7 @@ func CreateIngredientSubstitutionFixture() *ConversationFixture {
 func CreateMealPlanningFixture() *ConversationFixture {
 	userID := "fixture-user-" + uuid.New().String()
 	conversationID := uuid.New().String()
-	
+
 	conv := &conversation.Conversation{
 		ID:     conversationID,
 		UserID: userID,
@@ -362,7 +362,7 @@ func CreateMealPlanningFixture() *ConversationFixture {
 		CreatedAt: time.Now().Add(-45 * time.Minute),
 		UpdatedAt: time.Now().Add(-10 * time.Minute),
 	}
-	
+
 	messages := []*conversation.Message{
 		{
 			ID:             uuid.New().String(),
@@ -402,8 +402,8 @@ func CreateMealPlanningFixture() *ConversationFixture {
 			Role:           conversation.RoleAssistant,
 			Content:        "Perfect! Here's a healthy weekly meal plan with quick options: [Meal plan details would follow...]",
 			Metadata: map[string]interface{}{
-				"ai_provider": "test",
-				"confidence":  0.93,
+				"ai_provider":    "test",
+				"confidence":     0.93,
 				"plan_generated": true,
 			},
 			TokensUsed:       25,
@@ -412,7 +412,7 @@ func CreateMealPlanningFixture() *ConversationFixture {
 			CreatedAt:        time.Now().Add(-42 * time.Minute),
 		},
 	}
-	
+
 	contexts := []*conversation.ConversationContext{
 		{
 			ConversationID: conversationID,
@@ -428,7 +428,7 @@ func CreateMealPlanningFixture() *ConversationFixture {
 			UpdatedAt: time.Now().Add(-42 * time.Minute),
 		},
 	}
-	
+
 	return &ConversationFixture{
 		Conversation: conv,
 		Messages:     messages,
@@ -440,7 +440,7 @@ func CreateMealPlanningFixture() *ConversationFixture {
 func CreateComplexConversationFixture() *ConversationFixture {
 	userID := "fixture-user-" + uuid.New().String()
 	conversationID := uuid.New().String()
-	
+
 	conv := &conversation.Conversation{
 		ID:     conversationID,
 		UserID: userID,
@@ -456,11 +456,11 @@ func CreateComplexConversationFixture() *ConversationFixture {
 		CreatedAt: time.Now().Add(-2 * time.Hour),
 		UpdatedAt: time.Now().Add(-30 * time.Minute),
 	}
-	
+
 	// Create a longer conversation with 20 messages
 	messages := make([]*conversation.Message, 20)
 	baseTime := time.Now().Add(-2 * time.Hour)
-	
+
 	messageContents := []struct {
 		role    conversation.MessageRole
 		content string
@@ -488,24 +488,24 @@ func CreateComplexConversationFixture() *ConversationFixture {
 		{conversation.RoleUser, "Perfect! Can you give me the complete recipe with timeline?"},
 		{conversation.RoleAssistant, "Absolutely! Here's your complete Beef Wellington recipe with preparation timeline..."},
 	}
-	
+
 	for i, msgContent := range messageContents {
 		if i >= len(messages) {
 			break
 		}
-		
+
 		messages[i] = &conversation.Message{
-			ID:             uuid.New().String(),
-			ConversationID: conversationID,
-			Role:           msgContent.role,
-			Content:        msgContent.content,
-			Metadata:       make(map[string]interface{}),
-			TokensUsed:     len(strings.Fields(msgContent.content)),
+			ID:               uuid.New().String(),
+			ConversationID:   conversationID,
+			Role:             msgContent.role,
+			Content:          msgContent.content,
+			Metadata:         make(map[string]interface{}),
+			TokensUsed:       len(strings.Fields(msgContent.content)),
 			ProcessingTimeMs: 150 + (i * 10), // Increasing processing time
 			ModelUsed:        "test-model",
 			CreatedAt:        baseTime.Add(time.Duration(i*3) * time.Minute),
 		}
-		
+
 		if msgContent.role == conversation.RoleAssistant {
 			messages[i].Metadata = map[string]interface{}{
 				"ai_provider": "test",
@@ -513,19 +513,19 @@ func CreateComplexConversationFixture() *ConversationFixture {
 			}
 		}
 	}
-	
+
 	contexts := []*conversation.ConversationContext{
 		{
 			ConversationID: conversationID,
 			ContextType:    "recipe_creation",
 			ContextData: map[string]interface{}{
-				"dish_name":     "beef wellington",
-				"servings":      8,
-				"complexity":    "advanced",
-				"cuisine":       "french",
-				"progress":      "completed",
+				"dish_name":      "beef wellington",
+				"servings":       8,
+				"complexity":     "advanced",
+				"cuisine":        "french",
+				"progress":       "completed",
 				"key_techniques": []string{"pastry work", "duxelles", "temperature control"},
-				"timing":        "preparation timeline provided",
+				"timing":         "preparation timeline provided",
 			},
 			CreatedAt: time.Now().Add(-2 * time.Hour),
 			UpdatedAt: time.Now().Add(-30 * time.Minute),
@@ -534,11 +534,11 @@ func CreateComplexConversationFixture() *ConversationFixture {
 			ConversationID: conversationID,
 			ContextType:    "user_preferences",
 			ContextData: map[string]interface{}{
-				"skill_level":      "intermediate",
+				"skill_level":       "intermediate",
 				"pastry_experience": true,
 				"pate_experience":   false,
-				"beef_grade":       "prime",
-				"special_occasion": true,
+				"beef_grade":        "prime",
+				"special_occasion":  true,
 			},
 			CreatedAt: time.Now().Add(-110 * time.Minute),
 			UpdatedAt: time.Now().Add(-90 * time.Minute),
@@ -547,17 +547,17 @@ func CreateComplexConversationFixture() *ConversationFixture {
 			ConversationID: conversationID,
 			ContextType:    "ai_metadata",
 			ContextData: map[string]interface{}{
-				"total_messages":    20,
-				"total_tokens":      sum(extractTokens(messages)),
-				"avg_response_time": 175,
-				"provider":         "test",
+				"total_messages":       20,
+				"total_tokens":         sum(extractTokens(messages)),
+				"avg_response_time":    175,
+				"provider":             "test",
 				"conversation_quality": "high",
 			},
 			CreatedAt: time.Now().Add(-30 * time.Minute),
 			UpdatedAt: time.Now().Add(-30 * time.Minute),
 		},
 	}
-	
+
 	return &ConversationFixture{
 		Conversation: conv,
 		Messages:     messages[:len(messageContents)],
@@ -577,7 +577,7 @@ func GetPredefinedScenarios() []ConversationScenario {
 					UserMessage:      "I need a quick pasta recipe for tonight",
 					ExpectedResponse: "pasta",
 					ContextUpdates: map[string]interface{}{
-						"urgency": "tonight",
+						"urgency":   "tonight",
 						"dish_type": "pasta",
 					},
 				},
@@ -586,7 +586,7 @@ func GetPredefinedScenarios() []ConversationScenario {
 					ExpectedResponse: "tomato",
 					ContextUpdates: map[string]interface{}{
 						"ingredients": []string{"tomatoes"},
-						"servings": 2,
+						"servings":    2,
 					},
 				},
 				{
@@ -630,9 +630,9 @@ func GetPredefinedScenarios() []ConversationScenario {
 					UserMessage:      "I'm out of eggs while baking a cake!",
 					ExpectedResponse: "substitute",
 					ContextUpdates: map[string]interface{}{
-						"urgency": "immediate",
+						"urgency":            "immediate",
 						"missing_ingredient": "eggs",
-						"recipe_type": "cake",
+						"recipe_type":        "cake",
 					},
 				},
 				{
@@ -686,12 +686,12 @@ func NewConversationFixtureBuilder() *ConversationFixtureBuilder {
 // WithConversation sets the conversation for the fixture
 func (b *ConversationFixtureBuilder) WithConversation(userID string, intent conversation.ConversationIntent, title string) *ConversationFixtureBuilder {
 	b.conversation = &conversation.Conversation{
-		ID:     uuid.New().String(),
-		UserID: userID,
-		Title:  title,
-		Intent: intent,
-		Status: conversation.StatusActive,
-		Metadata: make(map[string]interface{}),
+		ID:        uuid.New().String(),
+		UserID:    userID,
+		Title:     title,
+		Intent:    intent,
+		Status:    conversation.StatusActive,
+		Metadata:  make(map[string]interface{}),
 		CreatedAt: time.Now().Add(-1 * time.Hour),
 		UpdatedAt: time.Now().Add(-10 * time.Minute),
 	}
@@ -703,7 +703,7 @@ func (b *ConversationFixtureBuilder) AddMessage(role conversation.MessageRole, c
 	if b.conversation == nil {
 		panic("Conversation must be set before adding messages")
 	}
-	
+
 	message := &conversation.Message{
 		ID:             uuid.New().String(),
 		ConversationID: b.conversation.ID,
@@ -713,7 +713,7 @@ func (b *ConversationFixtureBuilder) AddMessage(role conversation.MessageRole, c
 		TokensUsed:     len(strings.Fields(content)),
 		CreatedAt:      time.Now().Add(-time.Duration(len(b.messages)*5) * time.Minute),
 	}
-	
+
 	if role == conversation.RoleAssistant {
 		message.Metadata = map[string]interface{}{
 			"ai_provider": "test",
@@ -722,7 +722,7 @@ func (b *ConversationFixtureBuilder) AddMessage(role conversation.MessageRole, c
 		message.ProcessingTimeMs = 150
 		message.ModelUsed = "test-model"
 	}
-	
+
 	b.messages = append(b.messages, message)
 	return b
 }
@@ -732,7 +732,7 @@ func (b *ConversationFixtureBuilder) AddContext(contextType string, data map[str
 	if b.conversation == nil {
 		panic("Conversation must be set before adding context")
 	}
-	
+
 	context := &conversation.ConversationContext{
 		ConversationID: b.conversation.ID,
 		ContextType:    contextType,
@@ -740,7 +740,7 @@ func (b *ConversationFixtureBuilder) AddContext(contextType string, data map[str
 		CreatedAt:      time.Now().Add(-30 * time.Minute),
 		UpdatedAt:      time.Now().Add(-5 * time.Minute),
 	}
-	
+
 	b.contexts = append(b.contexts, context)
 	return b
 }
@@ -750,7 +750,7 @@ func (b *ConversationFixtureBuilder) Build() *ConversationFixture {
 	if b.conversation == nil {
 		panic("Conversation must be set")
 	}
-	
+
 	return &ConversationFixture{
 		Conversation: b.conversation,
 		Messages:     b.messages,

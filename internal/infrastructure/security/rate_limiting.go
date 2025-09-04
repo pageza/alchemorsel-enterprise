@@ -29,13 +29,13 @@ const (
 
 // RateLimitConfig defines rate limit configuration
 type RateLimitConfig struct {
-	Type            RateLimitType `json:"type"`
-	Requests        int           `json:"requests"`
-	Window          time.Duration `json:"window"`
-	BurstSize       int           `json:"burst_size"`
-	BlockDuration   time.Duration `json:"block_duration"`
-	SkipSuccessful  bool          `json:"skip_successful"`
-	SkipPaths       []string      `json:"skip_paths"`
+	Type           RateLimitType `json:"type"`
+	Requests       int           `json:"requests"`
+	Window         time.Duration `json:"window"`
+	BurstSize      int           `json:"burst_size"`
+	BlockDuration  time.Duration `json:"block_duration"`
+	SkipSuccessful bool          `json:"skip_successful"`
+	SkipPaths      []string      `json:"skip_paths"`
 }
 
 // RateLimitService provides rate limiting capabilities
@@ -52,10 +52,10 @@ func NewRateLimitService(logger *zap.Logger, redisClient *redis.Client) *RateLim
 		redisClient: redisClient,
 		configs:     make(map[RateLimitType]RateLimitConfig),
 	}
-	
+
 	// Initialize default configurations
 	service.initializeDefaultConfigs()
-	
+
 	return service
 }
 
@@ -69,7 +69,7 @@ func (r *RateLimitService) initializeDefaultConfigs() {
 		BlockDuration: 5 * time.Minute,
 		SkipPaths:     []string{"/health", "/metrics", "/ready"},
 	}
-	
+
 	r.configs[RateLimitPerIP] = RateLimitConfig{
 		Type:          RateLimitPerIP,
 		Requests:      60,
@@ -78,16 +78,16 @@ func (r *RateLimitService) initializeDefaultConfigs() {
 		BlockDuration: 15 * time.Minute,
 		SkipPaths:     []string{"/health", "/metrics", "/ready"},
 	}
-	
+
 	r.configs[RateLimitPerUser] = RateLimitConfig{
-		Type:          RateLimitPerUser,
-		Requests:      100,
-		Window:        time.Minute,
-		BurstSize:     20,
-		BlockDuration: 10 * time.Minute,
+		Type:           RateLimitPerUser,
+		Requests:       100,
+		Window:         time.Minute,
+		BurstSize:      20,
+		BlockDuration:  10 * time.Minute,
 		SkipSuccessful: true,
 	}
-	
+
 	r.configs[RateLimitAuth] = RateLimitConfig{
 		Type:          RateLimitAuth,
 		Requests:      5,
@@ -95,7 +95,7 @@ func (r *RateLimitService) initializeDefaultConfigs() {
 		BurstSize:     2,
 		BlockDuration: 30 * time.Minute,
 	}
-	
+
 	r.configs[RateLimitAPI] = RateLimitConfig{
 		Type:          RateLimitAPI,
 		Requests:      1000,
@@ -103,7 +103,7 @@ func (r *RateLimitService) initializeDefaultConfigs() {
 		BurstSize:     100,
 		BlockDuration: time.Hour,
 	}
-	
+
 	r.configs[RateLimitUpload] = RateLimitConfig{
 		Type:          RateLimitUpload,
 		Requests:      10,
@@ -122,7 +122,7 @@ func (r *RateLimitService) RateLimitMiddleware(limitType RateLimitType) gin.Hand
 			c.Next()
 			return
 		}
-		
+
 		// Skip certain paths
 		for _, skipPath := range config.SkipPaths {
 			if c.Request.URL.Path == skipPath {
@@ -130,16 +130,16 @@ func (r *RateLimitService) RateLimitMiddleware(limitType RateLimitType) gin.Hand
 				return
 			}
 		}
-		
+
 		// Generate rate limit key
 		key := r.generateRateLimitKey(c, limitType)
-		
+
 		// Check if already blocked
 		if blocked, err := r.isBlocked(key); err == nil && blocked {
 			r.handleRateLimitExceeded(c, config)
 			return
 		}
-		
+
 		// Check rate limit
 		allowed, remaining, resetTime, err := r.checkRateLimit(key, config)
 		if err != nil {
@@ -147,25 +147,25 @@ func (r *RateLimitService) RateLimitMiddleware(limitType RateLimitType) gin.Hand
 			c.Next()
 			return
 		}
-		
+
 		// Set rate limit headers
 		c.Header("X-RateLimit-Limit", strconv.Itoa(config.Requests))
 		c.Header("X-RateLimit-Remaining", strconv.Itoa(remaining))
 		c.Header("X-RateLimit-Reset", strconv.FormatInt(resetTime.Unix(), 10))
-		
+
 		if !allowed {
 			// Block for configured duration
 			if config.BlockDuration > 0 {
 				r.blockKey(key, config.BlockDuration)
 			}
-			
+
 			r.handleRateLimitExceeded(c, config)
 			return
 		}
-		
+
 		// Process request
 		c.Next()
-		
+
 		// Record request (skip successful if configured)
 		if !config.SkipSuccessful || c.Writer.Status() >= 400 {
 			r.recordRequest(key, config)
@@ -212,42 +212,42 @@ func (r *RateLimitService) checkRateLimit(key string, config RateLimitConfig) (b
 	ctx := context.Background()
 	now := time.Now()
 	windowStart := now.Add(-config.Window)
-	
+
 	// Use Redis sorted set for sliding window
 	pipe := r.redisClient.TxPipeline()
-	
+
 	// Remove old entries
 	pipe.ZRemRangeByScore(ctx, key, "0", strconv.FormatInt(windowStart.UnixNano(), 10))
-	
+
 	// Count current requests in window
 	pipe.ZCard(ctx, key)
-	
+
 	// Add current request
 	pipe.ZAdd(ctx, key, redis.Z{
 		Score:  float64(now.UnixNano()),
 		Member: fmt.Sprintf("%d", now.UnixNano()),
 	})
-	
+
 	// Set expiration
 	pipe.Expire(ctx, key, config.Window*2)
-	
+
 	results, err := pipe.Exec(ctx)
 	if err != nil {
 		return false, 0, now, fmt.Errorf("rate limit check failed: %w", err)
 	}
-	
+
 	// Get count from results
 	count := results[1].(*redis.IntCmd).Val()
-	
+
 	// Check if within limit
 	allowed := count <= int64(config.Requests)
 	remaining := config.Requests - int(count)
 	if remaining < 0 {
 		remaining = 0
 	}
-	
+
 	resetTime := now.Add(config.Window)
-	
+
 	return allowed, remaining, resetTime, nil
 }
 
@@ -255,13 +255,13 @@ func (r *RateLimitService) checkRateLimit(key string, config RateLimitConfig) (b
 func (r *RateLimitService) recordRequest(key string, config RateLimitConfig) {
 	ctx := context.Background()
 	now := time.Now()
-	
+
 	// Add to sorted set
 	r.redisClient.ZAdd(ctx, key, redis.Z{
 		Score:  float64(now.UnixNano()),
 		Member: fmt.Sprintf("%d", now.UnixNano()),
 	})
-	
+
 	// Set expiration
 	r.redisClient.Expire(ctx, key, config.Window*2)
 }
@@ -270,7 +270,7 @@ func (r *RateLimitService) recordRequest(key string, config RateLimitConfig) {
 func (r *RateLimitService) blockKey(key string, duration time.Duration) {
 	ctx := context.Background()
 	blockKey := fmt.Sprintf("%s:blocked", key)
-	
+
 	r.redisClient.Set(ctx, blockKey, "1", duration)
 }
 
@@ -278,7 +278,7 @@ func (r *RateLimitService) blockKey(key string, duration time.Duration) {
 func (r *RateLimitService) isBlocked(key string) (bool, error) {
 	ctx := context.Background()
 	blockKey := fmt.Sprintf("%s:blocked", key)
-	
+
 	exists, err := r.redisClient.Exists(ctx, blockKey).Result()
 	return exists > 0, err
 }
@@ -292,12 +292,12 @@ func (r *RateLimitService) handleRateLimitExceeded(c *gin.Context, config RateLi
 		zap.String("user_agent", c.Request.UserAgent()),
 		zap.String("type", string(config.Type)),
 	)
-	
+
 	c.Header("Retry-After", strconv.Itoa(int(config.BlockDuration.Seconds())))
-	
+
 	c.JSON(http.StatusTooManyRequests, gin.H{
-		"error":   "Rate limit exceeded",
-		"message": "Too many requests. Please try again later.",
+		"error":       "Rate limit exceeded",
+		"message":     "Too many requests. Please try again later.",
 		"retry_after": config.BlockDuration.Seconds(),
 	})
 	c.Abort()
@@ -307,22 +307,22 @@ func (r *RateLimitService) handleRateLimitExceeded(c *gin.Context, config RateLi
 func (r *RateLimitService) DDoSProtectionMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
-		
+
 		// Check for rapid fire requests (potential bot)
 		rapidFireKey := fmt.Sprintf("rapid_fire:%s", ip)
 		rapidFireCount, err := r.redisClient.Incr(context.Background(), rapidFireKey).Result()
 		if err == nil {
 			r.redisClient.Expire(context.Background(), rapidFireKey, 10*time.Second)
-			
+
 			// If more than 20 requests in 10 seconds, block for 1 hour
 			if rapidFireCount > 20 {
 				r.blockKey(fmt.Sprintf("rate_limit:ip:%s", ip), time.Hour)
-				
+
 				r.logger.Warn("DDoS protection triggered - rapid fire",
 					zap.String("ip", ip),
 					zap.Int64("count", rapidFireCount),
 				)
-				
+
 				c.JSON(http.StatusTooManyRequests, gin.H{
 					"error": "DDoS protection activated",
 				})
@@ -330,7 +330,7 @@ func (r *RateLimitService) DDoSProtectionMiddleware() gin.HandlerFunc {
 				return
 			}
 		}
-		
+
 		// Check for suspicious user agents
 		userAgent := c.Request.UserAgent()
 		if r.isSuspiciousUserAgent(userAgent) {
@@ -338,7 +338,7 @@ func (r *RateLimitService) DDoSProtectionMiddleware() gin.HandlerFunc {
 				zap.String("ip", ip),
 				zap.String("user_agent", userAgent),
 			)
-			
+
 			// Apply stricter rate limiting
 			suspiciousKey := fmt.Sprintf("rate_limit:suspicious:%s", ip)
 			allowed, _, _, _ := r.checkRateLimit(suspiciousKey, RateLimitConfig{
@@ -346,7 +346,7 @@ func (r *RateLimitService) DDoSProtectionMiddleware() gin.HandlerFunc {
 				Window:        time.Minute,
 				BlockDuration: 30 * time.Minute,
 			})
-			
+
 			if !allowed {
 				c.JSON(http.StatusTooManyRequests, gin.H{
 					"error": "Rate limit exceeded",
@@ -355,7 +355,7 @@ func (r *RateLimitService) DDoSProtectionMiddleware() gin.HandlerFunc {
 				return
 			}
 		}
-		
+
 		c.Next()
 	}
 }
@@ -368,14 +368,14 @@ func (r *RateLimitService) isSuspiciousUserAgent(userAgent string) bool {
 		"masscan", "nmap", "sqlmap", "nikto", "burp",
 		"postman", "insomnia", // API testing tools
 	}
-	
+
 	userAgentLower := strings.ToLower(userAgent)
 	for _, pattern := range suspiciousPatterns {
 		if strings.Contains(userAgentLower, pattern) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -385,22 +385,22 @@ func (r *RateLimitService) GetRateLimitStats(limitType RateLimitType, identifier
 	if !exists {
 		return nil, fmt.Errorf("rate limit config not found")
 	}
-	
+
 	key := fmt.Sprintf("rate_limit:%s:%s", limitType, identifier)
 	ctx := context.Background()
-	
+
 	// Get current count
 	now := time.Now()
 	windowStart := now.Add(-config.Window)
-	
+
 	count, err := r.redisClient.ZCount(ctx, key, strconv.FormatInt(windowStart.UnixNano(), 10), "+inf").Result()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Check if blocked
 	blocked, _ := r.isBlocked(key)
-	
+
 	stats := map[string]interface{}{
 		"limit":     config.Requests,
 		"window":    config.Window.String(),
@@ -409,7 +409,7 @@ func (r *RateLimitService) GetRateLimitStats(limitType RateLimitType, identifier
 		"blocked":   blocked,
 		"reset_at":  now.Add(config.Window),
 	}
-	
+
 	return stats, nil
 }
 
@@ -422,14 +422,14 @@ func (r *RateLimitService) UpdateRateLimitConfig(limitType RateLimitType, config
 func (r *RateLimitService) ClearRateLimit(limitType RateLimitType, identifier string) error {
 	key := fmt.Sprintf("rate_limit:%s:%s", limitType, identifier)
 	blockKey := fmt.Sprintf("%s:blocked", key)
-	
+
 	ctx := context.Background()
-	
+
 	// Remove rate limit data and block
 	pipe := r.redisClient.TxPipeline()
 	pipe.Del(ctx, key)
 	pipe.Del(ctx, blockKey)
-	
+
 	_, err := pipe.Exec(ctx)
 	return err
 }
@@ -438,7 +438,7 @@ func (r *RateLimitService) ClearRateLimit(limitType RateLimitType, identifier st
 func (r *RateLimitService) WhitelistIP(ip string, duration time.Duration) error {
 	ctx := context.Background()
 	key := fmt.Sprintf("whitelist:ip:%s", ip)
-	
+
 	return r.redisClient.Set(ctx, key, "1", duration).Err()
 }
 
@@ -446,7 +446,7 @@ func (r *RateLimitService) WhitelistIP(ip string, duration time.Duration) error 
 func (r *RateLimitService) IsWhitelisted(ip string) bool {
 	ctx := context.Background()
 	key := fmt.Sprintf("whitelist:ip:%s", ip)
-	
+
 	exists, err := r.redisClient.Exists(ctx, key).Result()
 	return err == nil && exists > 0
 }

@@ -14,7 +14,7 @@ import (
 type MockConversationRepository struct {
 	mock.Mock
 	conversations map[string]*conversation.Conversation
-	mu           sync.RWMutex
+	mu            sync.RWMutex
 }
 
 // NewMockConversationRepository creates a new mock conversation repository
@@ -27,31 +27,31 @@ func NewMockConversationRepository() *MockConversationRepository {
 // CreateConversation creates a conversation
 func (m *MockConversationRepository) CreateConversation(ctx context.Context, conv *conversation.Conversation) error {
 	args := m.Called(ctx, conv)
-	
+
 	if args.Error(0) == nil {
 		m.mu.Lock()
 		m.conversations[conv.ID] = conv
 		m.mu.Unlock()
 	}
-	
+
 	return args.Error(0)
 }
 
 // GetConversation retrieves a conversation by ID
 func (m *MockConversationRepository) GetConversation(ctx context.Context, id string) (*conversation.Conversation, error) {
 	args := m.Called(ctx, id)
-	
+
 	if args.Error(1) != nil {
 		return nil, args.Error(1)
 	}
-	
+
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if conv, exists := m.conversations[id]; exists {
 		return conv, nil
 	}
-	
+
 	return args.Get(0).(*conversation.Conversation), args.Error(1)
 }
 
@@ -64,26 +64,26 @@ func (m *MockConversationRepository) GetUserConversations(ctx context.Context, u
 // UpdateConversation updates a conversation
 func (m *MockConversationRepository) UpdateConversation(ctx context.Context, conv *conversation.Conversation) error {
 	args := m.Called(ctx, conv)
-	
+
 	if args.Error(0) == nil {
 		m.mu.Lock()
 		m.conversations[conv.ID] = conv
 		m.mu.Unlock()
 	}
-	
+
 	return args.Error(0)
 }
 
 // DeleteConversation deletes a conversation
 func (m *MockConversationRepository) DeleteConversation(ctx context.Context, id string) error {
 	args := m.Called(ctx, id)
-	
+
 	if args.Error(0) == nil {
 		m.mu.Lock()
 		delete(m.conversations, id)
 		m.mu.Unlock()
 	}
-	
+
 	return args.Error(0)
 }
 
@@ -92,19 +92,19 @@ func (m *MockConversationRepository) SetupStandardMockBehavior() {
 	// CreateConversation succeeds by default
 	m.On("CreateConversation", mock.Anything, mock.AnythingOfType("*conversation.Conversation")).
 		Return(nil).Maybe()
-	
+
 	// GetConversation returns not found by default
 	m.On("GetConversation", mock.Anything, mock.AnythingOfType("string")).
 		Return((*conversation.Conversation)(nil), fmt.Errorf("conversation not found")).Maybe()
-	
+
 	// GetUserConversations returns empty list by default
 	m.On("GetUserConversations", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("int"), mock.AnythingOfType("int")).
 		Return([]*conversation.Conversation{}, nil).Maybe()
-	
+
 	// UpdateConversation succeeds by default
 	m.On("UpdateConversation", mock.Anything, mock.AnythingOfType("*conversation.Conversation")).
 		Return(nil).Maybe()
-	
+
 	// DeleteConversation succeeds by default
 	m.On("DeleteConversation", mock.Anything, mock.AnythingOfType("string")).
 		Return(nil).Maybe()
@@ -127,31 +127,31 @@ func NewMockMessageRepository() *MockMessageRepository {
 // CreateMessage creates a message
 func (m *MockMessageRepository) CreateMessage(ctx context.Context, msg *conversation.Message) error {
 	args := m.Called(ctx, msg)
-	
+
 	if args.Error(0) == nil {
 		m.mu.Lock()
 		m.messages[msg.ID] = msg
 		m.mu.Unlock()
 	}
-	
+
 	return args.Error(0)
 }
 
 // GetMessage retrieves a message by ID
 func (m *MockMessageRepository) GetMessage(ctx context.Context, id string) (*conversation.Message, error) {
 	args := m.Called(ctx, id)
-	
+
 	if args.Error(1) != nil {
 		return nil, args.Error(1)
 	}
-	
+
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if msg, exists := m.messages[id]; exists {
 		return msg, nil
 	}
-	
+
 	return args.Get(0).(*conversation.Message), args.Error(1)
 }
 
@@ -164,26 +164,26 @@ func (m *MockMessageRepository) GetConversationMessages(ctx context.Context, con
 // UpdateMessage updates a message
 func (m *MockMessageRepository) UpdateMessage(ctx context.Context, msg *conversation.Message) error {
 	args := m.Called(ctx, msg)
-	
+
 	if args.Error(0) == nil {
 		m.mu.Lock()
 		m.messages[msg.ID] = msg
 		m.mu.Unlock()
 	}
-	
+
 	return args.Error(0)
 }
 
 // DeleteMessage deletes a message
 func (m *MockMessageRepository) DeleteMessage(ctx context.Context, id string) error {
 	args := m.Called(ctx, id)
-	
+
 	if args.Error(0) == nil {
 		m.mu.Lock()
 		delete(m.messages, id)
 		m.mu.Unlock()
 	}
-	
+
 	return args.Error(0)
 }
 
@@ -192,19 +192,19 @@ func (m *MockMessageRepository) SetupStandardMockBehavior() {
 	// CreateMessage succeeds by default
 	m.On("CreateMessage", mock.Anything, mock.AnythingOfType("*conversation.Message")).
 		Return(nil).Maybe()
-	
+
 	// GetMessage returns not found by default
 	m.On("GetMessage", mock.Anything, mock.AnythingOfType("string")).
 		Return((*conversation.Message)(nil), fmt.Errorf("message not found")).Maybe()
-	
+
 	// GetConversationMessages returns empty list by default
 	m.On("GetConversationMessages", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("int"), mock.AnythingOfType("int")).
 		Return([]*conversation.Message{}, nil).Maybe()
-	
+
 	// UpdateMessage succeeds by default
 	m.On("UpdateMessage", mock.Anything, mock.AnythingOfType("*conversation.Message")).
 		Return(nil).Maybe()
-	
+
 	// DeleteMessage succeeds by default
 	m.On("DeleteMessage", mock.Anything, mock.AnythingOfType("string")).
 		Return(nil).Maybe()
@@ -227,7 +227,7 @@ func NewMockContextRepository() *MockContextRepository {
 // SetContext sets context data
 func (m *MockContextRepository) SetContext(ctx context.Context, convContext *conversation.ConversationContext) error {
 	args := m.Called(ctx, convContext)
-	
+
 	if args.Error(0) == nil {
 		m.mu.Lock()
 		if m.contexts[convContext.ConversationID] == nil {
@@ -236,27 +236,27 @@ func (m *MockContextRepository) SetContext(ctx context.Context, convContext *con
 		m.contexts[convContext.ConversationID][convContext.ContextType] = convContext
 		m.mu.Unlock()
 	}
-	
+
 	return args.Error(0)
 }
 
 // GetContext retrieves context data
 func (m *MockContextRepository) GetContext(ctx context.Context, conversationID, contextType string) (*conversation.ConversationContext, error) {
 	args := m.Called(ctx, conversationID, contextType)
-	
+
 	if args.Error(1) != nil {
 		return nil, args.Error(1)
 	}
-	
+
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if convContexts, exists := m.contexts[conversationID]; exists {
 		if context, exists := convContexts[contextType]; exists {
 			return context, nil
 		}
 	}
-	
+
 	return args.Get(0).(*conversation.ConversationContext), args.Error(1)
 }
 
@@ -269,7 +269,7 @@ func (m *MockContextRepository) GetAllContext(ctx context.Context, conversationI
 // DeleteContext deletes context data
 func (m *MockContextRepository) DeleteContext(ctx context.Context, conversationID, contextType string) error {
 	args := m.Called(ctx, conversationID, contextType)
-	
+
 	if args.Error(0) == nil {
 		m.mu.Lock()
 		if convContexts, exists := m.contexts[conversationID]; exists {
@@ -277,7 +277,7 @@ func (m *MockContextRepository) DeleteContext(ctx context.Context, conversationI
 		}
 		m.mu.Unlock()
 	}
-	
+
 	return args.Error(0)
 }
 
@@ -286,15 +286,15 @@ func (m *MockContextRepository) SetupStandardMockBehavior() {
 	// SetContext succeeds by default
 	m.On("SetContext", mock.Anything, mock.AnythingOfType("*conversation.ConversationContext")).
 		Return(nil).Maybe()
-	
+
 	// GetContext returns not found by default
 	m.On("GetContext", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
 		Return((*conversation.ConversationContext)(nil), fmt.Errorf("context not found")).Maybe()
-	
+
 	// GetAllContext returns empty list by default
 	m.On("GetAllContext", mock.Anything, mock.AnythingOfType("string")).
 		Return([]*conversation.ConversationContext{}, nil).Maybe()
-	
+
 	// DeleteContext succeeds by default
 	m.On("DeleteContext", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).
 		Return(nil).Maybe()
@@ -334,19 +334,19 @@ func (m *MockConversationAIService) SetupStandardMockBehavior() {
 			"model":    "test-model",
 		},
 	}
-	
+
 	m.On("GenerateConversationalResponse", mock.Anything, mock.AnythingOfType("*conversation.Conversation"), mock.AnythingOfType("[]*conversation.Message"), mock.AnythingOfType("string")).
 		Return(standardResponse, nil).Maybe()
-	
+
 	// Standard recipe extraction context
 	standardRecipeContext := &conversation.RecipeCreationContext{
-		CurrentStep: "gathering_info",
-		Ingredients: []string{},
+		CurrentStep:  "gathering_info",
+		Ingredients:  []string{},
 		Instructions: []string{},
-		DietaryReqs: []string{},
-		MissingInfo: []string{"dish_name", "ingredients", "serving_size"},
+		DietaryReqs:  []string{},
+		MissingInfo:  []string{"dish_name", "ingredients", "serving_size"},
 	}
-	
+
 	m.On("ExtractRecipeFromConversation", mock.Anything, mock.AnythingOfType("[]*conversation.Message")).
 		Return(standardRecipeContext, nil).Maybe()
 }
@@ -378,7 +378,7 @@ func (m *MockOllamaClient) SetupStandardMockBehavior() {
 	// Health check succeeds by default
 	m.On("HealthCheck", mock.Anything).
 		Return(nil).Maybe()
-	
+
 	// Generate chat completion returns helpful response
 	m.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
 		Return("I'm here to help you with cooking! What would you like to know?", nil).Maybe()

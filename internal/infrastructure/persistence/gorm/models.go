@@ -13,46 +13,46 @@ import (
 
 // UserModel represents the GORM model for users
 type UserModel struct {
-	ID           uuid.UUID `gorm:"type:char(36);primaryKey"`
-	Email        string    `gorm:"type:varchar(255);uniqueIndex;not null"`
-	Name         string    `gorm:"type:varchar(255);not null"`
-	PasswordHash string    `gorm:"type:varchar(255);not null"`
-	IsActive     bool      `gorm:"default:true"`
-	IsVerified   bool      `gorm:"default:false"`
-	Role         string    `gorm:"type:varchar(50);default:'user'"`
-	Profile      *UserProfileModel `gorm:"embedded;embeddedPrefix:profile_"`
+	ID           uuid.UUID             `gorm:"type:char(36);primaryKey"`
+	Email        string                `gorm:"type:varchar(255);uniqueIndex;not null"`
+	Name         string                `gorm:"type:varchar(255);not null"`
+	PasswordHash string                `gorm:"type:varchar(255);not null"`
+	IsActive     bool                  `gorm:"default:true"`
+	IsVerified   bool                  `gorm:"default:false"`
+	Role         string                `gorm:"type:varchar(50);default:'user'"`
+	Profile      *UserProfileModel     `gorm:"embedded;embeddedPrefix:profile_"`
 	Preferences  *UserPreferencesModel `gorm:"embedded;embeddedPrefix:pref_"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	LastLoginAt  *time.Time
-	
+
 	// Relationships
 	Recipes []RecipeModel `gorm:"foreignKey:AuthorID"`
 }
 
 // UserProfileModel represents embedded user profile
 type UserProfileModel struct {
-	FirstName    string     `gorm:"type:varchar(100)"`
-	LastName     string     `gorm:"type:varchar(100)"`
-	Avatar       string     `gorm:"type:text"`
-	Bio          string     `gorm:"type:text"`
-	Location     string     `gorm:"type:varchar(255)"`
-	Website      string     `gorm:"type:varchar(255)"`
+	FirstName    string `gorm:"type:varchar(100)"`
+	LastName     string `gorm:"type:varchar(100)"`
+	Avatar       string `gorm:"type:text"`
+	Bio          string `gorm:"type:text"`
+	Location     string `gorm:"type:varchar(255)"`
+	Website      string `gorm:"type:varchar(255)"`
 	Birthday     *time.Time
-	CookingLevel string     `gorm:"type:varchar(50)"`
+	CookingLevel string `gorm:"type:varchar(50)"`
 }
 
 // UserPreferencesModel represents embedded user preferences
 type UserPreferencesModel struct {
 	DietaryRestrictions StringSlice `gorm:"type:json"`
-	Allergies          StringSlice `gorm:"type:json"`
-	PreferredCuisines  StringSlice `gorm:"type:json"`
+	Allergies           StringSlice `gorm:"type:json"`
+	PreferredCuisines   StringSlice `gorm:"type:json"`
 	DislikedIngredients StringSlice `gorm:"type:json"`
-	MeasurementSystem  string      `gorm:"type:varchar(20);default:'metric'"`
-	Language           string      `gorm:"type:varchar(10);default:'en'"`
-	Timezone           string      `gorm:"type:varchar(50)"`
-	EmailNotifications bool        `gorm:"default:true"`
-	PushNotifications  bool        `gorm:"default:true"`
+	MeasurementSystem   string      `gorm:"type:varchar(20);default:'metric'"`
+	Language            string      `gorm:"type:varchar(10);default:'en'"`
+	Timezone            string      `gorm:"type:varchar(50)"`
+	EmailNotifications  bool        `gorm:"default:true"`
+	PushNotifications   bool        `gorm:"default:true"`
 }
 
 // RecipeModel represents the GORM model for recipes
@@ -62,48 +62,48 @@ type RecipeModel struct {
 	Title       string    `gorm:"type:varchar(255);not null;index"`
 	Description string    `gorm:"type:text"`
 	AuthorID    uuid.UUID `gorm:"type:char(36);not null;index"`
-	
+
 	// Recipe details
 	Ingredients   JSONField `gorm:"type:json"`
 	Instructions  JSONField `gorm:"type:json"`
 	NutritionInfo JSONField `gorm:"type:json"`
-	
+
 	// Categorization
 	Cuisine    string      `gorm:"type:varchar(50);index"`
 	Category   string      `gorm:"type:varchar(50);index"`
 	Difficulty string      `gorm:"type:varchar(20);index"`
 	Tags       StringSlice `gorm:"type:json"`
-	
+
 	// Timing (stored in minutes)
 	PrepTimeMinutes  int `gorm:"column:prep_time_minutes;default:0"`
 	CookTimeMinutes  int `gorm:"column:cook_time_minutes;default:0"`
 	TotalTimeMinutes int `gorm:"column:total_time_minutes;default:0"`
-	
+
 	// Metrics
 	Servings int `gorm:"default:1"`
 	Calories int `gorm:"default:0"`
-	
+
 	// AI-generated content
 	AIGenerated bool   `gorm:"default:false"`
 	AIPrompt    string `gorm:"type:text"`
 	AIModel     string `gorm:"type:varchar(100)"`
-	
+
 	// Social features
 	Likes         int     `gorm:"column:likes_count;default:0;index"`
 	Views         int     `gorm:"column:views_count;default:0"`
 	AverageRating float64 `gorm:"column:average_rating;default:0;index"`
-	
+
 	// Media
 	Images JSONField `gorm:"type:json"`
 	Videos JSONField `gorm:"type:json"`
-	
+
 	// Metadata
 	Status      string     `gorm:"type:varchar(20);default:'draft';index"`
 	PublishedAt *time.Time `gorm:"index"`
 	CreatedAt   time.Time  `gorm:"index"`
 	UpdatedAt   time.Time
 	DeletedAt   gorm.DeletedAt `gorm:"index"`
-	
+
 	// Relationships
 	Author  UserModel     `gorm:"foreignKey:AuthorID"`
 	Ratings []RatingModel `gorm:"foreignKey:RecipeID"`
@@ -111,13 +111,13 @@ type RecipeModel struct {
 
 // RatingModel represents the GORM model for recipe ratings
 type RatingModel struct {
-	ID       uuid.UUID `gorm:"type:char(36);primaryKey"`
-	RecipeID uuid.UUID `gorm:"type:char(36);not null;index"`
-	UserID   uuid.UUID `gorm:"type:char(36);not null;index"`
-	Value    int       `gorm:"not null;check:value >= 1 AND value <= 5"`
-	Comment  string    `gorm:"type:text"`
+	ID        uuid.UUID `gorm:"type:char(36);primaryKey"`
+	RecipeID  uuid.UUID `gorm:"type:char(36);not null;index"`
+	UserID    uuid.UUID `gorm:"type:char(36);not null;index"`
+	Value     int       `gorm:"not null;check:value >= 1 AND value <= 5"`
+	Comment   string    `gorm:"type:text"`
 	CreatedAt time.Time
-	
+
 	// Relationships
 	Recipe RecipeModel `gorm:"foreignKey:RecipeID"`
 	User   UserModel   `gorm:"foreignKey:UserID"`
@@ -137,8 +137,8 @@ type AIRequestModel struct {
 	CostCents    int       `gorm:"default:0"`
 	CreatedAt    time.Time `gorm:"index"`
 	CompletedAt  *time.Time
-	ErrorMessage string    `gorm:"type:text"`
-	
+	ErrorMessage string `gorm:"type:text"`
+
 	// Relationships
 	User UserModel `gorm:"foreignKey:UserID"`
 }
@@ -148,7 +148,7 @@ type RecipeLikeModel struct {
 	RecipeID  uuid.UUID `gorm:"type:char(36);primaryKey"`
 	UserID    uuid.UUID `gorm:"type:char(36);primaryKey"`
 	CreatedAt time.Time `gorm:"index"`
-	
+
 	// Relationships
 	Recipe RecipeModel `gorm:"foreignKey:RecipeID"`
 	User   UserModel   `gorm:"foreignKey:UserID"`
@@ -159,7 +159,7 @@ type UserFollowModel struct {
 	FollowerID  uuid.UUID `gorm:"type:char(36);primaryKey"`
 	FollowingID uuid.UUID `gorm:"type:char(36);primaryKey"`
 	CreatedAt   time.Time `gorm:"index"`
-	
+
 	// Relationships
 	Follower  UserModel `gorm:"foreignKey:FollowerID"`
 	Following UserModel `gorm:"foreignKey:FollowingID"`
@@ -174,9 +174,9 @@ type CollectionModel struct {
 	IsPublic    bool      `gorm:"default:true"`
 	CreatedAt   time.Time `gorm:"index"`
 	UpdatedAt   time.Time
-	
+
 	// Relationships
-	User    UserModel             `gorm:"foreignKey:UserID"`
+	User    UserModel               `gorm:"foreignKey:UserID"`
 	Recipes []CollectionRecipeModel `gorm:"foreignKey:CollectionID"`
 }
 
@@ -186,7 +186,7 @@ type CollectionRecipeModel struct {
 	RecipeID     uuid.UUID `gorm:"type:char(36);primaryKey"`
 	OrderIndex   int       `gorm:"default:0"`
 	AddedAt      time.Time `gorm:"index"`
-	
+
 	// Relationships
 	Collection CollectionModel `gorm:"foreignKey:CollectionID"`
 	Recipe     RecipeModel     `gorm:"foreignKey:RecipeID"`
@@ -194,20 +194,20 @@ type CollectionRecipeModel struct {
 
 // CommentModel represents the GORM model for recipe comments
 type CommentModel struct {
-	ID        uuid.UUID `gorm:"type:char(36);primaryKey"`
-	RecipeID  uuid.UUID `gorm:"type:char(36);not null;index"`
-	UserID    uuid.UUID `gorm:"type:char(36);not null;index"`
+	ID        uuid.UUID  `gorm:"type:char(36);primaryKey"`
+	RecipeID  uuid.UUID  `gorm:"type:char(36);not null;index"`
+	UserID    uuid.UUID  `gorm:"type:char(36);not null;index"`
 	ParentID  *uuid.UUID `gorm:"type:char(36);index"` // For nested comments
 	Content   string     `gorm:"type:text;not null"`
 	CreatedAt time.Time  `gorm:"index"`
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
-	
+
 	// Relationships
-	Recipe   RecipeModel    `gorm:"foreignKey:RecipeID"`
-	User     UserModel      `gorm:"foreignKey:UserID"`
-	Parent   *CommentModel  `gorm:"foreignKey:ParentID"`
-	Replies  []CommentModel `gorm:"foreignKey:ParentID"`
+	Recipe  RecipeModel    `gorm:"foreignKey:RecipeID"`
+	User    UserModel      `gorm:"foreignKey:UserID"`
+	Parent  *CommentModel  `gorm:"foreignKey:ParentID"`
+	Replies []CommentModel `gorm:"foreignKey:ParentID"`
 }
 
 // ActivityModel represents the GORM model for user activities
@@ -223,7 +223,7 @@ type ActivityModel struct {
 	Data        JSONField `gorm:"type:json"`
 	IsRead      bool      `gorm:"default:false;index"`
 	CreatedAt   time.Time `gorm:"index"`
-	
+
 	// Relationships
 	User  UserModel `gorm:"foreignKey:UserID"`
 	Actor UserModel `gorm:"foreignKey:ActorID"`
@@ -231,14 +231,14 @@ type ActivityModel struct {
 
 // RecipeViewModel represents the GORM model for recipe views
 type RecipeViewModel struct {
-	ID        uuid.UUID `gorm:"type:char(36);primaryKey"`
-	RecipeID  uuid.UUID `gorm:"type:char(36);not null;index"`
+	ID        uuid.UUID  `gorm:"type:char(36);primaryKey"`
+	RecipeID  uuid.UUID  `gorm:"type:char(36);not null;index"`
 	UserID    *uuid.UUID `gorm:"type:char(36);index"` // Nullable for anonymous views
 	IPAddress string     `gorm:"type:varchar(45)"`
 	UserAgent string     `gorm:"type:text"`
 	Referrer  string     `gorm:"type:text"`
 	CreatedAt time.Time  `gorm:"index"`
-	
+
 	// Relationships
 	Recipe RecipeModel `gorm:"foreignKey:RecipeID"`
 	User   *UserModel  `gorm:"foreignKey:UserID"`
@@ -253,7 +253,7 @@ func (s *StringSlice) Scan(value interface{}) error {
 		*s = StringSlice{}
 		return nil
 	}
-	
+
 	switch v := value.(type) {
 	case []byte:
 		return json.Unmarshal(v, s)
@@ -281,7 +281,7 @@ func (j *JSONField) Scan(value interface{}) error {
 		*j = JSONField{}
 		return nil
 	}
-	
+
 	switch v := value.(type) {
 	case []byte:
 		return json.Unmarshal(v, j)

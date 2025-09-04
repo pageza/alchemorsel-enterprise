@@ -13,56 +13,56 @@ import (
 // It encapsulates all business logic related to recipes.
 type Recipe struct {
 	// Aggregate root identifier
-	id          uuid.UUID
-	version     int64 // Optimistic locking
-	
+	id      uuid.UUID
+	version int64 // Optimistic locking
+
 	// Basic attributes
 	title       string
 	description string
 	authorID    uuid.UUID
-	
+
 	// Recipe details
-	ingredients    []Ingredient
-	instructions   []Instruction
-	nutritionInfo  *NutritionInfo
-	
+	ingredients   []Ingredient
+	instructions  []Instruction
+	nutritionInfo *NutritionInfo
+
 	// Categorization
-	cuisine     CuisineType
-	category    CategoryType
-	difficulty  DifficultyLevel
-	tags        []string
-	
+	cuisine    CuisineType
+	category   CategoryType
+	difficulty DifficultyLevel
+	tags       []string
+
 	// Timing
-	prepTime    time.Duration
-	cookTime    time.Duration
-	totalTime   time.Duration
-	
+	prepTime  time.Duration
+	cookTime  time.Duration
+	totalTime time.Duration
+
 	// Metrics
-	servings    int
-	calories    int
-	
+	servings int
+	calories int
+
 	// AI-generated content
 	aiGenerated bool
 	aiPrompt    string
 	aiModel     string
-	
+
 	// Social features
-	likes       int
-	views       int
-	ratings     []Rating
+	likes         int
+	views         int
+	ratings       []Rating
 	averageRating float64
-	
+
 	// Media
-	images      []Image
-	videos      []Video
-	
+	images []Image
+	videos []Video
+
 	// Metadata
 	status      RecipeStatus
 	publishedAt *time.Time
 	createdAt   time.Time
 	updatedAt   time.Time
 	deletedAt   *time.Time
-	
+
 	// Domain events to be dispatched
 	events []shared.DomainEvent
 }
@@ -72,11 +72,11 @@ func NewRecipe(title, description string, authorID uuid.UUID) (*Recipe, error) {
 	if err := validateTitle(title); err != nil {
 		return nil, err
 	}
-	
+
 	if err := validateDescription(description); err != nil {
 		return nil, err
 	}
-	
+
 	now := time.Now()
 	recipe := &Recipe{
 		id:          uuid.New(),
@@ -89,7 +89,7 @@ func NewRecipe(title, description string, authorID uuid.UUID) (*Recipe, error) {
 		updatedAt:   now,
 		events:      []shared.DomainEvent{},
 	}
-	
+
 	// Raise domain event
 	recipe.addEvent(RecipeCreatedEvent{
 		RecipeID:  recipe.id,
@@ -97,7 +97,7 @@ func NewRecipe(title, description string, authorID uuid.UUID) (*Recipe, error) {
 		Title:     title,
 		CreatedAt: now,
 	})
-	
+
 	return recipe, nil
 }
 
@@ -261,18 +261,18 @@ func (r *Recipe) UpdateTitle(title string) error {
 	if err := validateTitle(title); err != nil {
 		return err
 	}
-	
+
 	oldTitle := r.title
 	r.title = title
 	r.updatedAt = time.Now()
-	
+
 	r.addEvent(RecipeTitleUpdatedEvent{
-		RecipeID: r.id,
-		OldTitle: oldTitle,
-		NewTitle: title,
+		RecipeID:  r.id,
+		OldTitle:  oldTitle,
+		NewTitle:  title,
 		UpdatedAt: r.updatedAt,
 	})
-	
+
 	return nil
 }
 
@@ -281,16 +281,16 @@ func (r *Recipe) AddIngredient(ingredient Ingredient) error {
 	if err := ingredient.Validate(); err != nil {
 		return err
 	}
-	
+
 	r.ingredients = append(r.ingredients, ingredient)
 	r.updatedAt = time.Now()
-	
+
 	r.addEvent(IngredientAddedEvent{
 		RecipeID:     r.id,
 		IngredientID: ingredient.ID,
 		AddedAt:      r.updatedAt,
 	})
-	
+
 	return nil
 }
 
@@ -299,11 +299,11 @@ func (r *Recipe) AddInstruction(instruction Instruction) error {
 	if err := instruction.Validate(); err != nil {
 		return err
 	}
-	
+
 	instruction.StepNumber = len(r.instructions) + 1
 	r.instructions = append(r.instructions, instruction)
 	r.updatedAt = time.Now()
-	
+
 	return nil
 }
 
@@ -312,21 +312,21 @@ func (r *Recipe) Publish() error {
 	if r.status != RecipeStatusDraft {
 		return ErrInvalidStatusTransition
 	}
-	
+
 	if err := r.validateForPublishing(); err != nil {
 		return err
 	}
-	
+
 	now := time.Now()
 	r.status = RecipeStatusPublished
 	r.publishedAt = &now
 	r.updatedAt = now
-	
+
 	r.addEvent(RecipePublishedEvent{
 		RecipeID:    r.id,
 		PublishedAt: now,
 	})
-	
+
 	return nil
 }
 
@@ -335,15 +335,15 @@ func (r *Recipe) Archive() error {
 	if r.status != RecipeStatusPublished {
 		return ErrInvalidStatusTransition
 	}
-	
+
 	r.status = RecipeStatusArchived
 	r.updatedAt = time.Now()
-	
+
 	r.addEvent(RecipeArchivedEvent{
 		RecipeID:   r.id,
 		ArchivedAt: r.updatedAt,
 	})
-	
+
 	return nil
 }
 
@@ -362,17 +362,17 @@ func (r *Recipe) AddRating(rating Rating) error {
 	if err := rating.Validate(); err != nil {
 		return err
 	}
-	
+
 	r.ratings = append(r.ratings, rating)
 	r.calculateAverageRating()
-	
+
 	r.addEvent(RecipeRatedEvent{
 		RecipeID: r.id,
 		UserID:   rating.UserID,
 		Rating:   rating.Value,
 		RatedAt:  time.Now(),
 	})
-	
+
 	return nil
 }
 
@@ -382,7 +382,7 @@ func (r *Recipe) calculateAverageRating() {
 		r.averageRating = 0
 		return
 	}
-	
+
 	var sum float64
 	for _, rating := range r.ratings {
 		sum += float64(rating.Value)
@@ -395,15 +395,15 @@ func (r *Recipe) validateForPublishing() error {
 	if len(r.ingredients) == 0 {
 		return ErrNoIngredients
 	}
-	
+
 	if len(r.instructions) == 0 {
 		return ErrNoInstructions
 	}
-	
+
 	if r.servings <= 0 {
 		return ErrInvalidServings
 	}
-	
+
 	return nil
 }
 

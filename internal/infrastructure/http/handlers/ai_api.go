@@ -73,16 +73,16 @@ func (h *AIAPIHandlers) GenerateRecipe(w http.ResponseWriter, r *http.Request) {
 
 	// Build AI constraints
 	constraints := outbound.AIConstraints{
-		MaxCalories:   req.MaxCalories,
-		Dietary:       req.Dietary,
-		Cuisine:       req.Cuisine,
-		ServingSize:   req.ServingSize,
+		MaxCalories: req.MaxCalories,
+		Dietary:     req.Dietary,
+		Cuisine:     req.Cuisine,
+		ServingSize: req.ServingSize,
 	}
 
 	// Call AI service
 	aiResponse, err := h.aiService.GenerateRecipe(r.Context(), req.Prompt, constraints)
 	if err != nil {
-		h.logger.Error("AI recipe generation failed", 
+		h.logger.Error("AI recipe generation failed",
 			zap.String("user_id", userID),
 			zap.Error(err),
 		)
@@ -128,7 +128,7 @@ func (h *AIAPIHandlers) SuggestIngredients(w http.ResponseWriter, r *http.Reques
 	suggestions, err := h.aiService.SuggestIngredients(r.Context(), req.Partial)
 	if err != nil {
 		h.logger.Error("AI ingredient suggestions failed",
-			zap.String("user_id", userID), 
+			zap.String("user_id", userID),
 			zap.Error(err),
 		)
 		h.writeErrorJSON(w, http.StatusInternalServerError, "Failed to suggest ingredients")

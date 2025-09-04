@@ -18,10 +18,10 @@ import (
 // AIServiceTestSuite tests the AI service integration
 type AIServiceTestSuite struct {
 	suite.Suite
-	mockOllama   *testutils.MockOllamaClient
-	mockOpenAI   *testutils.MockOpenAIClient
-	aiService    *conversation.AIService
-	ctx          context.Context
+	mockOllama *testutils.MockOllamaClient
+	mockOpenAI *testutils.MockOpenAIClient
+	aiService  *conversation.AIService
+	ctx        context.Context
 }
 
 // SetupSuite initializes the test suite
@@ -78,7 +78,7 @@ func (suite *AIServiceTestSuite) TestGenerateConversationalResponse() {
 					suite.True(len(msgs) > 0)
 					suite.Equal("system", msgs[0].Role)
 					suite.Contains(msgs[0].Content, "RECIPE CREATION MODE")
-					
+
 					// Verify user message is included
 					userMsgFound := false
 					for _, msg := range msgs {
@@ -88,7 +88,7 @@ func (suite *AIServiceTestSuite) TestGenerateConversationalResponse() {
 						}
 					}
 					suite.True(userMsgFound)
-					
+
 					return true
 				})).Return("I'll help you make carbonara! You'll need eggs, cheese, pancetta, and pasta.", nil).Once()
 			},
@@ -101,7 +101,7 @@ func (suite *AIServiceTestSuite) TestGenerateConversationalResponse() {
 			setupMocks: func() {
 				// Ollama health check fails
 				suite.mockOllama.On("HealthCheck", mock.Anything).Return(assert.AnError).Once()
-				
+
 				// OpenAI succeeds
 				suite.mockOpenAI.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
 					Return("For carbonara, you'll need: eggs, parmesan cheese, pancetta, black pepper, and spaghetti.", nil).Once()
@@ -115,7 +115,7 @@ func (suite *AIServiceTestSuite) TestGenerateConversationalResponse() {
 			setupMocks: func() {
 				// Ollama health check fails
 				suite.mockOllama.On("HealthCheck", mock.Anything).Return(assert.AnError).Once()
-				
+
 				// OpenAI fails
 				suite.mockOpenAI.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
 					Return("", assert.AnError).Once()
@@ -129,7 +129,7 @@ func (suite *AIServiceTestSuite) TestGenerateConversationalResponse() {
 			setupMocks: func() {
 				// Update conversation intent
 				conv.Intent = conversation.IntentCookingHelp
-				
+
 				suite.mockOllama.On("HealthCheck", mock.Anything).Return(nil).Once()
 				suite.mockOllama.On("GenerateChatCompletion", mock.Anything, mock.MatchedBy(func(msgs []conversation.ChatMessage) bool {
 					// Verify system prompt includes cooking help instructions
@@ -194,15 +194,15 @@ func (suite *AIServiceTestSuite) TestBuildChatHistory() {
 		// Should have system prompt + last 10 messages + current user message
 		expectedLength := 1 + 10 + 1 // system + history + current
 		suite.Equal(expectedLength, len(msgs))
-		
+
 		// First message should be system prompt
 		suite.Equal("system", msgs[0].Role)
 		suite.Contains(msgs[0].Content, "RECIPE CREATION MODE")
-		
+
 		// Last message should be the new user message
 		suite.Equal("user", msgs[len(msgs)-1].Role)
 		suite.Equal("New user message", msgs[len(msgs)-1].Content)
-		
+
 		return true
 	})).Return("AI response", nil).Once()
 
@@ -284,14 +284,14 @@ func (suite *AIServiceTestSuite) TestSystemPromptGeneration() {
 			suite.mockOllama.On("GenerateChatCompletion", mock.Anything, mock.MatchedBy(func(msgs []conversation.ChatMessage) bool {
 				suite.True(len(msgs) > 0)
 				suite.Equal("system", msgs[0].Role)
-				
+
 				systemPrompt := msgs[0].Content
 				for _, expectedContent := range tc.expectedContent {
 					suite.Contains(systemPrompt, expectedContent, "System prompt should contain: %s", expectedContent)
 				}
-				
+
 				return true
-			})).Return("AI response for " + string(tc.intent), nil).Once()
+			})).Return("AI response for "+string(tc.intent), nil).Once()
 
 			response, err := suite.aiService.GenerateConversationalResponse(suite.ctx, conv, []*conversation.Message{}, "Test message")
 
@@ -305,12 +305,12 @@ func (suite *AIServiceTestSuite) TestSystemPromptGeneration() {
 // TestExtractRecipeFromConversation tests recipe extraction from conversation
 func (suite *AIServiceTestSuite) TestExtractRecipeFromConversation() {
 	testCases := []struct {
-		name             string
-		messages         []*conversation.Message
-		expectedTitle    string
-		expectedStep     string
-		expectedInfo     []string
-		expectedServing  int
+		name            string
+		messages        []*conversation.Message
+		expectedTitle   string
+		expectedStep    string
+		expectedInfo    []string
+		expectedServing int
 	}{
 		{
 			name: "Complete Recipe Information",
@@ -443,9 +443,9 @@ func (suite *AIServiceTestSuite) TestIngredientExtraction() {
 // TestDietaryRequirementsExtraction tests dietary requirements extraction
 func (suite *AIServiceTestSuite) TestDietaryRequirementsExtraction() {
 	testCases := []struct {
-		name                    string
-		content                 string
-		expectedDietaryReqs     []string
+		name                string
+		content             string
+		expectedDietaryReqs []string
 	}{
 		{
 			name:                "Vegan and Gluten-free",
@@ -688,7 +688,7 @@ func (suite *AIServiceTestSuite) TestErrorHandling() {
 	// Test nil Ollama client
 	suite.Run("Nil Ollama Client", func() {
 		aiService := conversation.NewAIService(nil, suite.mockOpenAI)
-		
+
 		suite.mockOpenAI.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
 			Return("OpenAI response", nil).Once()
 
@@ -703,7 +703,7 @@ func (suite *AIServiceTestSuite) TestErrorHandling() {
 	// Test nil OpenAI client
 	suite.Run("Nil OpenAI Client", func() {
 		aiService := conversation.NewAIService(suite.mockOllama, nil)
-		
+
 		suite.mockOllama.On("HealthCheck", mock.Anything).Return(assert.AnError).Once()
 
 		response, err := aiService.GenerateConversationalResponse(suite.ctx, conv, []*conversation.Message{}, "Test message")
@@ -736,17 +736,17 @@ func TestAIServicePerformance(t *testing.T) {
 	mockOllama.On("HealthCheck", mock.Anything).Return(nil).Maybe()
 	mockOllama.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
 		Return("AI response", nil).Run(func(args mock.Arguments) {
-			time.Sleep(100 * time.Millisecond) // Simulate processing time
-		}).Maybe()
+		time.Sleep(100 * time.Millisecond) // Simulate processing time
+	}).Maybe()
 
 	const numRequests = 10
 	var totalDuration time.Duration
 
 	for i := 0; i < numRequests; i++ {
 		start := time.Now()
-		
+
 		response, err := aiService.GenerateConversationalResponse(ctx, conv, []*conversation.Message{}, "Test message")
-		
+
 		duration := time.Since(start)
 		totalDuration += duration
 

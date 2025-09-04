@@ -78,20 +78,20 @@ func (m *MockCacheRepository) SRem(ctx context.Context, key string, members ...s
 
 func createTestConfig() *EnterpriseConfig {
 	return &EnterpriseConfig{
-		PrimaryProvider:      "ollama",
-		FallbackProviders:    []string{"openai"},
-		DailyBudgetCents:     10000,
-		MonthlyBudgetCents:   300000,
-		CostAlertThresholds:  []float64{0.7, 0.9, 1.0},
-		RequestsPerMinute:    60,
-		RequestsPerHour:      3600,
-		RequestsPerDay:       86400,
-		MinQualityScore:      0.7,
-		QualityCheckEnabled:  true,
-		CacheEnabled:         true,
-		CacheTTL:             2 * time.Hour,
-		MetricsEnabled:       true,
-		AlertsEnabled:        true,
+		PrimaryProvider:     "ollama",
+		FallbackProviders:   []string{"openai"},
+		DailyBudgetCents:    10000,
+		MonthlyBudgetCents:  300000,
+		CostAlertThresholds: []float64{0.7, 0.9, 1.0},
+		RequestsPerMinute:   60,
+		RequestsPerHour:     3600,
+		RequestsPerDay:      86400,
+		MinQualityScore:     0.7,
+		QualityCheckEnabled: true,
+		CacheEnabled:        true,
+		CacheTTL:            2 * time.Hour,
+		MetricsEnabled:      true,
+		AlertsEnabled:       true,
 		ModelSettings: map[string]ModelConfig{
 			"test-model": {
 				MaxTokens:      2048,
@@ -118,7 +118,7 @@ func createTestService() (*EnterpriseAIService, *MockCacheRepository) {
 
 func TestNewEnterpriseAIService(t *testing.T) {
 	service, _ := createTestService()
-	
+
 	assert.NotNil(t, service)
 	assert.NotNil(t, service.costTracker)
 	assert.NotNil(t, service.usageAnalytics)
@@ -163,7 +163,7 @@ func TestGenerateIngredientSuggestions(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.True(t, len(suggestions) > 0)
-	
+
 	// Ensure suggestions don't include already provided ingredients
 	for _, suggestion := range suggestions {
 		assert.NotContains(t, partial, suggestion)
@@ -210,7 +210,7 @@ func TestRateLimitingExceeded(t *testing.T) {
 	service, _ := createTestService()
 
 	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
-	
+
 	// Make requests up to the limit
 	for i := 0; i < service.config.RequestsPerMinute; i++ {
 		_, err := service.GenerateRecipe(ctx, "test prompt", outbound.AIConstraints{})
@@ -233,11 +233,11 @@ func TestBudgetLimitExceeded(t *testing.T) {
 
 	// First request might succeed depending on cost calculation
 	_, err := service.GenerateRecipe(ctx, "test prompt", outbound.AIConstraints{})
-	
+
 	// Subsequent requests should fail due to budget
 	for i := 0; i < 5; i++ {
 		_, err = service.GenerateRecipe(ctx, "test prompt", outbound.AIConstraints{})
-		if err != nil && (err.Error() == "budget limit exceeded" || 
+		if err != nil && (err.Error() == "budget limit exceeded" ||
 			(err.Error() != "" && err.Error() != "rate limit exceeded")) {
 			assert.Contains(t, err.Error(), "budget")
 			return
@@ -262,7 +262,7 @@ func TestHealthCheck(t *testing.T) {
 func TestCostTracker(t *testing.T) {
 	logger := zaptest.NewLogger(nil)
 	config := createTestConfig()
-	
+
 	tracker := NewCostTracker(config, logger)
 
 	assert.NotNil(t, tracker)
@@ -329,7 +329,7 @@ func TestBudgetAlerts(t *testing.T) {
 func TestUsageAnalytics(t *testing.T) {
 	mockCache := &MockCacheRepository{}
 	logger := zaptest.NewLogger(nil)
-	
+
 	analytics := NewUsageAnalytics(mockCache, logger)
 	assert.NotNil(t, analytics)
 }
@@ -380,7 +380,7 @@ func TestRateLimiter(t *testing.T) {
 	mockCache := &MockCacheRepository{}
 	logger := zaptest.NewLogger(nil)
 	config := createTestConfig()
-	
+
 	limiter := NewRateLimiter(config, mockCache, logger)
 	assert.NotNil(t, limiter)
 }
@@ -390,7 +390,7 @@ func TestCheckLimits(t *testing.T) {
 	logger := zaptest.NewLogger(nil)
 	config := createTestConfig()
 	config.RequestsPerMinute = 2 // Very low limit for testing
-	
+
 	limiter := NewRateLimiter(config, mockCache, logger)
 	userID := uuid.New()
 
@@ -411,7 +411,7 @@ func TestUserBlocking(t *testing.T) {
 	mockCache := &MockCacheRepository{}
 	logger := zaptest.NewLogger(nil)
 	config := createTestConfig()
-	
+
 	limiter := NewRateLimiter(config, mockCache, logger)
 	userID := uuid.New()
 
@@ -438,7 +438,7 @@ func TestUserBlocking(t *testing.T) {
 func TestQualityMonitor(t *testing.T) {
 	logger := zaptest.NewLogger(nil)
 	config := createTestConfig()
-	
+
 	monitor := NewQualityMonitor(config, logger)
 	assert.NotNil(t, monitor)
 }
@@ -481,10 +481,10 @@ func TestQualityAlerts(t *testing.T) {
 
 	// Low quality response
 	response := &outbound.AIRecipeResponse{
-		Title:        "",  // Missing title should lower score
-		Description:  "",  // Missing description
-		Ingredients:  []outbound.AIIngredient{},  // No ingredients
-		Instructions: []string{},  // No instructions
+		Title:        "",                        // Missing title should lower score
+		Description:  "",                        // Missing description
+		Ingredients:  []outbound.AIIngredient{}, // No ingredients
+		Instructions: []string{},                // No instructions
 	}
 
 	score := monitor.AssessRecipeQuality(response)
@@ -496,7 +496,7 @@ func TestQualityAlerts(t *testing.T) {
 func TestAlertManager(t *testing.T) {
 	logger := zaptest.NewLogger(nil)
 	config := createTestConfig()
-	
+
 	manager := NewAlertManager(config, logger)
 	assert.NotNil(t, manager)
 }
@@ -541,7 +541,7 @@ func TestResolveAlert(t *testing.T) {
 func TestCostAlerts(t *testing.T) {
 	logger := zaptest.NewLogger(nil)
 	config := createTestConfig()
-	config.DailyBudgetCents = 1000    // $10 daily budget
+	config.DailyBudgetCents = 1000 // $10 daily budget
 	config.CostAlertThresholds = []float64{0.5, 0.8}
 	manager := NewAlertManager(config, logger)
 
@@ -568,16 +568,16 @@ func TestFullWorkflow(t *testing.T) {
 
 	// Mock cache behavior
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
-	
+
 	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
-	
+
 	// Generate a recipe
 	constraints := outbound.AIConstraints{
 		MaxCalories: 600,
 		Dietary:     []string{"vegetarian"},
 		Cuisine:     "italian",
 	}
-	
+
 	recipe, err := service.GenerateRecipe(ctx, "Create a healthy pasta dish", constraints)
 	assert.NoError(t, err)
 	assert.NotNil(t, recipe)
@@ -606,7 +606,7 @@ func TestFullWorkflow(t *testing.T) {
 func BenchmarkGenerateRecipe(b *testing.B) {
 	service, mockCache := createTestService()
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
-	
+
 	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
 	constraints := outbound.AIConstraints{}
 
@@ -620,7 +620,7 @@ func BenchmarkCostTracking(b *testing.B) {
 	logger := zaptest.NewLogger(nil)
 	config := createTestConfig()
 	tracker := NewCostTracker(config, logger)
-	
+
 	userID := uuid.New()
 
 	b.ResetTimer()
@@ -635,11 +635,11 @@ func BenchmarkQualityAssessment(b *testing.B) {
 	monitor := NewQualityMonitor(config, logger)
 
 	response := &outbound.AIRecipeResponse{
-		Title:       "Benchmark Recipe",
-		Description: "A recipe for benchmarking",
-		Ingredients: []outbound.AIIngredient{{Name: "ingredient", Amount: 1, Unit: "cup"}},
+		Title:        "Benchmark Recipe",
+		Description:  "A recipe for benchmarking",
+		Ingredients:  []outbound.AIIngredient{{Name: "ingredient", Amount: 1, Unit: "cup"}},
 		Instructions: []string{"Step 1: Do something"},
-		Nutrition:   &outbound.NutritionInfo{Calories: 400},
+		Nutrition:    &outbound.NutritionInfo{Calories: 400},
 	}
 
 	b.ResetTimer()

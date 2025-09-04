@@ -14,24 +14,24 @@ import (
 // buildOptimizationPrompt creates a prompt for recipe optimization
 func (s *EnterpriseAIService) buildOptimizationPrompt(rec *recipe.Recipe, optimizationType string) string {
 	var prompt strings.Builder
-	
+
 	// Base recipe information
 	prompt.WriteString(fmt.Sprintf("Optimize the following recipe for %s:\n\n", optimizationType))
 	prompt.WriteString(fmt.Sprintf("Title: %s\n", rec.Title()))
 	prompt.WriteString(fmt.Sprintf("Description: %s\n", rec.Description()))
-	
+
 	// Add ingredients
 	prompt.WriteString("Ingredients:\n")
 	for _, ingredient := range rec.Ingredients() {
 		prompt.WriteString(fmt.Sprintf("- %s\n", ingredient.Name))
 	}
-	
+
 	// Add instructions
 	prompt.WriteString("\nInstructions:\n")
 	for i, instruction := range rec.Instructions() {
 		prompt.WriteString(fmt.Sprintf("%d. %s\n", i+1, instruction.Description))
 	}
-	
+
 	// Optimization-specific instructions
 	switch strings.ToLower(optimizationType) {
 	case "health", "healthy":
@@ -41,7 +41,7 @@ func (s *EnterpriseAIService) buildOptimizationPrompt(rec *recipe.Recipe, optimi
 		prompt.WriteString("- Use whole grains and fresh ingredients\n")
 		prompt.WriteString("- Minimize processed ingredients\n")
 		prompt.WriteString("- Maintain or improve taste while boosting nutrition\n")
-		
+
 	case "cost", "budget", "cheap":
 		prompt.WriteString("\nOptimization goals:\n")
 		prompt.WriteString("- Replace expensive ingredients with affordable alternatives\n")
@@ -49,7 +49,7 @@ func (s *EnterpriseAIService) buildOptimizationPrompt(rec *recipe.Recipe, optimi
 		prompt.WriteString("- Maximize serving size for the budget\n")
 		prompt.WriteString("- Reduce food waste through efficient portioning\n")
 		prompt.WriteString("- Maintain nutritional value and taste\n")
-		
+
 	case "taste", "flavor":
 		prompt.WriteString("\nOptimization goals:\n")
 		prompt.WriteString("- Enhance flavor profile with herbs and spices\n")
@@ -57,7 +57,7 @@ func (s *EnterpriseAIService) buildOptimizationPrompt(rec *recipe.Recipe, optimi
 		prompt.WriteString("- Balance sweet, salty, sour, and umami flavors\n")
 		prompt.WriteString("- Add complementary ingredients for depth\n")
 		prompt.WriteString("- Optimize cooking times and temperatures\n")
-		
+
 	case "time", "quick", "fast":
 		prompt.WriteString("\nOptimization goals:\n")
 		prompt.WriteString("- Reduce preparation and cooking time\n")
@@ -65,41 +65,41 @@ func (s *EnterpriseAIService) buildOptimizationPrompt(rec *recipe.Recipe, optimi
 		prompt.WriteString("- Pre-prepare ingredients when possible\n")
 		prompt.WriteString("- Simplify cooking steps without losing quality\n")
 		prompt.WriteString("- Consider make-ahead options\n")
-		
+
 	default:
 		prompt.WriteString("\nOptimization goals:\n")
 		prompt.WriteString("- Improve overall recipe quality\n")
 		prompt.WriteString("- Balance nutrition, taste, and practicality\n")
 		prompt.WriteString("- Enhance presentation and appeal\n")
 	}
-	
+
 	prompt.WriteString("\nProvide an optimized version with detailed explanations for each change.")
-	
+
 	return prompt.String()
 }
 
 // buildDietaryAdaptationPrompt creates a prompt for dietary adaptation
 func (s *EnterpriseAIService) buildDietaryAdaptationPrompt(rec *recipe.Recipe, dietaryRestrictions []string) string {
 	var prompt strings.Builder
-	
+
 	prompt.WriteString("Adapt the following recipe to meet these dietary restrictions: ")
 	prompt.WriteString(strings.Join(dietaryRestrictions, ", "))
 	prompt.WriteString("\n\n")
-	
+
 	// Original recipe
 	prompt.WriteString(fmt.Sprintf("Original Recipe: %s\n", rec.Title()))
 	prompt.WriteString(fmt.Sprintf("Description: %s\n\n", rec.Description()))
-	
+
 	prompt.WriteString("Ingredients:\n")
 	for _, ingredient := range rec.Ingredients() {
 		prompt.WriteString(fmt.Sprintf("- %s\n", ingredient.Name))
 	}
-	
+
 	prompt.WriteString("\nInstructions:\n")
 	for i, instruction := range rec.Instructions() {
 		prompt.WriteString(fmt.Sprintf("%d. %s\n", i+1, instruction.Description))
 	}
-	
+
 	// Dietary-specific guidance
 	prompt.WriteString("\nAdaptation requirements:\n")
 	for _, restriction := range dietaryRestrictions {
@@ -130,26 +130,26 @@ func (s *EnterpriseAIService) buildDietaryAdaptationPrompt(rec *recipe.Recipe, d
 			prompt.WriteString("- Use herbs and spices for flavor instead of salt\n")
 		}
 	}
-	
+
 	prompt.WriteString("\nProvide the adapted recipe with substitution explanations and nutritional notes.")
-	
+
 	return prompt.String()
 }
 
 // buildMealPlanPrompt creates a prompt for meal planning
 func (s *EnterpriseAIService) buildMealPlanPrompt(days int, dietary []string, budget float64) string {
 	var prompt strings.Builder
-	
+
 	prompt.WriteString(fmt.Sprintf("Create a comprehensive %d-day meal plan with the following requirements:\n\n", days))
-	
+
 	if budget > 0 {
 		prompt.WriteString(fmt.Sprintf("Budget: $%.2f total (approximately $%.2f per day)\n", budget, budget/float64(days)))
 	}
-	
+
 	if len(dietary) > 0 {
 		prompt.WriteString("Dietary restrictions: " + strings.Join(dietary, ", ") + "\n")
 	}
-	
+
 	prompt.WriteString("\nRequirements:\n")
 	prompt.WriteString("- Include breakfast, lunch, dinner, and 1-2 snacks per day\n")
 	prompt.WriteString("- Provide variety in cuisines and cooking methods\n")
@@ -159,13 +159,13 @@ func (s *EnterpriseAIService) buildMealPlanPrompt(days int, dietary []string, bu
 	prompt.WriteString("- Organize ingredients by grocery store sections\n")
 	prompt.WriteString("- Minimize food waste through ingredient reuse\n")
 	prompt.WriteString("- Include make-ahead and batch cooking opportunities\n")
-	
+
 	if budget > 0 {
 		prompt.WriteString("- Stay within the specified budget\n")
 		prompt.WriteString("- Prioritize cost-effective, nutritious ingredients\n")
 		prompt.WriteString("- Include budget breakdown by day and meal\n")
 	}
-	
+
 	prompt.WriteString("\nFor each meal, provide:\n")
 	prompt.WriteString("- Recipe name and brief description\n")
 	prompt.WriteString("- Ingredient list with quantities\n")
@@ -173,19 +173,19 @@ func (s *EnterpriseAIService) buildMealPlanPrompt(days int, dietary []string, bu
 	prompt.WriteString("- Prep time and cook time\n")
 	prompt.WriteString("- Estimated cost per serving\n")
 	prompt.WriteString("- Basic nutritional information\n")
-	
+
 	prompt.WriteString("\nReturn the meal plan in a structured format suitable for implementation.")
-	
+
 	return prompt.String()
 }
 
 // generateEnhancedMockRecipe creates a high-quality mock recipe
 func (s *EnterpriseAIService) generateEnhancedMockRecipe(prompt string, constraints outbound.AIConstraints) (*outbound.AIRecipeResponse, error) {
 	prompt = strings.ToLower(prompt)
-	
+
 	// Enhanced recipe templates based on keywords
 	var recipe *outbound.AIRecipeResponse
-	
+
 	if strings.Contains(prompt, "pasta") {
 		recipe = s.createPastaRecipe(prompt, constraints)
 	} else if strings.Contains(prompt, "chicken") {
@@ -201,10 +201,10 @@ func (s *EnterpriseAIService) generateEnhancedMockRecipe(prompt string, constrai
 	} else {
 		recipe = s.createBalancedRecipe(prompt, constraints)
 	}
-	
+
 	// Apply constraints
 	s.applyConstraints(recipe, constraints)
-	
+
 	return recipe, nil
 }
 
@@ -523,12 +523,12 @@ func (s *EnterpriseAIService) applyConstraints(recipe *outbound.AIRecipeResponse
 		factor := float64(constraints.MaxCalories) / float64(recipe.Nutrition.Calories)
 		s.scaleRecipe(recipe, factor)
 	}
-	
+
 	// Apply dietary constraints
 	if len(constraints.Dietary) > 0 {
 		s.adaptRecipeForDietary(recipe, constraints.Dietary)
 	}
-	
+
 	// Add cuisine tag if specified
 	if constraints.Cuisine != "" {
 		found := false
@@ -550,7 +550,7 @@ func (s *EnterpriseAIService) scaleRecipe(recipe *outbound.AIRecipeResponse, fac
 	for i := range recipe.Ingredients {
 		recipe.Ingredients[i].Amount *= factor
 	}
-	
+
 	// Scale nutrition
 	recipe.Nutrition.Calories = int(float64(recipe.Nutrition.Calories) * factor)
 	recipe.Nutrition.Protein *= factor
@@ -574,7 +574,7 @@ func (s *EnterpriseAIService) adaptRecipeForDietary(recipe *outbound.AIRecipeRes
 		case "dairy_free", "dairy-free":
 			s.makeDairyFree(recipe)
 		}
-		
+
 		// Add dietary tag
 		found := false
 		for _, tag := range recipe.Tags {
@@ -611,7 +611,7 @@ func (s *EnterpriseAIService) makeVegetarian(recipe *outbound.AIRecipeResponse) 
 // makeVegan makes recipe vegan
 func (s *EnterpriseAIService) makeVegan(recipe *outbound.AIRecipeResponse) {
 	s.makeVegetarian(recipe) // First remove meat
-	
+
 	// Remove dairy and eggs
 	for i, ingredient := range recipe.Ingredients {
 		name := strings.ToLower(ingredient.Name)
@@ -670,7 +670,7 @@ func (s *EnterpriseAIService) validateDietaryCompliance(recipe *outbound.AIRecip
 	// This method would implement validation logic to ensure
 	// the generated recipe actually meets the dietary restrictions
 	// For now, we'll just add appropriate tags
-	
+
 	for _, restriction := range dietary {
 		found := false
 		for _, tag := range recipe.Tags {
@@ -691,21 +691,21 @@ func (s *EnterpriseAIService) generateMealPlanFallback(days int, dietary []strin
 	if budget <= 0 {
 		dailyBudget = 25.0 // Default daily budget
 	}
-	
+
 	mealPlan := &MealPlanResponse{
 		Days:        days,
 		TotalBudget: budget,
 		DailyMeals:  make([]DayMealPlan, days),
 		GeneratedAt: time.Now(),
 	}
-	
+
 	// Generate meals for each day
 	for day := 0; day < days; day++ {
 		dayPlan := DayMealPlan{
 			Day:  day + 1,
 			Date: time.Now().AddDate(0, 0, day).Format("2006-01-02"),
 		}
-		
+
 		// Create simple meals for each day
 		dayPlan.Breakfast = s.createMealPlanMeal("Overnight Oats", "breakfast", dietary, dailyBudget*0.2)
 		dayPlan.Lunch = s.createMealPlanMeal("Mediterranean Salad", "lunch", dietary, dailyBudget*0.3)
@@ -713,17 +713,17 @@ func (s *EnterpriseAIService) generateMealPlanFallback(days int, dietary []strin
 		dayPlan.Snacks = []*MealPlanMeal{
 			s.createMealPlanMeal("Mixed Nuts", "snack", dietary, dailyBudget*0.1),
 		}
-		
-		dayPlan.DailyCost = dayPlan.Breakfast.EstimatedCost + dayPlan.Lunch.EstimatedCost + 
+
+		dayPlan.DailyCost = dayPlan.Breakfast.EstimatedCost + dayPlan.Lunch.EstimatedCost +
 			dayPlan.Dinner.EstimatedCost + dayPlan.Snacks[0].EstimatedCost
-		
+
 		mealPlan.DailyMeals[day] = dayPlan
 	}
-	
+
 	// Generate shopping list and nutrition summary
 	mealPlan.ShoppingList = s.generateShoppingList(mealPlan.DailyMeals)
 	mealPlan.NutritionSummary = s.generateNutritionSummary(mealPlan.DailyMeals)
-	
+
 	return mealPlan
 }
 
@@ -731,7 +731,7 @@ func (s *EnterpriseAIService) generateMealPlanFallback(days int, dietary []strin
 func (s *EnterpriseAIService) createMealPlanMeal(name, mealType string, dietary []string, budget float64) *MealPlanMeal {
 	// This is a simplified implementation
 	// In a real system, this would generate detailed meals based on the parameters
-	
+
 	return &MealPlanMeal{
 		Name:          name,
 		Description:   fmt.Sprintf("A healthy %s option", mealType),

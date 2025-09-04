@@ -19,21 +19,21 @@ type RecipeRepository interface {
 	Update(ctx context.Context, recipe *recipe.Recipe) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	FindByID(ctx context.Context, id uuid.UUID) (*recipe.Recipe, error)
-	
+
 	// Query operations
 	FindByUserID(ctx context.Context, userID uuid.UUID, offset, limit int) ([]*recipe.Recipe, int, error)
 	FindPublished(ctx context.Context, offset, limit int) ([]*recipe.Recipe, int, error)
 	FindByStatus(ctx context.Context, status recipe.RecipeStatus, offset, limit int) ([]*recipe.Recipe, int, error)
-	
+
 	// Search operations
 	Search(ctx context.Context, criteria SearchCriteria) ([]*recipe.Recipe, int, error)
 	FindTrending(ctx context.Context, since time.Time, limit int) ([]*recipe.Recipe, error)
 	FindRecommended(ctx context.Context, userID uuid.UUID, limit int) ([]*recipe.Recipe, error)
-	
+
 	// Batch operations
 	FindByIDs(ctx context.Context, ids []uuid.UUID) ([]*recipe.Recipe, error)
 	BulkCreate(ctx context.Context, recipes []*recipe.Recipe) error
-	
+
 	// Optimistic locking
 	UpdateWithVersion(ctx context.Context, recipe *recipe.Recipe, expectedVersion int64) error
 }
@@ -52,20 +52,20 @@ type UserRepository interface {
 
 // SearchCriteria defines search parameters for recipes
 type SearchCriteria struct {
-	Query       string
-	AuthorID    *uuid.UUID
-	Cuisines    []recipe.CuisineType
-	Categories  []recipe.CategoryType
-	Difficulty  []recipe.DifficultyLevel
-	Tags        []string
-	MinRating   *float64
-	MaxTime     *int
-	Ingredients []string
+	Query              string
+	AuthorID           *uuid.UUID
+	Cuisines           []recipe.CuisineType
+	Categories         []recipe.CategoryType
+	Difficulty         []recipe.DifficultyLevel
+	Tags               []string
+	MinRating          *float64
+	MaxTime            *int
+	Ingredients        []string
 	ExcludeIngredients []string
-	Offset      int
-	Limit       int
-	OrderBy     string
-	OrderDir    string
+	Offset             int
+	Limit              int
+	OrderBy            string
+	OrderDir           string
 }
 
 // CacheRepository defines the interface for caching operations
@@ -74,15 +74,15 @@ type CacheRepository interface {
 	Set(ctx context.Context, key string, value []byte, ttl time.Duration) error
 	Delete(ctx context.Context, key string) error
 	Exists(ctx context.Context, key string) (bool, error)
-	
+
 	// Batch operations
 	MGet(ctx context.Context, keys []string) (map[string][]byte, error)
 	MSet(ctx context.Context, items map[string][]byte, ttl time.Duration) error
-	
+
 	// Counter operations
 	Increment(ctx context.Context, key string) (int64, error)
 	Decrement(ctx context.Context, key string) (int64, error)
-	
+
 	// Set operations
 	SAdd(ctx context.Context, key string, members ...string) error
 	SMembers(ctx context.Context, key string) ([]string, error)
@@ -155,13 +155,13 @@ type AIService interface {
 
 // AIConstraints for AI recipe generation
 type AIConstraints struct {
-	MaxCalories   int
-	Dietary       []string
-	Cuisine       string
-	ServingSize   int
-	CookingTime   int
-	SkillLevel    string
-	Equipment     []string
+	MaxCalories      int
+	Dietary          []string
+	Cuisine          string
+	ServingSize      int
+	CookingTime      int
+	SkillLevel       string
+	Equipment        []string
 	AvoidIngredients []string
 }
 
@@ -185,13 +185,13 @@ type AIIngredient struct {
 
 // NutritionInfo from AI analysis
 type NutritionInfo struct {
-	Calories      int
-	Protein       float64
-	Carbs         float64
-	Fat           float64
-	Fiber         float64
-	Sugar         float64
-	Sodium        float64
+	Calories int
+	Protein  float64
+	Carbs    float64
+	Fat      float64
+	Fiber    float64
+	Sugar    float64
+	Sodium   float64
 }
 
 // RecipeClassification from AI

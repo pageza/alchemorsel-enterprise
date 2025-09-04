@@ -45,7 +45,7 @@ func TestDependencyManager_Register(t *testing.T) {
 
 func TestDependencyManager_RegisterWithDependencies(t *testing.T) {
 	dm := NewDependencyManager(zap.NewNop())
-	
+
 	// Register database first
 	dbChecker := NewMockChecker("db").WithStatus(StatusHealthy)
 	dbDep := CreateTestDependency("database", DependencyTypeDatabase, true, []string{}, dbChecker)
@@ -86,7 +86,7 @@ func TestDependencyManager_CheckAll_NoDependencies(t *testing.T) {
 func TestDependencyManager_CheckAll_SingleDependency(t *testing.T) {
 	dm := NewDependencyManager(zap.NewNop())
 	ctx := context.Background()
-	
+
 	checker := NewMockChecker("db").WithStatus(StatusHealthy).WithMessage("Connected")
 	dep := CreateTestDependency("database", DependencyTypeDatabase, true, []string{}, checker)
 	dm.Register(dep)
@@ -106,7 +106,7 @@ func TestDependencyManager_CheckAll_SingleDependency(t *testing.T) {
 func TestDependencyManager_CheckAll_MultipleDependencies(t *testing.T) {
 	dm := NewDependencyManager(zap.NewNop())
 	ctx := context.Background()
-	
+
 	// Register dependencies
 	dbChecker := NewMockChecker("db").WithStatus(StatusHealthy)
 	dbDep := CreateTestDependency("database", DependencyTypeDatabase, true, []string{}, dbChecker)
@@ -119,7 +119,7 @@ func TestDependencyManager_CheckAll_MultipleDependencies(t *testing.T) {
 	results := dm.CheckAll(ctx)
 
 	assert.Len(t, results, 2)
-	
+
 	// Results should contain both dependencies
 	names := make(map[string]bool)
 	for _, result := range results {
@@ -132,7 +132,7 @@ func TestDependencyManager_CheckAll_MultipleDependencies(t *testing.T) {
 func TestDependencyManager_CheckAll_TopologicalOrder(t *testing.T) {
 	dm := NewDependencyManager(zap.NewNop())
 	ctx := context.Background()
-	
+
 	// Create dependency chain: database -> cache -> api
 	dbChecker := NewMockChecker("db").WithStatus(StatusHealthy)
 	dbDep := CreateTestDependency("database", DependencyTypeDatabase, true, []string{}, dbChecker)
@@ -149,7 +149,7 @@ func TestDependencyManager_CheckAll_TopologicalOrder(t *testing.T) {
 	results := dm.CheckAll(ctx)
 
 	require.Len(t, results, 3)
-	
+
 	// Verify topological order: database should come before cache, cache before api
 	AssertDependencyOrder(t, results, []string{"database", "cache", "external_api"})
 }
@@ -157,7 +157,7 @@ func TestDependencyManager_CheckAll_TopologicalOrder(t *testing.T) {
 func TestDependencyManager_CheckAll_DependencyFailureImpact(t *testing.T) {
 	dm := NewDependencyManager(zap.NewNop())
 	ctx := context.Background()
-	
+
 	// Database is unhealthy and critical
 	dbChecker := NewMockChecker("db").WithStatus(StatusUnhealthy).WithMessage("Connection failed")
 	dbDep := CreateTestDependency("database", DependencyTypeDatabase, true, []string{}, dbChecker)
@@ -171,7 +171,7 @@ func TestDependencyManager_CheckAll_DependencyFailureImpact(t *testing.T) {
 	results := dm.CheckAll(ctx)
 
 	require.Len(t, results, 2)
-	
+
 	// Database should be unhealthy
 	dbResult := findDependencyByName(results, "database")
 	require.NotNil(t, dbResult)
@@ -188,7 +188,7 @@ func TestDependencyManager_CheckAll_DependencyFailureImpact(t *testing.T) {
 func TestDependencyManager_CheckAll_NonCriticalDependencyFailure(t *testing.T) {
 	dm := NewDependencyManager(zap.NewNop())
 	ctx := context.Background()
-	
+
 	// Cache is unhealthy but not critical
 	cacheChecker := NewMockChecker("cache").WithStatus(StatusUnhealthy)
 	cacheDep := CreateTestDependency("cache", DependencyTypeCache, false, []string{}, cacheChecker)
@@ -202,7 +202,7 @@ func TestDependencyManager_CheckAll_NonCriticalDependencyFailure(t *testing.T) {
 	results := dm.CheckAll(ctx)
 
 	require.Len(t, results, 2)
-	
+
 	// Cache should be unhealthy
 	cacheResult := findDependencyByName(results, "cache")
 	require.NotNil(t, cacheResult)
@@ -217,7 +217,7 @@ func TestDependencyManager_CheckAll_NonCriticalDependencyFailure(t *testing.T) {
 func TestDependencyManager_CheckDependency(t *testing.T) {
 	dm := NewDependencyManager(zap.NewNop())
 	ctx := context.Background()
-	
+
 	checker := NewMockChecker("db").WithStatus(StatusHealthy).WithMessage("Connected")
 	dep := CreateTestDependency("database", DependencyTypeDatabase, true, []string{}, checker)
 	dm.Register(dep)
@@ -244,7 +244,7 @@ func TestDependencyManager_CheckDependency_NotFound(t *testing.T) {
 
 func TestDependencyManager_GetCriticalDependencies(t *testing.T) {
 	dm := NewDependencyManager(zap.NewNop())
-	
+
 	// Register critical and non-critical dependencies
 	dbChecker := NewMockChecker("db").WithStatus(StatusHealthy)
 	dbDep := CreateTestDependency("database", DependencyTypeDatabase, true, []string{}, dbChecker)
@@ -268,7 +268,7 @@ func TestDependencyManager_GetCriticalDependencies(t *testing.T) {
 
 func TestDependencyManager_ValidateGraph_NoCycles(t *testing.T) {
 	dm := NewDependencyManager(zap.NewNop())
-	
+
 	// Create valid dependency chain
 	dbChecker := NewMockChecker("db").WithStatus(StatusHealthy)
 	dbDep := CreateTestDependency("database", DependencyTypeDatabase, true, []string{}, dbChecker)
@@ -285,7 +285,7 @@ func TestDependencyManager_ValidateGraph_NoCycles(t *testing.T) {
 
 func TestDependencyManager_ValidateGraph_WithCycles(t *testing.T) {
 	dm := NewDependencyManager(zap.NewNop())
-	
+
 	// Create circular dependency: A -> B -> C -> A
 	checkerA := NewMockChecker("a").WithStatus(StatusHealthy)
 	depA := CreateTestDependency("service_a", DependencyTypeService, false, []string{"service_c"}, checkerA)
@@ -312,7 +312,7 @@ func TestDependencyGraph_AddNode(t *testing.T) {
 
 	assert.Len(t, dg.nodes, 1)
 	assert.Contains(t, dg.nodes, "database")
-	
+
 	node := dg.nodes["database"]
 	assert.Equal(t, "database", node.Name)
 	assert.Empty(t, node.Dependencies)
@@ -325,7 +325,7 @@ func TestDependencyGraph_AddNode_WithDependencies(t *testing.T) {
 	dg.AddNode("cache", []string{"database"})
 
 	assert.Len(t, dg.nodes, 2) // cache and placeholder database
-	
+
 	cacheNode := dg.nodes["cache"]
 	assert.Equal(t, "cache", cacheNode.Name)
 	assert.Equal(t, []string{"database"}, cacheNode.Dependencies)
@@ -384,7 +384,7 @@ func TestDependencyGraph_TopologicalSort_ComplexGraph(t *testing.T) {
 	order := dg.TopologicalSort()
 
 	require.Len(t, order, 5)
-	
+
 	// Verify constraints
 	dbIdx := findIndex(order, "database")
 	cacheIdx := findIndex(order, "cache")
@@ -395,11 +395,11 @@ func TestDependencyGraph_TopologicalSort_ComplexGraph(t *testing.T) {
 	// Database should come before cache and queue
 	assert.Less(t, dbIdx, cacheIdx)
 	assert.Less(t, dbIdx, queueIdx)
-	
+
 	// Cache and queue should come before api
 	assert.Less(t, cacheIdx, apiIdx)
 	assert.Less(t, queueIdx, apiIdx)
-	
+
 	// Queue should come before worker
 	assert.Less(t, queueIdx, workerIdx)
 }
@@ -431,7 +431,7 @@ func TestDependencyGraph_ValidateCycles(t *testing.T) {
 	// Add circular dependency
 	dg.AddNode("api", []string{"cache"})
 	dg.AddNode("service", []string{"api", "database"})
-	
+
 	// Still valid
 	err = dg.ValidateCycles()
 	assert.NoError(t, err)
@@ -457,12 +457,12 @@ func TestBasicDependency_Interface(t *testing.T) {
 func TestBasicDependency_Check(t *testing.T) {
 	ctx := context.Background()
 	metadata := map[string]interface{}{"version": "1.0"}
-	
+
 	checker := NewMockChecker("test").
 		WithStatus(StatusHealthy).
 		WithMessage("OK").
 		WithMetadata(metadata)
-	
+
 	dep := NewBasicDependency("test_dep", DependencyTypeDatabase, true, []string{}, checker)
 
 	result := dep.Check(ctx)

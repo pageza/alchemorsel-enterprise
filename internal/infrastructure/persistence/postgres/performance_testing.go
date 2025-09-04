@@ -38,24 +38,24 @@ func NewPerformanceTester(
 
 // TestSuite represents a complete performance test suite
 type TestSuite struct {
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
 	Tests       []PerformanceTest `json:"tests"`
-	Config      TestConfig    `json:"config"`
-	Results     TestResults   `json:"results"`
+	Config      TestConfig        `json:"config"`
+	Results     TestResults       `json:"results"`
 }
 
 // PerformanceTest represents a single performance test
 type PerformanceTest struct {
-	Name         string             `json:"name"`
-	Description  string             `json:"description"`
-	Category     TestCategory       `json:"category"`
-	Query        string             `json:"query"`
-	Args         []interface{}      `json:"args"`
-	Concurrency  int                `json:"concurrency"`
-	Duration     time.Duration      `json:"duration"`
-	Target       PerformanceTarget  `json:"target"`
-	Result       *TestResult        `json:"result,omitempty"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Category    TestCategory      `json:"category"`
+	Query       string            `json:"query"`
+	Args        []interface{}     `json:"args"`
+	Concurrency int               `json:"concurrency"`
+	Duration    time.Duration     `json:"duration"`
+	Target      PerformanceTarget `json:"target"`
+	Result      *TestResult       `json:"result,omitempty"`
 }
 
 // TestCategory represents different test categories
@@ -81,66 +81,66 @@ type PerformanceTarget struct {
 
 // TestResult holds the results of a performance test
 type TestResult struct {
-	Passed           bool           `json:"passed"`
-	StartTime        time.Time      `json:"start_time"`
-	EndTime          time.Time      `json:"end_time"`
-	Duration         time.Duration  `json:"duration"`
-	TotalOperations  int64          `json:"total_operations"`
-	SuccessfulOps    int64          `json:"successful_ops"`
-	FailedOps        int64          `json:"failed_ops"`
-	Throughput       float64        `json:"throughput"`
-	AvgResponseTime  time.Duration  `json:"avg_response_time"`
-	P95ResponseTime  time.Duration  `json:"p95_response_time"`
-	P99ResponseTime  time.Duration  `json:"p99_response_time"`
-	ErrorRate        float64        `json:"error_rate"`
-	CacheHitRate     float64        `json:"cache_hit_rate"`
-	ConnectionUtil   float64        `json:"connection_util"`
-	Errors           []string       `json:"errors"`
-	Metrics          TestMetrics    `json:"metrics"`
+	Passed          bool          `json:"passed"`
+	StartTime       time.Time     `json:"start_time"`
+	EndTime         time.Time     `json:"end_time"`
+	Duration        time.Duration `json:"duration"`
+	TotalOperations int64         `json:"total_operations"`
+	SuccessfulOps   int64         `json:"successful_ops"`
+	FailedOps       int64         `json:"failed_ops"`
+	Throughput      float64       `json:"throughput"`
+	AvgResponseTime time.Duration `json:"avg_response_time"`
+	P95ResponseTime time.Duration `json:"p95_response_time"`
+	P99ResponseTime time.Duration `json:"p99_response_time"`
+	ErrorRate       float64       `json:"error_rate"`
+	CacheHitRate    float64       `json:"cache_hit_rate"`
+	ConnectionUtil  float64       `json:"connection_util"`
+	Errors          []string      `json:"errors"`
+	Metrics         TestMetrics   `json:"metrics"`
 }
 
 // TestMetrics holds detailed test metrics
 type TestMetrics struct {
-	ResponseTimes    []time.Duration `json:"response_times"`
-	Timestamps       []time.Time     `json:"timestamps"`
-	CacheHits        int64           `json:"cache_hits"`
-	CacheMisses      int64           `json:"cache_misses"`
-	ConnectionsUsed  []int           `json:"connections_used"`
-	MemoryUsage      []int64         `json:"memory_usage"`
+	ResponseTimes   []time.Duration `json:"response_times"`
+	Timestamps      []time.Time     `json:"timestamps"`
+	CacheHits       int64           `json:"cache_hits"`
+	CacheMisses     int64           `json:"cache_misses"`
+	ConnectionsUsed []int           `json:"connections_used"`
+	MemoryUsage     []int64         `json:"memory_usage"`
 }
 
 // TestConfig holds test configuration
 type TestConfig struct {
-	Timeout         time.Duration `json:"timeout"`
-	WarmupDuration  time.Duration `json:"warmup_duration"`
+	Timeout          time.Duration `json:"timeout"`
+	WarmupDuration   time.Duration `json:"warmup_duration"`
 	CooldownDuration time.Duration `json:"cooldown_duration"`
-	DataSetSize     int           `json:"data_set_size"`
-	PrepareData     bool          `json:"prepare_data"`
-	CleanupData     bool          `json:"cleanup_data"`
+	DataSetSize      int           `json:"data_set_size"`
+	PrepareData      bool          `json:"prepare_data"`
+	CleanupData      bool          `json:"cleanup_data"`
 }
 
 // TestResults holds aggregate test results
 type TestResults struct {
-	Timestamp     time.Time            `json:"timestamp"`
-	TotalTests    int                  `json:"total_tests"`
-	PassedTests   int                  `json:"passed_tests"`
-	FailedTests   int                  `json:"failed_tests"`
-	SuccessRate   float64              `json:"success_rate"`
-	TotalDuration time.Duration        `json:"total_duration"`
-	Summary       TestSummary          `json:"summary"`
-	Failures      []string             `json:"failures"`
+	Timestamp     time.Time     `json:"timestamp"`
+	TotalTests    int           `json:"total_tests"`
+	PassedTests   int           `json:"passed_tests"`
+	FailedTests   int           `json:"failed_tests"`
+	SuccessRate   float64       `json:"success_rate"`
+	TotalDuration time.Duration `json:"total_duration"`
+	Summary       TestSummary   `json:"summary"`
+	Failures      []string      `json:"failures"`
 }
 
 // TestSummary provides high-level test summary
 type TestSummary struct {
-	OverallHealth      float64       `json:"overall_health"`
-	PerformanceGrade   string        `json:"performance_grade"`
-	ConnectionHealth   string        `json:"connection_health"`
-	QueryHealth        string        `json:"query_health"`
-	CacheHealth        string        `json:"cache_health"`
-	IndexHealth        string        `json:"index_health"`
-	Recommendations    []string      `json:"recommendations"`
-	CriticalIssues     []string      `json:"critical_issues"`
+	OverallHealth    float64  `json:"overall_health"`
+	PerformanceGrade string   `json:"performance_grade"`
+	ConnectionHealth string   `json:"connection_health"`
+	QueryHealth      string   `json:"query_health"`
+	CacheHealth      string   `json:"cache_health"`
+	IndexHealth      string   `json:"index_health"`
+	Recommendations  []string `json:"recommendations"`
+	CriticalIssues   []string `json:"critical_issues"`
 }
 
 // RunComprehensiveTests runs a comprehensive performance test suite
@@ -408,7 +408,7 @@ func (pt *PerformanceTester) runSingleTest(ctx context.Context, test *Performanc
 	// Wait for test duration
 	time.Sleep(test.Duration)
 	close(done)
-	
+
 	// Wait for all workers to finish
 	wg.Wait()
 
@@ -442,7 +442,7 @@ func (pt *PerformanceTester) runTestWorker(
 		default:
 			// Execute operation
 			opStart := time.Now()
-			
+
 			var err error
 			if test.Query != "" {
 				err = pt.executeTestQuery(ctx, test)
@@ -457,7 +457,7 @@ func (pt *PerformanceTester) runTestWorker(
 			result.TotalOperations++
 			result.Metrics.ResponseTimes = append(result.Metrics.ResponseTimes, opDuration)
 			result.Metrics.Timestamps = append(result.Metrics.Timestamps, time.Now())
-			
+
 			if err != nil {
 				result.FailedOps++
 				result.Errors = append(result.Errors, err.Error())
@@ -475,14 +475,14 @@ func (pt *PerformanceTester) runTestWorker(
 // executeTestQuery executes a test query
 func (pt *PerformanceTester) executeTestQuery(ctx context.Context, test *PerformanceTest) error {
 	var results []map[string]interface{}
-	
+
 	query := pt.db.WithContext(ctx)
 	if len(test.Args) > 0 {
 		query = query.Raw(test.Query, test.Args...)
 	} else {
 		query = query.Raw(test.Query)
 	}
-	
+
 	return query.Find(&results).Error
 }
 
@@ -546,7 +546,7 @@ func (pt *PerformanceTester) calculateTestMetrics(result *TestResult, test *Perf
 			// Sort response times for percentile calculation
 			times := make([]time.Duration, len(result.Metrics.ResponseTimes))
 			copy(times, result.Metrics.ResponseTimes)
-			
+
 			// Simple sort (for accurate percentiles, use a proper sort)
 			for i := 0; i < len(times)-1; i++ {
 				for j := i + 1; j < len(times); j++ {
@@ -566,7 +566,7 @@ func (pt *PerformanceTester) calculateTestMetrics(result *TestResult, test *Perf
 			// Calculate percentiles
 			p95Index := int(0.95 * float64(len(times)))
 			p99Index := int(0.99 * float64(len(times)))
-			
+
 			if p95Index < len(times) {
 				result.P95ResponseTime = times[p95Index]
 			}
@@ -577,7 +577,7 @@ func (pt *PerformanceTester) calculateTestMetrics(result *TestResult, test *Perf
 
 		// Calculate cache hit rate
 		if result.Metrics.CacheHits+result.Metrics.CacheMisses > 0 {
-			result.CacheHitRate = float64(result.Metrics.CacheHits) / 
+			result.CacheHitRate = float64(result.Metrics.CacheHits) /
 				float64(result.Metrics.CacheHits+result.Metrics.CacheMisses) * 100
 		}
 
@@ -643,22 +643,22 @@ func (pt *PerformanceTester) prepareTestData(ctx context.Context, size int) erro
 
 	for i := 0; i < size; i++ {
 		recipe := map[string]interface{}{
-			"id":                 uuid.New(),
-			"title":              fmt.Sprintf("Test Recipe %d", i),
-			"description":        fmt.Sprintf("Description for test recipe %d", i),
-			"author_id":          uuid.New(), // Random author
-			"cuisine":            cuisines[rand.Intn(len(cuisines))],
-			"difficulty":         difficulties[rand.Intn(len(difficulties))],
-			"prep_time_minutes":  rand.Intn(60) + 10,
-			"cook_time_minutes":  rand.Intn(120) + 15,
-			"servings":           rand.Intn(8) + 1,
-			"status":             "published",
-			"likes_count":        rand.Intn(1000),
-			"views_count":        rand.Intn(5000),
-			"average_rating":     float64(rand.Intn(50)+1) / 10.0,
-			"published_at":       time.Now().Add(-time.Duration(rand.Intn(365)) * 24 * time.Hour),
-			"created_at":         time.Now(),
-			"updated_at":         time.Now(),
+			"id":                uuid.New(),
+			"title":             fmt.Sprintf("Test Recipe %d", i),
+			"description":       fmt.Sprintf("Description for test recipe %d", i),
+			"author_id":         uuid.New(), // Random author
+			"cuisine":           cuisines[rand.Intn(len(cuisines))],
+			"difficulty":        difficulties[rand.Intn(len(difficulties))],
+			"prep_time_minutes": rand.Intn(60) + 10,
+			"cook_time_minutes": rand.Intn(120) + 15,
+			"servings":          rand.Intn(8) + 1,
+			"status":            "published",
+			"likes_count":       rand.Intn(1000),
+			"views_count":       rand.Intn(5000),
+			"average_rating":    float64(rand.Intn(50)+1) / 10.0,
+			"published_at":      time.Now().Add(-time.Duration(rand.Intn(365)) * 24 * time.Hour),
+			"created_at":        time.Now(),
+			"updated_at":        time.Now(),
 		}
 
 		if err := pt.db.WithContext(ctx).Table("recipes").Create(recipe).Error; err != nil {
@@ -744,12 +744,12 @@ func (pt *PerformanceTester) generateTestSummary(tests []PerformanceTest) TestSu
 			}
 
 			if test.Result.ErrorRate > 5.0 {
-				criticalIssues = append(criticalIssues, 
+				criticalIssues = append(criticalIssues,
 					fmt.Sprintf("High error rate in %s: %.1f%%", test.Name, test.Result.ErrorRate))
 			}
 
 			if test.Result.AvgResponseTime > 1*time.Second {
-				criticalIssues = append(criticalIssues, 
+				criticalIssues = append(criticalIssues,
 					fmt.Sprintf("Slow response time in %s: %v", test.Name, test.Result.AvgResponseTime))
 			}
 		}

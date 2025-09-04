@@ -31,11 +31,11 @@ type AIService struct {
 // NewAIService creates a new AI service with intelligent provider selection
 func NewAIService(provider string, logger *zap.Logger) outbound.AIService {
 	namedLogger := logger.Named("ai-service")
-	
+
 	// Create clients for all supported providers
 	ollamaClient := ollama.NewClient(namedLogger)
 	openaiClient := openai.NewClient(namedLogger)
-	
+
 	// Determine the active provider
 	if provider == "" {
 		provider = os.Getenv("ALCHEMORSEL_AI_PROVIDER")
@@ -43,7 +43,7 @@ func NewAIService(provider string, logger *zap.Logger) outbound.AIService {
 			provider = "ollama" // Default to Ollama for containerized setup
 		}
 	}
-	
+
 	// Select primary client based on provider
 	var activeClient outbound.AIService
 	switch provider {
@@ -56,11 +56,11 @@ func NewAIService(provider string, logger *zap.Logger) outbound.AIService {
 		activeClient = ollamaClient
 		provider = "ollama"
 	}
-	
-	namedLogger.Info("AI service initialized", 
+
+	namedLogger.Info("AI service initialized",
 		zap.String("primary_provider", provider),
 		zap.String("fallback_providers", "ollama,openai"))
-	
+
 	return &AIService{
 		provider:     provider,
 		client:       activeClient,
@@ -83,7 +83,7 @@ func (s *AIService) GenerateRecipe(ctx context.Context, prompt string, constrain
 		s.logger.Warn("Primary AI provider failed, trying fallback",
 			zap.String("primary_provider", s.provider),
 			zap.Error(err))
-		
+
 		// Try fallback providers
 		if s.provider != "ollama" && s.ollamaClient != nil {
 			s.logger.Info("Trying Ollama as fallback")
@@ -92,7 +92,7 @@ func (s *AIService) GenerateRecipe(ctx context.Context, prompt string, constrain
 				return fallbackResponse, nil
 			}
 		}
-		
+
 		if s.provider != "openai" && s.openaiClient != nil {
 			s.logger.Info("Trying OpenAI as fallback")
 			if fallbackResponse, fallbackErr := s.openaiClient.GenerateRecipe(ctx, prompt, constraints); fallbackErr == nil {
@@ -100,7 +100,7 @@ func (s *AIService) GenerateRecipe(ctx context.Context, prompt string, constrain
 				return fallbackResponse, nil
 			}
 		}
-		
+
 		// Final fallback to mock
 		s.logger.Warn("All AI providers failed, using mock fallback")
 		return s.generateMockRecipe(prompt, constraints)
@@ -122,7 +122,7 @@ func (s *AIService) SuggestIngredients(ctx context.Context, partial []string) ([
 	if err != nil {
 		s.logger.Warn("Primary AI provider failed for ingredients, using fallback",
 			zap.Error(err))
-		
+
 		// Mock fallback implementation
 		suggestions = []string{
 			"onion", "garlic", "olive oil", "salt", "pepper",
@@ -162,7 +162,7 @@ func (s *AIService) AnalyzeNutrition(ctx context.Context, ingredients []string) 
 	if err != nil {
 		s.logger.Warn("Primary AI provider failed for nutrition analysis, using fallback",
 			zap.Error(err))
-		
+
 		// Mock nutrition analysis based on ingredient count and type
 		calories := len(ingredients) * 50 // Base calories per ingredient
 		protein := float64(len(ingredients)) * 2.5
@@ -211,7 +211,7 @@ func (s *AIService) GenerateDescription(ctx context.Context, rec *recipe.Recipe)
 	if err != nil {
 		s.logger.Warn("Primary AI provider failed for description, using fallback",
 			zap.Error(err))
-		
+
 		// Mock description generation
 		descriptions := []string{
 			"A delicious and flavorful dish that combines traditional techniques with modern flavors.",
@@ -238,7 +238,7 @@ func (s *AIService) ClassifyRecipe(ctx context.Context, rec *recipe.Recipe) (*ou
 	if err != nil {
 		s.logger.Warn("Primary AI provider failed for classification, using fallback",
 			zap.Error(err))
-		
+
 		// Mock classification
 		cuisines := []string{"italian", "american", "asian", "mediterranean", "french"}
 		categories := []string{"main_course", "appetizer", "dessert", "side_dish"}

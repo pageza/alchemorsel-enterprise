@@ -45,7 +45,7 @@ func NewRBACService(logger *zap.Logger, redisClient *redis.Client) *RBACService 
 
 	// Initialize default roles
 	service.initializeDefaultRoles()
-	
+
 	return service
 }
 
@@ -295,8 +295,8 @@ func (r *RBACService) OwnershipMiddleware(resourceParam string) gin.HandlerFunc 
 
 		// Check ownership or admin privileges
 		userRoles := c.GetStringSlice("user_roles")
-		isAdmin := r.HasPermission(userRoles, "users", "moderate") || 
-				  r.HasPermission(userRoles, "*", "*")
+		isAdmin := r.HasPermission(userRoles, "users", "moderate") ||
+			r.HasPermission(userRoles, "*", "*")
 
 		if resourceOwner != userID && !isAdmin {
 			r.logger.Warn("Ownership access denied",
@@ -419,7 +419,7 @@ func (r *RBACService) AssignUserRole(userID string, roles []string) error {
 	// Store user roles in Redis
 	ctx := context.Background()
 	key := fmt.Sprintf("user_roles:%s", userID)
-	
+
 	rolesJSON, err := json.Marshal(roles)
 	if err != nil {
 		return fmt.Errorf("failed to marshal roles: %w", err)
@@ -432,7 +432,7 @@ func (r *RBACService) AssignUserRole(userID string, roles []string) error {
 func (r *RBACService) GetUserRoles(userID string) ([]string, error) {
 	ctx := context.Background()
 	key := fmt.Sprintf("user_roles:%s", userID)
-	
+
 	rolesJSON, err := r.redisClient.Get(ctx, key).Result()
 	if err != nil {
 		if err == redis.Nil {
@@ -486,7 +486,7 @@ func (r *RBACService) validatePermissions(permissions []Permission) error {
 func (r *RBACService) persistRole(role *Role) error {
 	ctx := context.Background()
 	key := fmt.Sprintf("role:%s", role.ID)
-	
+
 	roleJSON, err := json.Marshal(role)
 	if err != nil {
 		return fmt.Errorf("failed to marshal role: %w", err)

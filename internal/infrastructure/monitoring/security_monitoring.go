@@ -19,27 +19,27 @@ import (
 
 // SecurityMonitor handles security event monitoring and threat detection
 type SecurityMonitor struct {
-	logger         *zap.Logger
-	tracing        *TracingProvider
-	rateLimiter    *RateLimiter
-	threatDetector *ThreatDetector
+	logger          *zap.Logger
+	tracing         *TracingProvider
+	rateLimiter     *RateLimiter
+	threatDetector  *ThreatDetector
 	anomalyDetector *AnomalyDetector
-	
+
 	// Security metrics
-	securityEvents        *prometheus.CounterVec
-	threatsDetected       *prometheus.CounterVec
-	blockedRequests       *prometheus.CounterVec
-	authenticationEvents  *prometheus.CounterVec
-	suspiciousActivities  *prometheus.CounterVec
-	securityScores        *prometheus.GaugeVec
-	
+	securityEvents       *prometheus.CounterVec
+	threatsDetected      *prometheus.CounterVec
+	blockedRequests      *prometheus.CounterVec
+	authenticationEvents *prometheus.CounterVec
+	suspiciousActivities *prometheus.CounterVec
+	securityScores       *prometheus.GaugeVec
+
 	// Rate limiting metrics
-	rateLimitHits         *prometheus.CounterVec
-	rateLimitBypass       *prometheus.CounterVec
-	
+	rateLimitHits   *prometheus.CounterVec
+	rateLimitBypass *prometheus.CounterVec
+
 	// Anomaly detection metrics
-	anomaliesDetected     *prometheus.CounterVec
-	behaviorScores        *prometheus.HistogramVec
+	anomaliesDetected *prometheus.CounterVec
+	behaviorScores    *prometheus.HistogramVec
 }
 
 // SecurityEvent represents a security event
@@ -63,13 +63,13 @@ type SecurityEvent struct {
 
 // GeoLocation represents geographical location data
 type GeoLocation struct {
-	Country     string  `json:"country"`
-	Region      string  `json:"region"`
-	City        string  `json:"city"`
-	Latitude    float64 `json:"latitude"`
-	Longitude   float64 `json:"longitude"`
-	ISP         string  `json:"isp"`
-	Organization string `json:"organization"`
+	Country      string  `json:"country"`
+	Region       string  `json:"region"`
+	City         string  `json:"city"`
+	Latitude     float64 `json:"latitude"`
+	Longitude    float64 `json:"longitude"`
+	ISP          string  `json:"isp"`
+	Organization string  `json:"organization"`
 }
 
 // ThreatDetector detects various security threats
@@ -79,38 +79,38 @@ type ThreatDetector struct {
 	failedLoginAttempts   sync.Map // IP -> LoginAttempts
 	rateLimitViolations   sync.Map // IP -> RateViolations
 	sqlInjectionPatterns  []string
-	xssPatterns          []string
+	xssPatterns           []string
 	pathTraversalPatterns []string
-	blacklistedIPs       sync.Map // IP -> bool
-	whitelistedIPs       sync.Map // IP -> bool
+	blacklistedIPs        sync.Map // IP -> bool
+	whitelistedIPs        sync.Map // IP -> bool
 }
 
 // SuspiciousActivity tracks suspicious activity for an IP
 type SuspiciousActivity struct {
-	IP                  string    `json:"ip"`
-	LastSeen           time.Time `json:"last_seen"`
-	ThreatScore        float64   `json:"threat_score"`
-	FailedLogins       int       `json:"failed_logins"`
-	RateLimitViolations int      `json:"rate_limit_violations"`
-	SQLInjectionAttempts int     `json:"sql_injection_attempts"`
-	XSSAttempts        int       `json:"xss_attempts"`
-	PathTraversalAttempts int    `json:"path_traversal_attempts"`
-	UnknownEndpoints   int       `json:"unknown_endpoints"`
-	SuspiciousUserAgents int     `json:"suspicious_user_agents"`
+	IP                    string    `json:"ip"`
+	LastSeen              time.Time `json:"last_seen"`
+	ThreatScore           float64   `json:"threat_score"`
+	FailedLogins          int       `json:"failed_logins"`
+	RateLimitViolations   int       `json:"rate_limit_violations"`
+	SQLInjectionAttempts  int       `json:"sql_injection_attempts"`
+	XSSAttempts           int       `json:"xss_attempts"`
+	PathTraversalAttempts int       `json:"path_traversal_attempts"`
+	UnknownEndpoints      int       `json:"unknown_endpoints"`
+	SuspiciousUserAgents  int       `json:"suspicious_user_agents"`
 }
 
 // RateLimiter provides rate limiting functionality
 type RateLimiter struct {
-	limits    map[string]*RateLimit // endpoint -> limit
-	requests  sync.Map              // IP:endpoint -> RequestTracker
-	logger    *zap.Logger
+	limits   map[string]*RateLimit // endpoint -> limit
+	requests sync.Map              // IP:endpoint -> RequestTracker
+	logger   *zap.Logger
 }
 
 // RateLimit defines rate limiting configuration
 type RateLimit struct {
 	RequestsPerMinute int           `json:"requests_per_minute"`
-	BurstSize        int           `json:"burst_size"`
-	WindowSize       time.Duration `json:"window_size"`
+	BurstSize         int           `json:"burst_size"`
+	WindowSize        time.Duration `json:"window_size"`
 }
 
 // RequestTracker tracks requests for rate limiting
@@ -123,76 +123,76 @@ type RequestTracker struct {
 // AnomalyDetector detects behavioral anomalies
 type AnomalyDetector struct {
 	logger       *zap.Logger
-	userBehavior sync.Map // userID -> UserBehaviorProfile
+	userBehavior sync.Map           // userID -> UserBehaviorProfile
 	baselines    map[string]float64 // metric -> baseline value
 }
 
 // UserBehaviorProfile tracks user behavior patterns
 type UserBehaviorProfile struct {
-	UserID                string    `json:"user_id"`
-	AverageRequestRate    float64   `json:"average_request_rate"`
-	TypicalEndpoints      []string  `json:"typical_endpoints"`
-	TypicalTimeWindows    []int     `json:"typical_time_windows"` // hours of day
-	AverageSessionLength  float64   `json:"average_session_length"`
-	DeviceFingerprints    []string  `json:"device_fingerprints"`
-	LocationHistory       []string  `json:"location_history"`
+	UserID               string    `json:"user_id"`
+	AverageRequestRate   float64   `json:"average_request_rate"`
+	TypicalEndpoints     []string  `json:"typical_endpoints"`
+	TypicalTimeWindows   []int     `json:"typical_time_windows"` // hours of day
+	AverageSessionLength float64   `json:"average_session_length"`
+	DeviceFingerprints   []string  `json:"device_fingerprints"`
+	LocationHistory      []string  `json:"location_history"`
 	LastUpdated          time.Time `json:"last_updated"`
 }
 
 // NewSecurityMonitor creates a new security monitor
 func NewSecurityMonitor(logger *zap.Logger, tracing *TracingProvider) *SecurityMonitor {
 	return &SecurityMonitor{
-		logger:         logger,
-		tracing:        tracing,
-		rateLimiter:    NewRateLimiter(logger),
-		threatDetector: NewThreatDetector(logger),
+		logger:          logger,
+		tracing:         tracing,
+		rateLimiter:     NewRateLimiter(logger),
+		threatDetector:  NewThreatDetector(logger),
 		anomalyDetector: NewAnomalyDetector(logger),
-		
+
 		securityEvents: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "security_events_total",
 			Help: "Total number of security events",
 		}, []string{"type", "severity", "source_ip", "action"}),
-		
+
 		threatsDetected: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "security_threats_detected_total",
 			Help: "Total number of threats detected",
 		}, []string{"threat_type", "severity", "source"}),
-		
+
 		blockedRequests: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "security_blocked_requests_total",
 			Help: "Total number of blocked requests",
 		}, []string{"reason", "source_ip", "endpoint"}),
-		
+
 		authenticationEvents: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "security_authentication_events_total",
 			Help: "Total number of authentication events",
 		}, []string{"event_type", "status", "method"}),
-		
+
 		suspiciousActivities: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "security_suspicious_activities_total",
 			Help: "Total number of suspicious activities",
 		}, []string{"activity_type", "severity", "source_ip"}),
-		
+
 		securityScores: promauto.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "security_threat_scores",
 			Help: "Threat scores for various entities",
 		}, []string{"entity_type", "entity_id"}),
-		
+
 		rateLimitHits: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "security_rate_limit_hits_total",
 			Help: "Total number of rate limit hits",
 		}, []string{"endpoint", "source_ip", "action"}),
-		
+
 		rateLimitBypass: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "security_rate_limit_bypass_total",
 			Help: "Total number of rate limit bypass attempts",
 		}, []string{"method", "source_ip"}),
-		
+
 		anomaliesDetected: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "security_anomalies_detected_total",
 			Help: "Total number of behavioral anomalies detected",
 		}, []string{"anomaly_type", "user_id", "severity"}),
-		
+
 		behaviorScores: promauto.NewHistogramVec(prometheus.HistogramOpts{
 			Name:    "security_behavior_scores",
 			Help:    "Behavioral anomaly scores",
@@ -205,17 +205,17 @@ func NewSecurityMonitor(logger *zap.Logger, tracing *TracingProvider) *SecurityM
 func (sm *SecurityMonitor) SecurityMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
-		
+
 		ctx, span := sm.tracing.StartSpan(c.Request.Context(), "security.monitor_request")
 		defer span.End()
-		
+
 		// Extract request information
 		sourceIP := getClientIP(c)
 		userAgent := c.GetHeader("User-Agent")
 		path := c.Request.URL.Path
 		method := c.Request.Method
 		userID := getUserIDFromContext(c)
-		
+
 		// Check rate limits
 		if !sm.rateLimiter.CheckRateLimit(sourceIP, path) {
 			sm.recordSecurityEvent(ctx, SecurityEvent{
@@ -228,13 +228,13 @@ func (sm *SecurityMonitor) SecurityMiddleware() gin.HandlerFunc {
 				Description: "Rate limit exceeded",
 				ThreatScore: 0.3,
 			})
-			
+
 			sm.blockedRequests.WithLabelValues("rate_limit", sourceIP, path).Inc()
 			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
 			c.Abort()
 			return
 		}
-		
+
 		// Check for malicious patterns in request
 		threatScore := sm.threatDetector.AnalyzeRequest(c.Request)
 		if threatScore > 0.5 {
@@ -249,7 +249,7 @@ func (sm *SecurityMonitor) SecurityMiddleware() gin.HandlerFunc {
 				Description: "Potentially malicious request detected",
 				ThreatScore: threatScore,
 			})
-			
+
 			if threatScore > 0.8 {
 				sm.blockedRequests.WithLabelValues("high_threat", sourceIP, path).Inc()
 				c.JSON(http.StatusForbidden, gin.H{"error": "Request blocked"})
@@ -257,27 +257,27 @@ func (sm *SecurityMonitor) SecurityMiddleware() gin.HandlerFunc {
 				return
 			}
 		}
-		
+
 		// Process the request
 		c.Next()
-		
+
 		// Analyze response for security events
 		duration := time.Since(start)
 		statusCode := c.Writer.Status()
-		
+
 		// Check for authentication events
 		if isAuthEndpoint(path) {
 			sm.recordAuthenticationEvent(ctx, method, statusCode, sourceIP, userID)
 		}
-		
+
 		// Check for suspicious behavior patterns
 		if userID != "" {
 			sm.anomalyDetector.AnalyzeUserBehavior(userID, path, duration, sourceIP)
 		}
-		
+
 		// Update threat detection with response information
 		sm.threatDetector.UpdateActivity(sourceIP, path, statusCode, userAgent)
-		
+
 		// Record general security metrics
 		if statusCode >= 400 {
 			sm.recordSecurityEvent(ctx, SecurityEvent{
@@ -328,32 +328,32 @@ func NewThreatDetector(logger *zap.Logger) *ThreatDetector {
 // AnalyzeRequest analyzes a request for threats
 func (td *ThreatDetector) AnalyzeRequest(req *http.Request) float64 {
 	var threatScore float64
-	
+
 	// Check for SQL injection
 	if td.checkSQLInjection(req) {
 		threatScore += 0.4
 	}
-	
+
 	// Check for XSS attempts
 	if td.checkXSS(req) {
 		threatScore += 0.3
 	}
-	
+
 	// Check for path traversal
 	if td.checkPathTraversal(req) {
 		threatScore += 0.3
 	}
-	
+
 	// Check for suspicious user agent
 	if td.checkSuspiciousUserAgent(req.UserAgent()) {
 		threatScore += 0.2
 	}
-	
+
 	// Check for unusual request patterns
 	if td.checkUnusualPatterns(req) {
 		threatScore += 0.1
 	}
-	
+
 	return threatScore
 }
 
@@ -365,7 +365,7 @@ func (td *ThreatDetector) checkSQLInjection(req *http.Request) bool {
 		req.Header.Get("User-Agent"),
 		req.Header.Get("Referer"),
 	}
-	
+
 	for _, target := range targets {
 		for _, pattern := range td.sqlInjectionPatterns {
 			if matched, _ := regexp.MatchString(pattern, target); matched {
@@ -373,7 +373,7 @@ func (td *ThreatDetector) checkSQLInjection(req *http.Request) bool {
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -385,7 +385,7 @@ func (td *ThreatDetector) checkXSS(req *http.Request) bool {
 		req.Header.Get("User-Agent"),
 		req.Header.Get("Referer"),
 	}
-	
+
 	for _, target := range targets {
 		for _, pattern := range td.xssPatterns {
 			if matched, _ := regexp.MatchString(pattern, target); matched {
@@ -393,7 +393,7 @@ func (td *ThreatDetector) checkXSS(req *http.Request) bool {
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -401,7 +401,7 @@ func (td *ThreatDetector) checkXSS(req *http.Request) bool {
 func (td *ThreatDetector) checkPathTraversal(req *http.Request) bool {
 	path := req.URL.Path
 	query := req.URL.RawQuery
-	
+
 	for _, pattern := range td.pathTraversalPatterns {
 		if matched, _ := regexp.MatchString(pattern, path); matched {
 			return true
@@ -410,7 +410,7 @@ func (td *ThreatDetector) checkPathTraversal(req *http.Request) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -421,14 +421,14 @@ func (td *ThreatDetector) checkSuspiciousUserAgent(userAgent string) bool {
 		"gobuster", "dirb", "dirbuster", "wpscan", "burp",
 		"python-requests", "curl/", "wget/", "libwww", "lwp",
 	}
-	
+
 	userAgentLower := strings.ToLower(userAgent)
 	for _, agent := range suspiciousAgents {
 		if strings.Contains(userAgentLower, agent) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -439,20 +439,20 @@ func (td *ThreatDetector) checkUnusualPatterns(req *http.Request) bool {
 	if strings.Contains(contentType, "multipart/form-data") && req.Method != "POST" {
 		return true
 	}
-	
+
 	// Check for unusual headers
 	suspiciousHeaders := []string{
 		"X-Forwarded-For", "X-Real-IP", "X-Originating-IP",
 		"X-Remote-IP", "X-Client-IP", "Client-IP",
 	}
-	
+
 	headerCount := 0
 	for _, header := range suspiciousHeaders {
 		if req.Header.Get(header) != "" {
 			headerCount++
 		}
 	}
-	
+
 	// Multiple forwarding headers might indicate proxy abuse
 	return headerCount > 2
 }
@@ -460,7 +460,7 @@ func (td *ThreatDetector) checkUnusualPatterns(req *http.Request) bool {
 // UpdateActivity updates suspicious activity tracking
 func (td *ThreatDetector) UpdateActivity(sourceIP, path string, statusCode int, userAgent string) {
 	activityKey := sourceIP
-	
+
 	var activity SuspiciousActivity
 	if val, ok := td.suspiciousIPs.Load(activityKey); ok {
 		activity = val.(SuspiciousActivity)
@@ -469,25 +469,25 @@ func (td *ThreatDetector) UpdateActivity(sourceIP, path string, statusCode int, 
 			IP: sourceIP,
 		}
 	}
-	
+
 	activity.LastSeen = time.Now()
-	
+
 	// Update counters based on response
 	if statusCode == 401 || statusCode == 403 {
 		activity.FailedLogins++
 		activity.ThreatScore += 0.1
 	}
-	
+
 	if statusCode == 404 {
 		activity.UnknownEndpoints++
 		activity.ThreatScore += 0.05
 	}
-	
+
 	if td.checkSuspiciousUserAgent(userAgent) {
 		activity.SuspiciousUserAgents++
 		activity.ThreatScore += 0.1
 	}
-	
+
 	td.suspiciousIPs.Store(activityKey, activity)
 }
 
@@ -497,26 +497,26 @@ func NewRateLimiter(logger *zap.Logger) *RateLimiter {
 		logger: logger,
 		limits: make(map[string]*RateLimit),
 	}
-	
+
 	// Set default rate limits
 	rl.SetRateLimit("/api/v1/auth/login", &RateLimit{
 		RequestsPerMinute: 5,
-		BurstSize:        2,
-		WindowSize:       time.Minute,
+		BurstSize:         2,
+		WindowSize:        time.Minute,
 	})
-	
+
 	rl.SetRateLimit("/api/v1/auth/register", &RateLimit{
 		RequestsPerMinute: 3,
-		BurstSize:        1,
-		WindowSize:       time.Minute,
+		BurstSize:         1,
+		WindowSize:        time.Minute,
 	})
-	
+
 	rl.SetRateLimit("*", &RateLimit{ // Default limit
 		RequestsPerMinute: 60,
-		BurstSize:        10,
-		WindowSize:       time.Minute,
+		BurstSize:         10,
+		WindowSize:        time.Minute,
 	})
-	
+
 	return rl
 }
 
@@ -531,10 +531,10 @@ func (rl *RateLimiter) CheckRateLimit(sourceIP, endpoint string) bool {
 	if limit == nil {
 		return true // No limit configured
 	}
-	
+
 	key := fmt.Sprintf("%s:%s", sourceIP, endpoint)
 	now := time.Now()
-	
+
 	var tracker RequestTracker
 	if val, ok := rl.requests.Load(key); ok {
 		tracker = val.(RequestTracker)
@@ -543,7 +543,7 @@ func (rl *RateLimiter) CheckRateLimit(sourceIP, endpoint string) bool {
 			WindowStart: now,
 		}
 	}
-	
+
 	// Reset window if expired
 	if now.Sub(tracker.WindowStart) > limit.WindowSize {
 		tracker = RequestTracker{
@@ -551,24 +551,24 @@ func (rl *RateLimiter) CheckRateLimit(sourceIP, endpoint string) bool {
 			WindowStart: now,
 		}
 	}
-	
+
 	// Check if within limits
 	if tracker.Count >= limit.RequestsPerMinute {
 		// Check burst allowance
 		if tracker.Count >= limit.RequestsPerMinute+limit.BurstSize {
 			return false
 		}
-		
+
 		// Check burst timing
 		if now.Sub(tracker.LastRequest) < time.Minute/time.Duration(limit.BurstSize) {
 			return false
 		}
 	}
-	
+
 	tracker.Count++
 	tracker.LastRequest = now
 	rl.requests.Store(key, tracker)
-	
+
 	return true
 }
 
@@ -577,7 +577,7 @@ func (rl *RateLimiter) getRateLimitForEndpoint(endpoint string) *RateLimit {
 	if limit, ok := rl.limits[endpoint]; ok {
 		return limit
 	}
-	
+
 	// Return default limit
 	return rl.limits["*"]
 }
@@ -587,9 +587,9 @@ func NewAnomalyDetector(logger *zap.Logger) *AnomalyDetector {
 	return &AnomalyDetector{
 		logger: logger,
 		baselines: map[string]float64{
-			"average_request_rate": 10.0,    // requests per minute
-			"session_length":      1800.0,   // 30 minutes
-			"endpoint_diversity":  0.7,      // 70% of requests to common endpoints
+			"average_request_rate": 10.0,   // requests per minute
+			"session_length":       1800.0, // 30 minutes
+			"endpoint_diversity":   0.7,    // 70% of requests to common endpoints
 		},
 	}
 }
@@ -601,20 +601,20 @@ func (ad *AnomalyDetector) AnalyzeUserBehavior(userID, path string, duration tim
 		profile = val.(UserBehaviorProfile)
 	} else {
 		profile = UserBehaviorProfile{
-			UserID:              userID,
-			TypicalEndpoints:    []string{},
-			TypicalTimeWindows:  []int{},
-			DeviceFingerprints:  []string{},
-			LocationHistory:     []string{},
+			UserID:             userID,
+			TypicalEndpoints:   []string{},
+			TypicalTimeWindows: []int{},
+			DeviceFingerprints: []string{},
+			LocationHistory:    []string{},
 		}
 	}
-	
+
 	// Update behavior profile
 	profile.LastUpdated = time.Now()
-	
+
 	// Check for anomalies
 	anomalies := ad.detectAnomalies(profile, path, duration, sourceIP)
-	
+
 	// Log anomalies
 	for _, anomaly := range anomalies {
 		ad.logger.Warn("Behavioral anomaly detected",
@@ -624,7 +624,7 @@ func (ad *AnomalyDetector) AnalyzeUserBehavior(userID, path string, duration tim
 			zap.String("description", anomaly.Description),
 		)
 	}
-	
+
 	// Store updated profile
 	ad.userBehavior.Store(userID, profile)
 }
@@ -640,7 +640,7 @@ type Anomaly struct {
 // detectAnomalies detects behavioral anomalies
 func (ad *AnomalyDetector) detectAnomalies(profile UserBehaviorProfile, path string, duration time.Duration, sourceIP string) []Anomaly {
 	var anomalies []Anomaly
-	
+
 	// Check for unusual endpoint access
 	if !ad.isTypicalEndpoint(profile.TypicalEndpoints, path) {
 		anomalies = append(anomalies, Anomaly{
@@ -650,7 +650,7 @@ func (ad *AnomalyDetector) detectAnomalies(profile UserBehaviorProfile, path str
 			Severity:    "low",
 		})
 	}
-	
+
 	// Check for unusual timing
 	hour := time.Now().Hour()
 	if !ad.isTypicalTimeWindow(profile.TypicalTimeWindows, hour) {
@@ -661,7 +661,7 @@ func (ad *AnomalyDetector) detectAnomalies(profile UserBehaviorProfile, path str
 			Severity:    "low",
 		})
 	}
-	
+
 	// Check for location anomalies (simplified IP-based check)
 	if !ad.isTypicalLocation(profile.LocationHistory, sourceIP) {
 		anomalies = append(anomalies, Anomaly{
@@ -671,7 +671,7 @@ func (ad *AnomalyDetector) detectAnomalies(profile UserBehaviorProfile, path str
 			Severity:    "medium",
 		})
 	}
-	
+
 	return anomalies
 }
 
@@ -692,7 +692,7 @@ func getClientIP(c *gin.Context) string {
 		}
 		return ip
 	}
-	
+
 	// Fallback to RemoteAddr
 	host, _, err := net.SplitHostPort(c.Request.RemoteAddr)
 	if err != nil {
@@ -748,12 +748,12 @@ func (sm *SecurityMonitor) recordSecurityEvent(ctx context.Context, event Securi
 	if event.Timestamp == 0 {
 		event.Timestamp = time.Now().Unix()
 	}
-	
+
 	// Generate ID if not provided
 	if event.ID == "" {
 		event.ID = fmt.Sprintf("sec_%d_%s", event.Timestamp, generateRandomString(8))
 	}
-	
+
 	// Record metrics
 	sm.securityEvents.WithLabelValues(
 		event.Type,
@@ -761,7 +761,7 @@ func (sm *SecurityMonitor) recordSecurityEvent(ctx context.Context, event Securi
 		event.SourceIP,
 		strings.Join(event.Actions, ","),
 	).Inc()
-	
+
 	// Record threat score
 	if event.SourceIP != "" {
 		sm.securityScores.WithLabelValues("ip", event.SourceIP).Set(event.ThreatScore)
@@ -769,7 +769,7 @@ func (sm *SecurityMonitor) recordSecurityEvent(ctx context.Context, event Securi
 	if event.UserID != "" {
 		sm.securityScores.WithLabelValues("user", event.UserID).Set(event.ThreatScore)
 	}
-	
+
 	// Log the event
 	sm.logger.Warn("Security event recorded",
 		zap.String("event_id", event.ID),
@@ -780,7 +780,7 @@ func (sm *SecurityMonitor) recordSecurityEvent(ctx context.Context, event Securi
 		zap.Float64("threat_score", event.ThreatScore),
 		zap.String("description", event.Description),
 	)
-	
+
 	// Add tracing information
 	if sm.tracing != nil {
 		sm.tracing.AddSpanEvent(ctx, "security_event",
@@ -794,7 +794,7 @@ func (sm *SecurityMonitor) recordSecurityEvent(ctx context.Context, event Securi
 
 func (sm *SecurityMonitor) recordAuthenticationEvent(ctx context.Context, method string, statusCode int, sourceIP, userID string) {
 	var eventType, status string
-	
+
 	if strings.Contains(method, "login") {
 		eventType = "login_attempt"
 	} else if strings.Contains(method, "register") {
@@ -802,15 +802,15 @@ func (sm *SecurityMonitor) recordAuthenticationEvent(ctx context.Context, method
 	} else {
 		eventType = "auth_attempt"
 	}
-	
+
 	if statusCode < 400 {
 		status = "success"
 	} else {
 		status = "failure"
 	}
-	
+
 	sm.authenticationEvents.WithLabelValues(eventType, status, "password").Inc()
-	
+
 	// Record failed login attempts for threat detection
 	if status == "failure" && eventType == "login_attempt" {
 		sm.threatDetector.recordFailedLogin(sourceIP, userID)
@@ -821,13 +821,13 @@ func (td *ThreatDetector) recordFailedLogin(sourceIP, userID string) {
 	// Update failed login tracking
 	key := sourceIP
 	attempts := 1
-	
+
 	if val, ok := td.failedLoginAttempts.Load(key); ok {
 		attempts = val.(int) + 1
 	}
-	
+
 	td.failedLoginAttempts.Store(key, attempts)
-	
+
 	// Update suspicious activity
 	var activity SuspiciousActivity
 	if val, ok := td.suspiciousIPs.Load(sourceIP); ok {
@@ -835,11 +835,11 @@ func (td *ThreatDetector) recordFailedLogin(sourceIP, userID string) {
 	} else {
 		activity = SuspiciousActivity{IP: sourceIP}
 	}
-	
+
 	activity.FailedLogins = attempts
 	activity.ThreatScore += 0.1
 	activity.LastSeen = time.Now()
-	
+
 	td.suspiciousIPs.Store(sourceIP, activity)
 }
 
@@ -887,7 +887,7 @@ func (sm *SecurityMonitor) GetSecurityEvents(c *gin.Context) {
 	events := []SecurityEvent{
 		// Example events would be returned here
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"events": events,
 		"count":  len(events),
@@ -905,6 +905,6 @@ func (sm *SecurityMonitor) GetThreatSummary(c *gin.Context) {
 			"anomalies_detected": "Count of behavioral anomalies",
 		},
 	}
-	
+
 	c.JSON(http.StatusOK, summary)
 }

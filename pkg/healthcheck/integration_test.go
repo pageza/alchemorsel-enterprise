@@ -64,14 +64,14 @@ func TestIntegration_DatabaseChecker_ConnectionPool(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		check := dbChecker.Check(ctx)
 		assert.Equal(t, StatusHealthy, check.Status)
-		
+
 		// Verify metadata is populated
 		metadata, ok := check.Metadata.(map[string]interface{})
 		require.True(t, ok)
-		
+
 		totalConns := metadata["total_conns"].(int32)
 		maxConns := metadata["max_conns"].(int32)
-		
+
 		assert.Greater(t, totalConns, int32(0))
 		assert.Greater(t, maxConns, int32(0))
 		assert.LessOrEqual(t, totalConns, maxConns)
@@ -148,7 +148,7 @@ func TestIntegration_HealthCheckWithRealDependencies(t *testing.T) {
 
 	// Verify basic checks
 	assert.Len(t, response.Checks, 2)
-	
+
 	var dbCheck, redisCheck *Check
 	for i := range response.Checks {
 		if response.Checks[i].Name == "database" {
@@ -168,7 +168,7 @@ func TestIntegration_HealthCheckWithRealDependencies(t *testing.T) {
 
 	// Verify dependencies
 	assert.Len(t, response.Dependencies, 2)
-	
+
 	var dbDependency, cacheDependency *DependencyStatus
 	for i := range response.Dependencies {
 		if response.Dependencies[i].Name == "postgres" {
@@ -212,7 +212,7 @@ func TestIntegration_CircuitBreakerWithRealServices(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		response := ehc.CheckWithMode(ctx, ModeStandard)
 		assert.Equal(t, StatusHealthy, response.Status)
-		
+
 		// Verify circuit breaker status
 		assert.Len(t, response.CircuitBreakers, 1)
 		cbStatus := response.CircuitBreakers["database"]
@@ -226,7 +226,7 @@ func TestIntegration_CircuitBreakerWithRealServices(t *testing.T) {
 	// Now checks should fail, but circuit breaker should handle it
 	for i := 0; i < config.FailureThreshold+1; i++ {
 		response := ehc.CheckWithMode(ctx, ModeStandard)
-		
+
 		if i < config.FailureThreshold {
 			// Should still try to check
 			assert.Equal(t, StatusUnhealthy, response.Status)
@@ -367,7 +367,7 @@ func TestIntegration_MetricsWithRealServices(t *testing.T) {
 
 	// Create health check with metrics
 	hc := New("1.0.0", zap.NewNop())
-	
+
 	// Register database checker with metrics middleware
 	dbChecker := NewDatabaseChecker(pgPool)
 	wrappedChecker := WithMetrics(metrics, dbChecker)
@@ -403,7 +403,7 @@ func TestIntegration_FullHealthCheckSystem(t *testing.T) {
 	// Register basic health checks
 	dbChecker := NewDatabaseChecker(pgPool)
 	redisChecker := NewRedisChecker(redisClient)
-	
+
 	ehc.Register("database", dbChecker)
 	ehc.Register("redis", redisChecker)
 
@@ -466,10 +466,10 @@ func TestIntegration_HealthCheckUnderLoad(t *testing.T) {
 
 	// Create health check
 	hc := New("1.0.0", zap.NewNop())
-	
+
 	dbChecker := NewDatabaseChecker(pgPool)
 	redisChecker := NewRedisChecker(redisClient)
-	
+
 	hc.Register("database", dbChecker)
 	hc.Register("redis", redisChecker)
 
@@ -479,15 +479,15 @@ func TestIntegration_HealthCheckUnderLoad(t *testing.T) {
 	// Perform concurrent health checks
 	numGoroutines := 50
 	numChecksPerGoroutine := 10
-	
+
 	done := make(chan bool, numGoroutines)
-	
+
 	start := time.Now()
-	
+
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
 			defer func() { done <- true }()
-			
+
 			for j := 0; j < numChecksPerGoroutine; j++ {
 				response := hc.Check(ctx)
 				assert.Equal(t, StatusHealthy, response.Status)
@@ -503,8 +503,8 @@ func TestIntegration_HealthCheckUnderLoad(t *testing.T) {
 
 	elapsed := time.Since(start)
 	totalChecks := numGoroutines * numChecksPerGoroutine
-	
-	t.Logf("Performed %d health checks in %v (%.2f checks/second)", 
+
+	t.Logf("Performed %d health checks in %v (%.2f checks/second)",
 		totalChecks, elapsed, float64(totalChecks)/elapsed.Seconds())
 
 	// Verify reasonable performance (should complete within reasonable time)

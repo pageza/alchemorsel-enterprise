@@ -48,7 +48,7 @@ func NewUnifiedAIService(
 	metricsCollector *MetricsCollector,
 	logger *zap.Logger,
 ) (*UnifiedAIService, error) {
-	
+
 	service := &UnifiedAIService{
 		providers:        make(map[ProviderType]AIProvider),
 		modelManager:     modelManager,
@@ -87,7 +87,7 @@ func (s *UnifiedAIService) initializeProviders(cfg *config.Config) error {
 			s.logger,
 		)
 		s.providers[ProviderDeepSeek] = deepSeekClient
-		s.logger.Info("DeepSeek provider initialized", 
+		s.logger.Info("DeepSeek provider initialized",
 			zap.String("base_url", cfg.AI.DeepSeekBaseURL),
 			zap.String("model", cfg.AI.DeepSeekModel))
 	}
@@ -96,7 +96,7 @@ func (s *UnifiedAIService) initializeProviders(cfg *config.Config) error {
 		return fmt.Errorf("no AI providers available - check configuration")
 	}
 
-	s.logger.Info("Unified AI service initialized", 
+	s.logger.Info("Unified AI service initialized",
 		zap.Int("providers", len(s.providers)),
 		zap.String("default", string(s.defaultProvider)))
 
@@ -306,7 +306,7 @@ func (s *UnifiedAIService) getProviderType(provider AIProvider) ProviderType {
 // TestConnections tests connectivity to all configured providers
 func (s *UnifiedAIService) TestConnections(ctx context.Context) map[ProviderType]error {
 	results := make(map[ProviderType]error)
-	
+
 	for providerType, provider := range s.providers {
 		if err := provider.TestConnection(ctx); err != nil {
 			results[providerType] = err
@@ -319,25 +319,25 @@ func (s *UnifiedAIService) TestConnections(ctx context.Context) map[ProviderType
 				zap.String("provider", string(providerType)))
 		}
 	}
-	
+
 	return results
 }
 
 // GetProviderInfo returns information about all configured providers
 func (s *UnifiedAIService) GetProviderInfo() map[ProviderType]map[string]interface{} {
 	info := make(map[ProviderType]map[string]interface{})
-	
+
 	for providerType, provider := range s.providers {
 		info[providerType] = provider.GetModelInfo()
 	}
-	
+
 	return info
 }
 
 // GetHealthStatus returns health status of all providers
 func (s *UnifiedAIService) GetHealthStatus(ctx context.Context) map[ProviderType]string {
 	status := make(map[ProviderType]string)
-	
+
 	for providerType, provider := range s.providers {
 		if err := provider.TestConnection(ctx); err != nil {
 			status[providerType] = "unhealthy"
@@ -345,6 +345,6 @@ func (s *UnifiedAIService) GetHealthStatus(ctx context.Context) map[ProviderType
 			status[providerType] = "healthy"
 		}
 	}
-	
+
 	return status
 }

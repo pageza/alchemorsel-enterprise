@@ -48,13 +48,11 @@ type WebServer struct {
 	rateLimitStore *sync.Map // For rate limiting
 	csrfSecret     []byte    // For CSRF protection
 	// Performance monitoring
-	perfMonitor    *performance.PerformanceMonitor
+	perfMonitor *performance.PerformanceMonitor
 	// AI chat
-	convService    *conversation.Service
-	ollamaClient   *ai.OllamaClient
+	convService  *conversation.Service
+	ollamaClient *ai.OllamaClient
 }
-
-
 
 // NewWebServer creates a new web frontend server instance
 func NewWebServer(
@@ -100,12 +98,11 @@ func NewWebServer(
 		ollamaModel = "phi3:mini" // Default model matching .env
 		log.Info("Using default Ollama model", zap.String("model", ollamaModel))
 	}
-	log.Info("Creating Ollama client with configuration", 
-		zap.String("host", ollamaHost), 
+	log.Info("Creating Ollama client with configuration",
+		zap.String("host", ollamaHost),
 		zap.String("model", ollamaModel))
 	ollamaClient := ai.NewOllamaClient(ollamaHost, ollamaModel)
-	
-	
+
 	// Initialize SCS session manager
 	log.Info("Initializing session manager...")
 	sessionManager, err := NewSessionManager(cfg, log)
@@ -134,10 +131,10 @@ func NewWebServer(
 	}
 
 	server.router = server.setupRoutes()
-	
+
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Info("Creating HTTP server", zap.String("addr", addr))
-	
+
 	server.server = &http.Server{
 		Addr:         addr,
 		Handler:      server.router,
@@ -145,9 +142,8 @@ func NewWebServer(
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
-	
-	log.Info("HTTP server created", zap.String("server_addr", server.server.Addr))
 
+	log.Info("HTTP server created", zap.String("server_addr", server.server.Addr))
 
 	return server, nil
 }
@@ -161,11 +157,11 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	
+
 	// Performance monitoring middleware with recovery
 	r.Use(s.resilientMiddleware("performance", s.perfMonitor.Middleware()))
 	r.Use(s.securityHeadersMiddleware)
-	
+
 	// Session middleware with resilient wrapper to handle Redis failures gracefully
 	r.Use(s.resilientMiddleware("session", s.sessionManager.LoadAndSave))
 	r.Use(s.rateLimitMiddleware)
@@ -177,15 +173,15 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 	} else {
 		r.Mount("/static", http.StripPrefix("/static", http.FileServer(http.FS(staticSubFS))))
 	}
-	
+
 	// Service Worker - serve from root for full scope control
 	r.Get("/sw.js", s.handleServiceWorker)
-	
+
 	// Health check endpoints
 	r.Get("/health", s.handleHealthCheck)
 	r.Get("/ready", s.handleReadinessCheck)
 	r.Get("/live", s.handleLivenessCheck)
-	
+
 	// Debug endpoint to check embedded files
 	r.Get("/debug/static", s.handleDebugStatic)
 	r.Get("/debug/htmx", s.handleDebugHTMX)
@@ -197,14 +193,14 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 	r.Get("/register", s.handleRegisterPage)
 	r.Post("/register", s.handleRegister)
 	r.Post("/logout", s.handleLogout)
-	
+
 	// Protected pages (require authentication)
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireAuth)
-		
+
 		// Dashboard (now properly protected)
 		r.Get("/dashboard", s.handleDashboard)
-		
+
 		// Recipe pages
 		r.Get("/recipes", s.handleRecipeList)
 		r.Get("/recipes/new", s.handleNewRecipePage)
@@ -213,12 +209,12 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 		r.Get("/recipes/{id}/edit", s.handleEditRecipePage)
 		r.Put("/recipes/{id}", s.handleUpdateRecipe)
 		r.Delete("/recipes/{id}", s.handleDeleteRecipe)
-		
+
 		// AI features
 		r.Get("/ai/chat", s.handleAIChatPage)
 		r.Post("/ai/generate", s.handleAIGenerate)
 		r.Post("/ai/suggest", s.handleAISuggest)
-		
+
 		// User profile
 		r.Get("/profile", s.handleProfile)
 		r.Put("/profile", s.handleUpdateProfile)
@@ -234,7 +230,7 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 		r.Use(s.csrfMiddleware)
 		// Input validation middleware for all HTMX endpoints
 		r.Use(s.inputValidationMiddleware)
-		
+
 		r.Post("/search", s.handleHTMXSearch)
 		r.Post("/recipes/{id}/like", s.handleHTMXLike)
 		r.Post("/recipes/{id}/rate", s.handleHTMXRate)
@@ -247,22 +243,22 @@ func (s *WebServer) setupRoutes() *chi.Mux {
 		r.Get("/dashboard/activity", s.handleHTMXDashboardActivity)
 		r.Get("/dashboard/trending", s.handleHTMXDashboardTrending)
 		r.Get("/dashboard/collections", s.handleHTMXDashboardCollections)
-		
+
 		// AI Chat endpoints - Now properly secured
 		r.Post("/ai/chat", s.handleHTMXAIChat)
 		r.Post("/ai/chat/reset", s.handleHTMXAIChatReset)
-		
+
 		// Multi-Chat API endpoints
 		r.Get("/api/chat/conversations", s.handleAPIConversationList)
 		r.Get("/api/chat/history", s.handleAPIConversationHistory)
 		r.Post("/api/chat/message", s.handleAPIChatMessage)
 		r.Post("/api/chat/rename", s.handleAPIConversationRename)
 		r.Post("/api/chat/delete", s.handleAPIConversationDelete)
-		
+
 		// Multi-Chat HTMX endpoints
 		r.Get("/chat/conversations-list", s.handleHTMXConversationList)
 		r.Get("/chat/history", s.handleHTMXConversationHistory)
-		
+
 		r.Post("/recipes/search", s.handleHTMXRecipeSearch)
 	})
 
@@ -413,18 +409,18 @@ func parseTemplates() (*template.Template, error) {
 	// Parse all templates together from embedded filesystem
 	// Walk through the embedded filesystem to find all .html files
 	tmpl := template.New("").Funcs(funcMap)
-	
+
 	err := fs.WalkDir(templatesFS, "templates", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		
+
 		if !d.IsDir() && strings.HasSuffix(path, ".html") {
 			content, err := templatesFS.ReadFile(path)
 			if err != nil {
 				return fmt.Errorf("failed to read template file %s: %w", path, err)
 			}
-			
+
 			// Get template name from filename (remove .html extension)
 			name := strings.TrimSuffix(filepath.Base(path), ".html")
 			_, err = tmpl.New(name).Parse(string(content))
@@ -434,7 +430,7 @@ func parseTemplates() (*template.Template, error) {
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk template directory: %w", err)
 	}
@@ -451,13 +447,12 @@ func parseTemplates() (*template.Template, error) {
 
 // Middleware
 
-
 func (s *WebServer) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get authentication data from SCS session
 		userID := s.sessionManager.GetString(r.Context(), "user_id")
 		accessToken := s.sessionManager.GetString(r.Context(), "access_token")
-		
+
 		if userID == "" || accessToken == "" {
 			// Check if this is an HTMX request
 			if r.Header.Get("HX-Request") == "true" {
@@ -471,10 +466,12 @@ func (s *WebServer) requireAuth(next http.Handler) http.Handler {
 		}
 
 		// DEBUG: Log session data for debugging
-		s.logger.Debug("requireAuth middleware", 
+		s.logger.Debug("requireAuth middleware",
 			zap.String("user_id", userID),
 			zap.String("access_token_prefix", func() string {
-				if len(accessToken) > 10 { return accessToken[:10] + "..." }
+				if len(accessToken) > 10 {
+					return accessToken[:10] + "..."
+				}
 				return accessToken
 			}()),
 			zap.String("session_token", s.sessionManager.Token(r.Context())),
@@ -486,15 +483,17 @@ func (s *WebServer) requireAuth(next http.Handler) http.Handler {
 			s.logger.Warn("Token verification failed",
 				zap.String("user_id", userID),
 				zap.String("access_token_prefix", func() string {
-					if len(accessToken) > 10 { return accessToken[:10] + "..." }
+					if len(accessToken) > 10 {
+						return accessToken[:10] + "..."
+					}
 					return accessToken
 				}()),
 			)
-			
+
 			// Token invalid, clear session
 			s.sessionManager.Clear(r.Context())
 			s.sessionManager.RenewToken(r.Context())
-			
+
 			// Check if this is an HTMX request
 			if r.Header.Get("HX-Request") == "true" {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -514,7 +513,7 @@ func (s *WebServer) requireAuth(next http.Handler) http.Handler {
 
 func (s *WebServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	// Determine check mode from query parameter
 	mode := healthcheck.ModeStandard
 	if modeParam := r.URL.Query().Get("mode"); modeParam != "" {
@@ -527,10 +526,10 @@ func (s *WebServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 			mode = healthcheck.ModeMaintenance
 		}
 	}
-	
+
 	// Perform enterprise health check
 	response := s.healthCheck.CheckWithMode(ctx, mode)
-	
+
 	// Determine HTTP status code
 	statusCode := http.StatusOK
 	if response.Status == healthcheck.StatusUnhealthy {
@@ -538,10 +537,10 @@ func (s *WebServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	} else if response.Status == healthcheck.StatusDegraded {
 		statusCode = http.StatusPartialContent
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	
+
 	// Use JSON encoding for enterprise response
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		s.logger.Error("Failed to encode health check response", zap.Error(err))
@@ -552,7 +551,7 @@ func (s *WebServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 func (s *WebServer) handleReadinessCheck(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	response := s.healthCheck.CheckWithMode(ctx, healthcheck.ModeStandard)
-	
+
 	// Service is ready only if all checks pass and API is accessible
 	if response.Status != healthcheck.StatusHealthy {
 		w.Header().Set("Content-Type", "application/json")
@@ -564,7 +563,7 @@ func (s *WebServer) handleReadinessCheck(w http.ResponseWriter, r *http.Request)
 		})
 		return
 	}
-	
+
 	// Also check if API is reachable
 	if !s.apiClient.VerifyConnection(ctx) {
 		w.Header().Set("Content-Type", "application/json")
@@ -575,7 +574,7 @@ func (s *WebServer) handleReadinessCheck(w http.ResponseWriter, r *http.Request)
 		})
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -597,7 +596,7 @@ func (s *WebServer) handleLivenessCheck(w http.ResponseWriter, r *http.Request) 
 func (s *WebServer) handleDebugStatic(w http.ResponseWriter, r *http.Request) {
 	// Debug endpoint to list embedded static files
 	files := make([]string, 0)
-	
+
 	err := fs.WalkDir(staticFS, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -605,7 +604,7 @@ func (s *WebServer) handleDebugStatic(w http.ResponseWriter, r *http.Request) {
 		files = append(files, path)
 		return nil
 	})
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -621,7 +620,7 @@ func (s *WebServer) handleDebugHTMX(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "HTMX file not found: "+err.Error(), http.StatusNotFound)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/javascript")
 	w.WriteHeader(http.StatusOK)
 	w.Write(data)
@@ -635,7 +634,7 @@ func (s *WebServer) handleServiceWorker(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Service worker not found", http.StatusNotFound)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/javascript")
 	w.Header().Set("Cache-Control", "no-cache") // Service workers should not be cached
 	w.WriteHeader(http.StatusOK)
@@ -645,12 +644,12 @@ func (s *WebServer) handleServiceWorker(w http.ResponseWriter, r *http.Request) 
 func (s *WebServer) handleHome(w http.ResponseWriter, r *http.Request) {
 	// Use the same authentication method as other pages
 	user, isAuthenticated := s.getUserContext(r)
-	
+
 	s.logger.Info("Home page authentication check",
 		zap.Bool("is_authenticated", isAuthenticated),
 		zap.Any("user", user),
 	)
-	
+
 	// Authenticated users get redirected to AI Chat (their "home")
 	if isAuthenticated {
 		http.Redirect(w, r, "/ai/chat", http.StatusSeeOther)
@@ -672,7 +671,7 @@ func (s *WebServer) handleHome(w http.ResponseWriter, r *http.Request) {
 	} else {
 		data["FeaturedRecipes"] = featuredRecipes
 	}
-	
+
 	// Render home page for unauthenticated users only
 	s.renderTemplate(w, "home", data)
 }
@@ -704,25 +703,29 @@ func (s *WebServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 	s.sessionManager.Put(r.Context(), "refresh_token", resp.RefreshToken)
 	s.sessionManager.Put(r.Context(), "user_name", resp.User.Name)
 	s.sessionManager.Put(r.Context(), "user_email", resp.User.Email)
-	
+
 	s.logger.Info("Session data stored after login",
 		zap.String("user_id", resp.User.ID),
 		zap.String("user_name", resp.User.Name),
 		zap.String("user_email", resp.User.Email),
 		zap.String("access_token_prefix", func() string {
-			if len(resp.AccessToken) > 10 { return resp.AccessToken[:10] + "..." }
+			if len(resp.AccessToken) > 10 {
+				return resp.AccessToken[:10] + "..."
+			}
 			return resp.AccessToken
 		}()),
 		zap.String("session_token", s.sessionManager.Token(r.Context())),
 	)
-	
+
 	// DEBUG: Verify session data was stored correctly
 	storedUserID := s.sessionManager.GetString(r.Context(), "user_id")
 	storedAccessToken := s.sessionManager.GetString(r.Context(), "access_token")
 	s.logger.Debug("Verification after session storage",
 		zap.String("stored_user_id", storedUserID),
 		zap.String("stored_access_token_prefix", func() string {
-			if len(storedAccessToken) > 10 { return storedAccessToken[:10] + "..." }
+			if len(storedAccessToken) > 10 {
+				return storedAccessToken[:10] + "..."
+			}
 			return storedAccessToken
 		}()),
 	)
@@ -732,7 +735,7 @@ func (s *WebServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if redirect == "" {
 		redirect = "/" // Let handleHome redirect authenticated users to AI chat
 	}
-	
+
 	// Check if this is an HTMX request
 	if r.Header.Get("HX-Request") == "true" {
 		// For HTMX requests, use HX-Redirect header
@@ -740,7 +743,7 @@ func (s *WebServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	
+
 	// For regular requests, use standard redirect
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
@@ -767,7 +770,7 @@ func (s *WebServer) handleRegister(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`<div class="alert alert-error">Registration failed: ` + err.Error() + `</div>`))
 			return
 		}
-		
+
 		// For regular requests, render full template
 		s.renderTemplate(w, "register", map[string]interface{}{
 			"Title": "Register - Alchemorsel",
@@ -785,14 +788,16 @@ func (s *WebServer) handleRegister(w http.ResponseWriter, r *http.Request) {
 		s.sessionManager.Put(r.Context(), "refresh_token", loginResp.RefreshToken)
 		s.sessionManager.Put(r.Context(), "user_name", resp.User.Name)
 		s.sessionManager.Put(r.Context(), "user_email", resp.User.Email)
-		
+
 		// DEBUG: Verify session data was stored correctly after registration
 		storedUserID := s.sessionManager.GetString(r.Context(), "user_id")
 		storedAccessToken := s.sessionManager.GetString(r.Context(), "access_token")
 		s.logger.Debug("Registration session verification",
 			zap.String("stored_user_id", storedUserID),
 			zap.String("stored_access_token_prefix", func() string {
-				if len(storedAccessToken) > 10 { return storedAccessToken[:10] + "..." }
+				if len(storedAccessToken) > 10 {
+					return storedAccessToken[:10] + "..."
+				}
 				return storedAccessToken
 			}()),
 			zap.String("session_token", s.sessionManager.Token(r.Context())),
@@ -806,7 +811,7 @@ func (s *WebServer) handleRegister(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	
+
 	// For regular requests, use standard redirect
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
@@ -818,7 +823,6 @@ func (s *WebServer) handleLogout(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("Failed to destroy session", zap.Error(err))
 	}
 
-
 	// Redirect to home page
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -826,10 +830,10 @@ func (s *WebServer) handleLogout(w http.ResponseWriter, r *http.Request) {
 func (s *WebServer) handleRecipeList(w http.ResponseWriter, r *http.Request) {
 	// Get user context for navigation
 	user, isAuthenticated := s.getUserContext(r)
-	
+
 	// Get access token from SCS session
 	accessToken := s.sessionManager.GetString(r.Context(), "access_token")
-	
+
 	// Get recipes from API
 	recipes, err := s.apiClient.GetRecipes(r.Context(), accessToken)
 	if err != nil {
@@ -848,7 +852,7 @@ func (s *WebServer) handleRecipeList(w http.ResponseWriter, r *http.Request) {
 func (s *WebServer) handleNewRecipePage(w http.ResponseWriter, r *http.Request) {
 	// Get user context for navigation
 	user, isAuthenticated := s.getUserContext(r)
-	
+
 	s.renderTemplate(w, "recipe-new", map[string]interface{}{
 		"Title":           "New Recipe - Alchemorsel",
 		"User":            user,
@@ -888,7 +892,7 @@ func (s *WebServer) handleDeleteRecipe(w http.ResponseWriter, r *http.Request) {
 func (s *WebServer) handleAIChatPage(w http.ResponseWriter, r *http.Request) {
 	userID := s.sessionManager.GetString(r.Context(), "user_id")
 	var user interface{} = nil
-	
+
 	// Get user information if authenticated
 	if userID != "" {
 		// In a real application, you'd fetch user details from the database
@@ -913,7 +917,7 @@ func (s *WebServer) handleAIChatPage(w http.ResponseWriter, r *http.Request) {
 			// Get the most recent conversation for this user
 			conversationIndexKey := fmt.Sprintf("conversation_index_%s", userID)
 			existingIndex := s.sessionManager.Get(r.Context(), conversationIndexKey)
-			
+
 			if existingIndex != nil {
 				if index, ok := existingIndex.([]map[string]interface{}); ok && len(index) > 0 {
 					// Get the most recent conversation (first in index)
@@ -924,12 +928,12 @@ func (s *WebServer) handleAIChatPage(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		
+
 		// Load conversation history if we have a conversation ID
 		if conversationID != "" {
 			conversationKey := fmt.Sprintf("ai_conversation_%s_%s", userID, conversationID)
 			savedHistory := s.sessionManager.Get(r.Context(), conversationKey)
-			
+
 			if savedHistory != nil {
 				if history, ok := savedHistory.([]ConversationMessage); ok {
 					conversationHistory = history
@@ -950,7 +954,7 @@ func (s *WebServer) handleAIChatPage(w http.ResponseWriter, r *http.Request) {
 		zap.Bool("conversation_history_nil", conversationHistory == nil),
 		zap.String("conversation_history_type", fmt.Sprintf("%T", conversationHistory)),
 	)
-	
+
 	// Log first message if exists
 	if len(conversationHistory) > 0 {
 		firstMsg := conversationHistory[0]
@@ -962,12 +966,12 @@ func (s *WebServer) handleAIChatPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.renderTemplate(w, "chat", map[string]interface{}{
-		"Title":          "Chat with AI Chef - Alchemorsel",
-		"Description":    "Chat with our AI Chef to create amazing recipes through conversation",
-		"User":           user,
-		"IsAuthenticated": user != nil,
-		"CurrentPage":    "ai-chat",
-		"CSRFToken":      csrfToken,
+		"Title":               "Chat with AI Chef - Alchemorsel",
+		"Description":         "Chat with our AI Chef to create amazing recipes through conversation",
+		"User":                user,
+		"IsAuthenticated":     user != nil,
+		"CurrentPage":         "ai-chat",
+		"CSRFToken":           csrfToken,
 		"ConversationHistory": conversationHistory,
 	})
 }
@@ -985,13 +989,13 @@ func (s *WebServer) handleAISuggest(w http.ResponseWriter, r *http.Request) {
 func (s *WebServer) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	// Get user context for navigation
 	user, isAuthenticated := s.getUserContext(r)
-	
+
 	// Debug: Log authentication status
-	s.logger.Debug("Dashboard access attempt", 
+	s.logger.Debug("Dashboard access attempt",
 		zap.Bool("isAuthenticated", isAuthenticated),
 		zap.Any("user", user),
 	)
-	
+
 	// Mock dashboard data for template
 	createdAt := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
 	dashboardData := map[string]interface{}{
@@ -1009,12 +1013,12 @@ func (s *WebServer) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			"Followers":     45,
 			"Collections":   3,
 		},
-		"UserRecipes":       []interface{}{}, // Empty for now - will be loaded via HTMX
-		"RecentActivity":    []interface{}{}, // Empty for now - will be loaded via HTMX
-		"TrendingRecipes":   []interface{}{}, // Empty for now - will be loaded via HTMX
-		"UserCollections":   []interface{}{}, // Empty for now - will be loaded via HTMX
+		"UserRecipes":     []interface{}{}, // Empty for now - will be loaded via HTMX
+		"RecentActivity":  []interface{}{}, // Empty for now - will be loaded via HTMX
+		"TrendingRecipes": []interface{}{}, // Empty for now - will be loaded via HTMX
+		"UserCollections": []interface{}{}, // Empty for now - will be loaded via HTMX
 	}
-	
+
 	s.renderTemplate(w, "dashboard", map[string]interface{}{
 		"Title":           "Dashboard - Alchemorsel",
 		"User":            user,
@@ -1027,7 +1031,7 @@ func (s *WebServer) handleDashboard(w http.ResponseWriter, r *http.Request) {
 func (s *WebServer) handleProfile(w http.ResponseWriter, r *http.Request) {
 	// Get user context for navigation
 	user, isAuthenticated := s.getUserContext(r)
-	
+
 	// Mock profile data for template
 	createdAt := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
 	profileData := map[string]interface{}{
@@ -1056,7 +1060,7 @@ func (s *WebServer) handleProfile(w http.ResponseWriter, r *http.Request) {
 		"IsOwnProfile": true,
 		"IsFollowing":  false,
 	}
-	
+
 	s.renderTemplate(w, "profile", map[string]interface{}{
 		"Title":           "Profile - Alchemorsel",
 		"User":            user,
@@ -1110,11 +1114,11 @@ func (s *WebServer) handleHTMXNotifications(w http.ResponseWriter, r *http.Reque
 
 func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
-	
+
 	// Add panic recovery with detailed logging
 	defer func() {
 		if r := recover(); r != nil {
-			s.logger.Error("PANIC in handleHTMXAIChat", 
+			s.logger.Error("PANIC in handleHTMXAIChat",
 				zap.Any("panic", r),
 				zap.String("stack", fmt.Sprintf("%+v", r)),
 				zap.Duration("duration", time.Since(startTime)),
@@ -1123,8 +1127,8 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("<div class=\"error\">Internal server error occurred. Please try again.</div>"))
 		}
 	}()
-	
-	s.logger.Info("AI Chat request started", 
+
+	s.logger.Info("AI Chat request started",
 		zap.String("method", r.Method),
 		zap.String("path", r.URL.Path),
 		zap.String("timestamp", startTime.Format("15:04:05.000")),
@@ -1132,7 +1136,7 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 		zap.String("user_agent", r.UserAgent()),
 		zap.String("content_type", r.Header.Get("Content-Type")),
 	)
-	
+
 	// Log form data for debugging
 	if err := r.ParseForm(); err != nil {
 		s.logger.Error("Failed to parse form data", zap.Error(err))
@@ -1140,13 +1144,13 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("<div class=\"error\">Invalid form data</div>"))
 		return
 	}
-	
-	s.logger.Debug("Form data received", 
+
+	s.logger.Debug("Form data received",
 		zap.Any("form_values", r.Form),
 		zap.String("message_raw", r.FormValue("message")),
 		zap.String("csrf_token", r.FormValue("csrf_token")),
 	)
-	
+
 	// CRITICAL SECURITY FIX ALV3-2025-001: Validate authentication (enforced by middleware)
 	userID := s.sessionManager.GetString(r.Context(), "user_id")
 	if userID == "" {
@@ -1177,7 +1181,7 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 	message = html.EscapeString(message)
 
 	validationTime := time.Since(startTime)
-	s.logger.Info("AI Chat validation completed", 
+	s.logger.Info("AI Chat validation completed",
 		zap.String("user_id", userID),
 		zap.String("message_preview", message[:min(50, len(message))]),
 		zap.Int("message_length", len(message)),
@@ -1190,32 +1194,32 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 		// Generate new conversation ID if not provided
 		conversationID = fmt.Sprintf("conv_%d_%s", time.Now().UnixNano(), userID)
 	}
-	
+
 	// Get conversation history from session using conversation-specific key
 	conversationKey := fmt.Sprintf("ai_conversation_%s_%s", userID, conversationID)
-	s.logger.Debug("Attempting to retrieve conversation history", 
+	s.logger.Debug("Attempting to retrieve conversation history",
 		zap.String("user_id", userID),
 		zap.String("conversation_id", conversationID),
 		zap.String("conversation_key", conversationKey),
 	)
-	
+
 	existingHistory := s.sessionManager.Get(r.Context(), conversationKey)
-	s.logger.Debug("Session history retrieval", 
+	s.logger.Debug("Session history retrieval",
 		zap.String("user_id", userID),
 		zap.Bool("history_exists", existingHistory != nil),
 		zap.String("history_type", fmt.Sprintf("%T", existingHistory)),
 	)
-	
+
 	var persistentHistory []ConversationMessage
 	if existingHistory != nil {
 		if history, ok := existingHistory.([]ConversationMessage); ok {
 			persistentHistory = history
-			s.logger.Info("Retrieved conversation history", 
+			s.logger.Info("Retrieved conversation history",
 				zap.String("user_id", userID),
 				zap.Int("history_length", len(history)),
 			)
 		} else {
-			s.logger.Warn("Conversation history type assertion failed", 
+			s.logger.Warn("Conversation history type assertion failed",
 				zap.String("user_id", userID),
 				zap.String("actual_type", fmt.Sprintf("%T", existingHistory)),
 			)
@@ -1223,7 +1227,7 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 	} else {
 		s.logger.Debug("No existing conversation history found", zap.String("user_id", userID))
 	}
-	
+
 	// Create chat messages starting with system prompt
 	messages := []conversation.ChatMessage{
 		{
@@ -1231,16 +1235,16 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 			Content: "You are an expert AI chef assistant helping users with cooking and recipes. You are knowledgeable, friendly, and practical. Always provide helpful, accurate, and safe cooking advice. Maintain context from previous messages in this conversation to provide coherent, connected responses.",
 		},
 	}
-	
+
 	// Convert persistent history to API format and apply limit
 	historyLimit := 10
 	apiHistory := make([]conversation.ChatMessage, 0, len(persistentHistory))
-	
+
 	startIdx := 0
 	if len(persistentHistory) > historyLimit {
 		startIdx = len(persistentHistory) - historyLimit
 	}
-	
+
 	for i := startIdx; i < len(persistentHistory); i++ {
 		msg := persistentHistory[i]
 		apiHistory = append(apiHistory, conversation.ChatMessage{
@@ -1248,9 +1252,9 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 			Content: msg.Content,
 		})
 	}
-	
+
 	messages = append(messages, apiHistory...)
-	
+
 	// Add current user message
 	currentUserMessage := conversation.ChatMessage{
 		Role:    "user",
@@ -1260,52 +1264,52 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 
 	// Generate AI response using Ollama
 	ollamaStartTime := time.Now()
-	s.logger.Info("Starting Ollama AI generation", 
+	s.logger.Info("Starting Ollama AI generation",
 		zap.String("user_id", userID),
 		zap.String("timestamp", ollamaStartTime.Format("15:04:05.000")),
 		zap.Int("total_messages", len(messages)),
 		zap.Bool("ollama_client_exists", s.ollamaClient != nil),
 	)
-	
+
 	// Log the messages being sent (first few for debugging)
 	for i, msg := range messages {
 		if i < 3 || i == len(messages)-1 { // Log first 3 and last message
-			s.logger.Debug("Message to Ollama", 
+			s.logger.Debug("Message to Ollama",
 				zap.Int("index", i),
 				zap.String("role", msg.Role),
 				zap.String("content_preview", msg.Content[:min(100, len(msg.Content))]),
 			)
 		}
 	}
-	
+
 	if s.ollamaClient == nil {
 		s.logger.Error("Ollama client is nil")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("<div class=\"error\">AI service not available</div>"))
 		return
 	}
-	
+
 	// Use a very short timeout (10 seconds) to avoid connection issues
 	// If Ollama is slow, we'll use the fallback response
 	ollamaCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	aiResult, err := s.ollamaClient.GenerateChatCompletion(ollamaCtx, messages, 0.7, 2048)
-	
+
 	ollmaDuration := time.Since(ollamaStartTime)
 	var aiResponseContent string
 	if err != nil {
-		s.logger.Error("Ollama generation failed", 
-			zap.Error(err), 
+		s.logger.Error("Ollama generation failed",
+			zap.Error(err),
 			zap.String("user_id", userID),
 			zap.Duration("ollama_duration", ollmaDuration),
 			zap.Duration("total_duration", time.Since(startTime)),
 		)
-		
+
 		// Send fallback response
 		aiResponseContent = "I'm having trouble connecting to my AI chef brain right now! 🧠 Could you try asking again in a moment? In the meantime, I'm here to help with any cooking questions you have!"
 	} else {
-		s.logger.Info("Ollama generation completed successfully", 
+		s.logger.Info("Ollama generation completed successfully",
 			zap.String("user_id", userID),
 			zap.Duration("ollama_duration", ollmaDuration),
 			zap.Duration("total_duration_so_far", time.Since(startTime)),
@@ -1313,57 +1317,57 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 		)
 		aiResponseContent = aiResult.Content
 	}
-	
+
 	// Format AI response for better readability
-	s.logger.Debug("Formatting AI response", 
+	s.logger.Debug("Formatting AI response",
 		zap.String("user_id", userID),
 		zap.Int("response_length", len(aiResponseContent)),
 	)
-	
+
 	formattedAIResponse := s.formatAIResponse(aiResponseContent)
-	
-	s.logger.Debug("AI response formatted", 
+
+	s.logger.Debug("AI response formatted",
 		zap.String("user_id", userID),
 		zap.Int("formatted_length", len(formattedAIResponse)),
 	)
-	
+
 	// Create ConversationMessage objects for session storage (with timestamps)
 	now := time.Now()
-	
+
 	sessionUserMessage := ConversationMessage{
 		Role:      "user",
-		Content:   message, // Already sanitized above
+		Content:   message,                   // Already sanitized above
 		Timestamp: now.Add(-1 * time.Minute), // User message slightly before AI response
 	}
-	
+
 	sessionAIMessage := ConversationMessage{
 		Role:      "assistant",
 		Content:   aiResponseContent, // Store unformatted content for AI context
 		Timestamp: now,
 	}
-	
+
 	// Update conversation history
 	updatedHistory := append(persistentHistory, sessionUserMessage, sessionAIMessage)
-	
-	s.logger.Debug("Attempting to save conversation history to session", 
+
+	s.logger.Debug("Attempting to save conversation history to session",
 		zap.String("user_id", userID),
 		zap.Int("history_length", len(updatedHistory)),
 		zap.String("conversation_key", conversationKey),
 	)
-	
+
 	s.sessionManager.Put(r.Context(), conversationKey, updatedHistory)
-	
+
 	// Also maintain a conversation index for the user
 	conversationIndexKey := fmt.Sprintf("conversation_index_%s", userID)
 	existingIndex := s.sessionManager.Get(r.Context(), conversationIndexKey)
-	
+
 	var conversationIndex []map[string]interface{}
 	if existingIndex != nil {
 		if index, ok := existingIndex.([]map[string]interface{}); ok {
 			conversationIndex = index
 		}
 	}
-	
+
 	// Check if this conversation already exists in the index
 	found := false
 	for i := range conversationIndex {
@@ -1388,7 +1392,7 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	
+
 	// Add new conversation to index if not found
 	if !found {
 		title := "New Conversation"
@@ -1404,7 +1408,7 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		
+
 		conversationIndex = append(conversationIndex, map[string]interface{}{
 			"id":            conversationID,
 			"title":         title,
@@ -1413,10 +1417,10 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 			"message_count": len(updatedHistory),
 		})
 	}
-	
+
 	s.sessionManager.Put(r.Context(), conversationIndexKey, conversationIndex)
-	
-	s.logger.Info("Conversation history updated", 
+
+	s.logger.Info("Conversation history updated",
 		zap.String("user_id", userID),
 		zap.Int("total_messages", len(updatedHistory)),
 		zap.String("conversation_key", conversationKey),
@@ -1438,34 +1442,34 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 	</div>`
 
 	totalDuration := time.Since(startTime)
-	s.logger.Info("AI Chat response completed", 
+	s.logger.Info("AI Chat response completed",
 		zap.String("user_id", userID),
 		zap.Duration("total_duration", totalDuration),
 		zap.Duration("ollama_duration", ollmaDuration),
 		zap.Duration("validation_duration", validationTime),
 		zap.Int("response_html_length", len(aiResponse)),
-		zap.String("performance_summary", fmt.Sprintf("validation: %dms, ollama: %dms, total: %dms", 
-			validationTime.Milliseconds(), 
-			ollmaDuration.Milliseconds(), 
+		zap.String("performance_summary", fmt.Sprintf("validation: %dms, ollama: %dms, total: %dms",
+			validationTime.Milliseconds(),
+			ollmaDuration.Milliseconds(),
 			totalDuration.Milliseconds())),
 	)
-	
-	s.logger.Info("AI Chat request completed successfully", 
+
+	s.logger.Info("AI Chat request completed successfully",
 		zap.String("user_id", userID),
 		zap.Duration("total_duration", time.Since(startTime)),
 		zap.Int("response_size", len(aiResponse)),
 	)
-	
+
 	// Set response headers and write the response
 	w.Header().Set("Content-Type", "text/html")
 	written, err := w.Write([]byte(aiResponse))
 	if err != nil {
-		s.logger.Error("Failed to write response", 
+		s.logger.Error("Failed to write response",
 			zap.Error(err),
 			zap.String("user_id", userID),
 		)
 	} else {
-		s.logger.Debug("Response written successfully", 
+		s.logger.Debug("Response written successfully",
 			zap.String("user_id", userID),
 			zap.Int("bytes_written", written),
 		)
@@ -1474,12 +1478,12 @@ func (s *WebServer) handleHTMXAIChat(w http.ResponseWriter, r *http.Request) {
 
 func (s *WebServer) handleHTMXAIChatReset(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
-	s.logger.Info("AI Chat reset request started", 
+	s.logger.Info("AI Chat reset request started",
 		zap.String("method", r.Method),
 		zap.String("path", r.URL.Path),
 		zap.String("timestamp", startTime.Format("15:04:05.000")),
 	)
-	
+
 	// CRITICAL SECURITY FIX: Validate authentication (enforced by middleware)
 	userID := s.sessionManager.GetString(r.Context(), "user_id")
 	if userID == "" {
@@ -1492,8 +1496,8 @@ func (s *WebServer) handleHTMXAIChatReset(w http.ResponseWriter, r *http.Request
 	// Clear conversation history from session
 	conversationKey := fmt.Sprintf("ai_conversation_%s", userID)
 	s.sessionManager.Remove(r.Context(), conversationKey)
-	
-	s.logger.Info("AI Chat conversation reset", 
+
+	s.logger.Info("AI Chat conversation reset",
 		zap.String("user_id", userID),
 		zap.String("conversation_key", conversationKey),
 		zap.Duration("duration", time.Since(startTime)),
@@ -1522,8 +1526,8 @@ func (s *WebServer) handleAPIConversationList(w http.ResponseWriter, r *http.Req
 	// Forward request to API server instead of calling convService directly
 	err := s.apiClient.ForwardRequest(r.Context(), w, r, "/api/v3/chat/conversations")
 	if err != nil {
-		s.logger.Error("Failed to forward conversation list request", 
-			zap.Error(err), 
+		s.logger.Error("Failed to forward conversation list request",
+			zap.Error(err),
 			zap.String("user_id", userID),
 		)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -1548,8 +1552,8 @@ func (s *WebServer) handleAPIConversationHistory(w http.ResponseWriter, r *http.
 	// Forward request to API server messages endpoint
 	err := s.apiClient.ForwardRequest(r.Context(), w, r, "/api/v3/chat/conversations/"+conversationID+"/messages")
 	if err != nil {
-		s.logger.Error("Failed to forward conversation history request", 
-			zap.Error(err), 
+		s.logger.Error("Failed to forward conversation history request",
+			zap.Error(err),
 			zap.String("user_id", userID),
 		)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -1574,8 +1578,8 @@ func (s *WebServer) handleAPIChatMessage(w http.ResponseWriter, r *http.Request)
 	// Forward request to API server messages endpoint
 	err := s.apiClient.ForwardRequest(r.Context(), w, r, "/api/v3/chat/conversations/"+conversationID+"/messages")
 	if err != nil {
-		s.logger.Error("Failed to forward chat message request", 
-			zap.Error(err), 
+		s.logger.Error("Failed to forward chat message request",
+			zap.Error(err),
 			zap.String("user_id", userID),
 		)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -1600,8 +1604,8 @@ func (s *WebServer) handleAPIConversationRename(w http.ResponseWriter, r *http.R
 	// Forward request to API server conversation endpoint
 	err := s.apiClient.ForwardRequest(r.Context(), w, r, "/api/v3/chat/conversations/"+conversationID)
 	if err != nil {
-		s.logger.Error("Failed to forward conversation rename request", 
-			zap.Error(err), 
+		s.logger.Error("Failed to forward conversation rename request",
+			zap.Error(err),
 			zap.String("user_id", userID),
 		)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -1626,8 +1630,8 @@ func (s *WebServer) handleAPIConversationDelete(w http.ResponseWriter, r *http.R
 	// Forward request to API server conversation endpoint
 	err := s.apiClient.ForwardRequest(r.Context(), w, r, "/api/v3/chat/conversations/"+conversationID)
 	if err != nil {
-		s.logger.Error("Failed to forward conversation delete request", 
-			zap.Error(err), 
+		s.logger.Error("Failed to forward conversation delete request",
+			zap.Error(err),
 			zap.String("user_id", userID),
 		)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -1646,7 +1650,7 @@ func (s *WebServer) handleHTMXConversationList(w http.ResponseWriter, r *http.Re
 	// Get conversation index from session storage
 	conversationIndexKey := fmt.Sprintf("conversation_index_%s", userID)
 	existingIndex := s.sessionManager.Get(r.Context(), conversationIndexKey)
-	
+
 	var conversationIndex []map[string]interface{}
 	if existingIndex != nil {
 		if index, ok := existingIndex.([]map[string]interface{}); ok {
@@ -1673,7 +1677,7 @@ func (s *WebServer) handleHTMXConversationList(w http.ResponseWriter, r *http.Re
 		title := conv["title"].(string)
 		conversationID := conv["id"].(string)
 		messageCount := conv["message_count"].(int)
-		
+
 		// Format time
 		var timeStr string
 		if updatedAt, ok := conv["updated_at"].(time.Time); ok {
@@ -1681,7 +1685,7 @@ func (s *WebServer) handleHTMXConversationList(w http.ResponseWriter, r *http.Re
 		} else {
 			timeStr = "Recently"
 		}
-		
+
 		html += fmt.Sprintf(`
 			<div class="conversation-item" data-conversation-id="%s" style="padding: 1rem; border-bottom: 1px solid #e2e8f0; transition: background-color 0.2s;">
 				<div style="display: flex; justify-content: space-between; align-items: start;">
@@ -1713,7 +1717,7 @@ func (s *WebServer) handleHTMXConversationHistory(w http.ResponseWriter, r *http
 	// Get conversation ID from request (for loading specific conversation)
 	conversationID := strings.TrimSpace(r.URL.Query().Get("conversation_id"))
 	var conversationKey string
-	
+
 	if conversationID != "" {
 		// Load specific conversation
 		conversationKey = fmt.Sprintf("ai_conversation_%s_%s", userID, conversationID)
@@ -1732,7 +1736,7 @@ func (s *WebServer) handleHTMXConversationHistory(w http.ResponseWriter, r *http
 
 	// Get conversation history from session storage
 	existingHistory := s.sessionManager.Get(r.Context(), conversationKey)
-	
+
 	var conversationHistory []conversation.ChatMessage
 	if existingHistory != nil {
 		if history, ok := existingHistory.([]conversation.ChatMessage); ok {
@@ -1755,7 +1759,7 @@ func (s *WebServer) handleHTMXConversationHistory(w http.ResponseWriter, r *http
 
 	// Generate HTML for conversation history
 	html := `<div id="chat-messages" style="min-height: 400px; max-height: 600px; overflow-y: auto; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; margin-bottom: 1rem; background: #f8f9fa;">`
-	
+
 	for _, msg := range conversationHistory {
 		if msg.Role == "user" {
 			escapedContent := s.escapeHTML(msg.Content)
@@ -1787,7 +1791,7 @@ func (s *WebServer) handleHTMXConversationHistory(w http.ResponseWriter, r *http
 			</div>`
 		}
 	}
-	
+
 	html += `</div>`
 
 	w.Header().Set("Content-Type", "text/html")
@@ -1808,7 +1812,7 @@ func (s *WebServer) writeJSONError(w http.ResponseWriter, message string, status
 func (s *WebServer) formatTimeAgo(t time.Time) string {
 	now := time.Now()
 	diff := now.Sub(t)
-	
+
 	if diff < time.Minute {
 		return "Just now"
 	} else if diff < time.Hour {
@@ -1904,7 +1908,7 @@ func (s *WebServer) handleHTMXRecipeSearch(w http.ResponseWriter, r *http.Reques
 
 func (s *WebServer) renderTemplate(w http.ResponseWriter, name string, data interface{}) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	
+
 	// Ensure data is a map for template execution
 	templateData := make(map[string]interface{})
 	if data != nil {
@@ -1912,7 +1916,7 @@ func (s *WebServer) renderTemplate(w http.ResponseWriter, name string, data inte
 			templateData = dataMap
 		}
 	}
-	
+
 	// Set default values if not provided
 	if templateData["Title"] == nil {
 		templateData["Title"] = "Alchemorsel"
@@ -1922,26 +1926,26 @@ func (s *WebServer) renderTemplate(w http.ResponseWriter, name string, data inte
 	}
 	// Set template name for base template conditional logic
 	templateData["TemplateName"] = name
-	
+
 	// Add user context if not already provided and if we can access the request context
 	if templateData["User"] == nil || templateData["IsAuthenticated"] == nil {
 		// Try to get session from request context if available
 		// Note: This requires the request context to be available
 		// For now, we'll rely on handlers to explicitly pass User data
 	}
-	
+
 	// Debug: Log template execution
-	s.logger.Debug("Executing template", 
+	s.logger.Debug("Executing template",
 		zap.String("template", name),
 		zap.Any("data", templateData))
-	
+
 	// Try to execute the named template
 	err := s.templates.ExecuteTemplate(w, name, templateData)
 	if err != nil {
-		s.logger.Error("Failed to execute template", 
-			zap.String("template", name), 
+		s.logger.Error("Failed to execute template",
+			zap.String("template", name),
 			zap.Error(err))
-		
+
 		// Fallback to simple HTML if template execution fails
 		fmt.Fprintf(w, `<!DOCTYPE html>
 <html>
@@ -1967,24 +1971,26 @@ func (s *WebServer) getUserContext(r *http.Request) (user interface{}, isAuthent
 	accessToken := s.sessionManager.GetString(r.Context(), "access_token")
 	userName := s.sessionManager.GetString(r.Context(), "user_name")
 	sessionToken := s.sessionManager.Token(r.Context())
-	
+
 	s.logger.Debug("getUserContext session data",
 		zap.String("user_id", userID),
 		zap.String("user_name", userName),
 		zap.String("access_token_prefix", func() string {
-			if len(accessToken) > 10 { return accessToken[:10] + "..." }
+			if len(accessToken) > 10 {
+				return accessToken[:10] + "..."
+			}
 			return accessToken
 		}()),
 		zap.String("session_token", sessionToken),
 	)
-	
+
 	if userID != "" && accessToken != "" {
 		// Verify token is still valid with API
 		if s.apiClient.VerifyToken(r.Context(), accessToken) {
 			isAuthenticated = true
 			user = map[string]interface{}{
-				"ID":   userID,
-				"Name": userName,
+				"ID":    userID,
+				"Name":  userName,
 				"Email": s.sessionManager.GetString(r.Context(), "user_email"),
 			}
 			s.logger.Debug("Token verification successful", zap.Bool("authenticated", true))
@@ -1992,11 +1998,11 @@ func (s *WebServer) getUserContext(r *http.Request) (user interface{}, isAuthent
 			s.logger.Debug("Token verification failed", zap.Bool("authenticated", false))
 		}
 	} else {
-		s.logger.Debug("Missing session data", 
+		s.logger.Debug("Missing session data",
 			zap.Bool("has_user_id", userID != ""),
 			zap.Bool("has_access_token", accessToken != ""))
 	}
-	
+
 	return user, isAuthenticated
 }
 
@@ -2027,7 +2033,7 @@ func (s *WebServer) resilientMiddleware(name string, middleware func(http.Handle
 					next.ServeHTTP(w, r)
 				}
 			}()
-			
+
 			// Try to execute the middleware
 			handler := middleware(next)
 			handler.ServeHTTP(w, r)
@@ -2039,16 +2045,16 @@ func (s *WebServer) resilientMiddleware(name string, middleware func(http.Handle
 func (s *WebServer) securityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// CRITICAL SECURITY FIX: Add comprehensive security headers
-		
+
 		// XSS Protection
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
-		
+
 		// Content Type Options
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		
+
 		// Frame Options
 		w.Header().Set("X-Frame-Options", "DENY")
-		
+
 		// Content Security Policy
 		csp := "default-src 'self'; " +
 			"script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; " +
@@ -2060,18 +2066,18 @@ func (s *WebServer) securityHeadersMiddleware(next http.Handler) http.Handler {
 			"base-uri 'none'; " +
 			"object-src 'none';"
 		w.Header().Set("Content-Security-Policy", csp)
-		
+
 		// HSTS (HTTP Strict Transport Security) - only in production with HTTPS
 		if s.config.IsProduction() {
 			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
-		
+
 		// Referrer Policy
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		
+
 		// Permissions Policy
 		w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-		
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -2083,10 +2089,10 @@ func (s *WebServer) rateLimitMiddleware(next http.Handler) http.Handler {
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 			clientIP = strings.Split(xff, ",")[0]
 		}
-		
+
 		now := time.Now()
 		key := fmt.Sprintf("rate_limit:%s", clientIP)
-		
+
 		// Check current request count
 		if val, exists := s.rateLimitStore.Load(key); exists {
 			if requests, ok := val.(*rateLimitEntry); ok {
@@ -2097,7 +2103,7 @@ func (s *WebServer) rateLimitMiddleware(next http.Handler) http.Handler {
 						validRequests = append(validRequests, reqTime)
 					}
 				}
-				
+
 				// Check if limit exceeded (60 requests per minute)
 				if len(validRequests) >= 60 {
 					s.logger.Warn("Rate limit exceeded",
@@ -2109,7 +2115,7 @@ func (s *WebServer) rateLimitMiddleware(next http.Handler) http.Handler {
 					http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
 					return
 				}
-				
+
 				// Update with new request
 				requests.requests = append(validRequests, now)
 			}
@@ -2119,7 +2125,7 @@ func (s *WebServer) rateLimitMiddleware(next http.Handler) http.Handler {
 				requests: []time.Time{now},
 			})
 		}
-		
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -2128,26 +2134,26 @@ func (s *WebServer) rateLimitMiddleware(next http.Handler) http.Handler {
 func (s *WebServer) csrfMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// CRITICAL SECURITY FIX ALV3-2025-003: CSRF Protection
-		
+
 		// Skip CSRF check for safe methods
 		if r.Method == "GET" || r.Method == "HEAD" || r.Method == "OPTIONS" {
 			next.ServeHTTP(w, r)
 			return
 		}
-		
+
 		// Check if user has a valid session for CSRF protection
 		userID := s.sessionManager.GetString(r.Context(), "user_id")
 		if userID == "" {
 			http.Error(w, "Session required", http.StatusForbidden)
 			return
 		}
-		
+
 		// Get CSRF token from header or form
 		token := r.Header.Get("X-CSRF-Token")
 		if token == "" {
 			token = r.FormValue("csrf_token")
 		}
-		
+
 		if token == "" {
 			s.logger.Warn("Missing CSRF token",
 				zap.String("method", r.Method),
@@ -2162,7 +2168,7 @@ func (s *WebServer) csrfMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "CSRF token required", http.StatusForbidden)
 			return
 		}
-		
+
 		// Validate CSRF token using user ID (more secure than session ID)
 		expectedToken := s.generateCSRFToken(userID)
 		if !s.validateCSRFToken(token, expectedToken) {
@@ -2180,7 +2186,7 @@ func (s *WebServer) csrfMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Invalid CSRF token", http.StatusForbidden)
 			return
 		}
-		
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -2189,7 +2195,7 @@ func (s *WebServer) csrfMiddleware(next http.Handler) http.Handler {
 func (s *WebServer) inputValidationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// SECURITY FIX ALV3-2025-006: Input validation
-		
+
 		// Check for suspicious patterns in URL path
 		if s.containsSuspiciousPatterns(r.URL.Path) {
 			s.logger.Warn("Suspicious URL pattern detected",
@@ -2200,13 +2206,13 @@ func (s *WebServer) inputValidationMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
-		
+
 		// Validate request size
 		if r.ContentLength > 10*1024*1024 { // 10MB limit
 			http.Error(w, "Request too large", http.StatusRequestEntityTooLarge)
 			return
 		}
-		
+
 		// For POST requests, parse and validate form data
 		if r.Method == "POST" && strings.Contains(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
 			if err := r.ParseForm(); err == nil {
@@ -2224,7 +2230,7 @@ func (s *WebServer) inputValidationMiddleware(next http.Handler) http.Handler {
 				}
 			}
 		}
-		
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -2247,31 +2253,31 @@ func (s *WebServer) validateCSRFToken(providedToken, expectedToken string) bool 
 	if len(parts) != 2 {
 		return false
 	}
-	
+
 	providedID := parts[0]
 	providedTimestampStr := parts[1]
-	
+
 	// Parse the expected token to get the user ID
 	expectedParts := strings.Split(expectedToken, ":")
 	if len(expectedParts) != 2 {
 		return false
 	}
 	expectedID := expectedParts[0]
-	
+
 	// Check if user IDs match
 	if subtle.ConstantTimeCompare([]byte(providedID), []byte(expectedID)) != 1 {
 		return false
 	}
-	
+
 	// Parse and validate timestamp (allow 1 hour window)
 	providedTimestamp, err := strconv.ParseInt(providedTimestampStr, 10, 64)
 	if err != nil {
 		return false
 	}
-	
+
 	now := time.Now().Unix()
 	timeDiff := now - providedTimestamp
-	
+
 	// Allow tokens within 1 hour (3600 seconds)
 	return timeDiff >= 0 && timeDiff <= 3600
 }
@@ -2289,14 +2295,14 @@ func (s *WebServer) containsSuspiciousPatterns(input string) bool {
 		"null", "/etc/passwd", "/proc/", "\\\\windows\\\\",
 		"cmd.exe", "powershell", "/bin/bash", "/bin/sh",
 	}
-	
+
 	inputLower := strings.ToLower(input)
 	for _, pattern := range suspiciousPatterns {
 		if strings.Contains(inputLower, strings.ToLower(pattern)) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -2311,13 +2317,13 @@ func (s *WebServer) containsDangerousContent(input string) bool {
 		regexp.MustCompile(`(?i)(union|select|insert|update|delete|drop)\s`),
 		regexp.MustCompile(`(?i)(eval|alert|confirm|prompt)\s*\(`),
 	}
-	
+
 	for _, pattern := range dangerousPatterns {
 		if pattern.MatchString(input) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -2325,29 +2331,29 @@ func (s *WebServer) containsDangerousContent(input string) bool {
 func (s *WebServer) formatAIResponse(text string) string {
 	// Escape HTML first to prevent XSS
 	text = html.EscapeString(text)
-	
+
 	// Convert double line breaks to paragraphs
 	text = regexp.MustCompile(`\n\s*\n`).ReplaceAllString(text, "</p><p>")
-	
+
 	// Convert single line breaks to <br> tags
 	text = strings.ReplaceAll(text, "\n", "<br>")
-	
+
 	// Format bullet points
 	bulletPattern := regexp.MustCompile(`(?m)^[\s]*[-•*]\s+(.+)$`)
 	text = bulletPattern.ReplaceAllString(text, `<div style="margin-left: 1rem; margin-bottom: 0.5rem;">• $1</div>`)
-	
+
 	// Format numbered lists
 	numberedPattern := regexp.MustCompile(`(?m)^[\s]*(\d+)\.\s+(.+)$`)
 	text = numberedPattern.ReplaceAllString(text, `<div style="margin-left: 1rem; margin-bottom: 0.5rem;">$1. $2</div>`)
-	
+
 	// Format bold text (basic markdown-style)
 	boldPattern := regexp.MustCompile(`\*\*([^*]+)\*\*`)
 	text = boldPattern.ReplaceAllString(text, `<strong>$1</strong>`)
-	
+
 	// Format italic text (basic markdown-style)
 	italicPattern := regexp.MustCompile(`\*([^*]+)\*`)
 	text = italicPattern.ReplaceAllString(text, `<em>$1</em>`)
-	
+
 	// Wrap in paragraphs if not already wrapped
 	if !strings.Contains(text, "<p>") && !strings.Contains(text, "<div") {
 		text = "<p>" + text + "</p>"
@@ -2355,7 +2361,7 @@ func (s *WebServer) formatAIResponse(text string) string {
 		// Fix leading paragraph close tag
 		text = "<p>" + strings.TrimPrefix(text, "</p>")
 	}
-	
+
 	return text
 }
 

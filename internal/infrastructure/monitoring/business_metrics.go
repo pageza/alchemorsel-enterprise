@@ -17,53 +17,53 @@ import (
 type BusinessMetricsCollector struct {
 	logger  *zap.Logger
 	tracing *TracingProvider
-	
+
 	// User metrics
-	usersActive           prometheus.Gauge
-	userRegistrations     *prometheus.CounterVec
-	userLogins            *prometheus.CounterVec
-	userSessions          prometheus.Histogram
-	userRetention         *prometheus.GaugeVec
-	
+	usersActive       prometheus.Gauge
+	userRegistrations *prometheus.CounterVec
+	userLogins        *prometheus.CounterVec
+	userSessions      prometheus.Histogram
+	userRetention     *prometheus.GaugeVec
+
 	// Recipe metrics
-	recipesCreated        *prometheus.CounterVec
-	recipesViewed         *prometheus.CounterVec
-	recipesShared         *prometheus.CounterVec
-	recipesRated          *prometheus.CounterVec
-	recipeCreationTime    prometheus.Histogram
-	
+	recipesCreated     *prometheus.CounterVec
+	recipesViewed      *prometheus.CounterVec
+	recipesShared      *prometheus.CounterVec
+	recipesRated       *prometheus.CounterVec
+	recipeCreationTime prometheus.Histogram
+
 	// Search and discovery metrics
-	searchQueries         *prometheus.CounterVec
-	searchResults         prometheus.Histogram
-	searchConversions     *prometheus.CounterVec
-	
+	searchQueries     *prometheus.CounterVec
+	searchResults     prometheus.Histogram
+	searchConversions *prometheus.CounterVec
+
 	// AI service metrics
-	aiRequests            *prometheus.CounterVec
-	aiResponseTime        *prometheus.HistogramVec
-	aiCosts               *prometheus.CounterVec
-	aiQualityScores       *prometheus.HistogramVec
-	aiModelUsage          *prometheus.CounterVec
-	
+	aiRequests      *prometheus.CounterVec
+	aiResponseTime  *prometheus.HistogramVec
+	aiCosts         *prometheus.CounterVec
+	aiQualityScores *prometheus.HistogramVec
+	aiModelUsage    *prometheus.CounterVec
+
 	// Engagement metrics
-	pageViews             *prometheus.CounterVec
-	sessionDuration       prometheus.Histogram
-	bounceRate            *prometheus.GaugeVec
-	userActions           *prometheus.CounterVec
-	featureUsage          *prometheus.CounterVec
-	
+	pageViews       *prometheus.CounterVec
+	sessionDuration prometheus.Histogram
+	bounceRate      *prometheus.GaugeVec
+	userActions     *prometheus.CounterVec
+	featureUsage    *prometheus.CounterVec
+
 	// Conversion metrics
-	conversionFunnels     *prometheus.CounterVec
-	revenueMetrics        *prometheus.CounterVec
-	subscriptionMetrics   *prometheus.GaugeVec
-	
+	conversionFunnels   *prometheus.CounterVec
+	revenueMetrics      *prometheus.CounterVec
+	subscriptionMetrics *prometheus.GaugeVec
+
 	// Performance impact on business
-	performanceImpact     *prometheus.GaugeVec
-	errorImpact           *prometheus.CounterVec
-	
+	performanceImpact *prometheus.GaugeVec
+	errorImpact       *prometheus.CounterVec
+
 	// Content metrics
-	contentCreation       *prometheus.CounterVec
-	contentEngagement     *prometheus.CounterVec
-	contentQuality        *prometheus.HistogramVec
+	contentCreation   *prometheus.CounterVec
+	contentEngagement *prometheus.CounterVec
+	contentQuality    *prometheus.HistogramVec
 }
 
 // BusinessEvent represents a business event
@@ -80,17 +80,17 @@ type BusinessEvent struct {
 
 // UserMetrics represents user-specific metrics
 type UserMetrics struct {
-	UserID              string    `json:"user_id"`
-	RegistrationDate    time.Time `json:"registration_date"`
-	LastLoginDate       time.Time `json:"last_login_date"`
-	SessionCount        int       `json:"session_count"`
-	TotalSessionTime    int64     `json:"total_session_time"`
-	RecipesCreated      int       `json:"recipes_created"`
-	RecipesViewed       int       `json:"recipes_viewed"`
-	SearchQueries       int       `json:"search_queries"`
-	AIRequestsCount     int       `json:"ai_requests_count"`
-	LifetimeValue       float64   `json:"lifetime_value"`
-	SubscriptionStatus  string    `json:"subscription_status"`
+	UserID             string    `json:"user_id"`
+	RegistrationDate   time.Time `json:"registration_date"`
+	LastLoginDate      time.Time `json:"last_login_date"`
+	SessionCount       int       `json:"session_count"`
+	TotalSessionTime   int64     `json:"total_session_time"`
+	RecipesCreated     int       `json:"recipes_created"`
+	RecipesViewed      int       `json:"recipes_viewed"`
+	SearchQueries      int       `json:"search_queries"`
+	AIRequestsCount    int       `json:"ai_requests_count"`
+	LifetimeValue      float64   `json:"lifetime_value"`
+	SubscriptionStatus string    `json:"subscription_status"`
 }
 
 // NewBusinessMetricsCollector creates a new business metrics collector
@@ -98,7 +98,7 @@ func NewBusinessMetricsCollector(logger *zap.Logger, tracing *TracingProvider) *
 	return &BusinessMetricsCollector{
 		logger:  logger,
 		tracing: tracing,
-		
+
 		// User metrics
 		usersActive: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "business_users_active_total",
@@ -121,7 +121,7 @@ func NewBusinessMetricsCollector(logger *zap.Logger, tracing *TracingProvider) *
 			Name: "business_user_retention_rate",
 			Help: "User retention rate by time period",
 		}, []string{"period", "cohort"}),
-		
+
 		// Recipe metrics
 		recipesCreated: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "business_recipes_created_total",
@@ -144,7 +144,7 @@ func NewBusinessMetricsCollector(logger *zap.Logger, tracing *TracingProvider) *
 			Help:    "Time taken to create a recipe",
 			Buckets: []float64{30, 60, 120, 300, 600, 1200}, // 30s to 20m
 		}),
-		
+
 		// Search and discovery metrics
 		searchQueries: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "business_search_queries_total",
@@ -159,7 +159,7 @@ func NewBusinessMetricsCollector(logger *zap.Logger, tracing *TracingProvider) *
 			Name: "business_search_conversions_total",
 			Help: "Total number of search conversions",
 		}, []string{"conversion_type", "query_type", "environment"}),
-		
+
 		// AI service metrics
 		aiRequests: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "business_ai_requests_total",
@@ -183,7 +183,7 @@ func NewBusinessMetricsCollector(logger *zap.Logger, tracing *TracingProvider) *
 			Name: "business_ai_model_usage_total",
 			Help: "Total usage count by AI model",
 		}, []string{"model", "provider", "environment"}),
-		
+
 		// Engagement metrics
 		pageViews: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "business_page_views_total",
@@ -206,7 +206,7 @@ func NewBusinessMetricsCollector(logger *zap.Logger, tracing *TracingProvider) *
 			Name: "business_feature_usage_total",
 			Help: "Total feature usage count",
 		}, []string{"feature", "user_type", "environment"}),
-		
+
 		// Conversion metrics
 		conversionFunnels: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "business_conversion_funnel_total",
@@ -220,7 +220,7 @@ func NewBusinessMetricsCollector(logger *zap.Logger, tracing *TracingProvider) *
 			Name: "business_subscriptions_active",
 			Help: "Number of active subscriptions",
 		}, []string{"tier", "status", "environment"}),
-		
+
 		// Performance impact on business
 		performanceImpact: promauto.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "business_performance_impact_score",
@@ -230,7 +230,7 @@ func NewBusinessMetricsCollector(logger *zap.Logger, tracing *TracingProvider) *
 			Name: "business_error_impact_total",
 			Help: "Business impact of errors",
 		}, []string{"error_type", "business_function", "severity"}),
-		
+
 		// Content metrics
 		contentCreation: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "business_content_creation_total",
@@ -296,9 +296,9 @@ func (bm *BusinessMetricsCollector) TrackBusinessEvent(ctx context.Context, even
 func (bm *BusinessMetricsCollector) trackUserRegistration(ctx context.Context, event BusinessEvent) {
 	method := bm.getStringProperty(event.Properties, "method", "email")
 	source := bm.getStringProperty(event.Properties, "source", "direct")
-	
+
 	bm.userRegistrations.WithLabelValues(method, source, event.Environment).Inc()
-	
+
 	bm.logger.Info("User registered",
 		zap.String("user_id", event.UserID),
 		zap.String("method", method),
@@ -310,7 +310,7 @@ func (bm *BusinessMetricsCollector) trackUserRegistration(ctx context.Context, e
 func (bm *BusinessMetricsCollector) trackUserLogin(ctx context.Context, event BusinessEvent) {
 	method := bm.getStringProperty(event.Properties, "method", "email")
 	success := bm.getStringProperty(event.Properties, "success", "true")
-	
+
 	bm.userLogins.WithLabelValues(method, success, event.Environment).Inc()
 }
 
@@ -319,9 +319,9 @@ func (bm *BusinessMetricsCollector) trackRecipeCreated(ctx context.Context, even
 	userType := bm.getStringProperty(event.Properties, "user_type", "registered")
 	category := bm.getStringProperty(event.Properties, "category", "general")
 	source := bm.getStringProperty(event.Properties, "source", "manual")
-	
+
 	bm.recipesCreated.WithLabelValues(userType, category, source, event.Environment).Inc()
-	
+
 	// Track creation time if provided
 	if creationTime, ok := event.Properties["creation_time_seconds"].(float64); ok {
 		bm.recipeCreationTime.Observe(creationTime)
@@ -332,7 +332,7 @@ func (bm *BusinessMetricsCollector) trackRecipeCreated(ctx context.Context, even
 func (bm *BusinessMetricsCollector) trackRecipeViewed(ctx context.Context, event BusinessEvent) {
 	category := bm.getStringProperty(event.Properties, "category", "general")
 	viewType := bm.getStringProperty(event.Properties, "view_type", "detail")
-	
+
 	bm.recipesViewed.WithLabelValues(category, viewType, event.Environment).Inc()
 }
 
@@ -340,9 +340,9 @@ func (bm *BusinessMetricsCollector) trackRecipeViewed(ctx context.Context, event
 func (bm *BusinessMetricsCollector) trackSearchQuery(ctx context.Context, event BusinessEvent) {
 	queryType := bm.getStringProperty(event.Properties, "query_type", "text")
 	resultsFound := bm.getStringProperty(event.Properties, "results_found", "true")
-	
+
 	bm.searchQueries.WithLabelValues(queryType, resultsFound, event.Environment).Inc()
-	
+
 	// Track number of results if provided
 	if resultCount, ok := event.Properties["result_count"].(float64); ok {
 		bm.searchResults.Observe(resultCount)
@@ -354,19 +354,19 @@ func (bm *BusinessMetricsCollector) trackAIRequest(ctx context.Context, event Bu
 	model := bm.getStringProperty(event.Properties, "model", "unknown")
 	requestType := bm.getStringProperty(event.Properties, "request_type", "completion")
 	status := bm.getStringProperty(event.Properties, "status", "success")
-	
+
 	bm.aiRequests.WithLabelValues(model, requestType, status, event.Environment).Inc()
-	
+
 	// Track response time if provided
 	if responseTime, ok := event.Properties["response_time_seconds"].(float64); ok {
 		bm.aiResponseTime.WithLabelValues(model, requestType).Observe(responseTime)
 	}
-	
+
 	// Track cost if provided
 	if cost, ok := event.Properties["cost_usd"].(float64); ok {
 		bm.aiCosts.WithLabelValues(model, requestType, event.Environment).Add(cost)
 	}
-	
+
 	// Track quality score if provided
 	if quality, ok := event.Properties["quality_score"].(float64); ok {
 		bm.aiQualityScores.WithLabelValues(model, requestType).Observe(quality)
@@ -377,7 +377,7 @@ func (bm *BusinessMetricsCollector) trackAIRequest(ctx context.Context, event Bu
 func (bm *BusinessMetricsCollector) trackFeatureUsage(ctx context.Context, event BusinessEvent) {
 	feature := bm.getStringProperty(event.Properties, "feature", "unknown")
 	userType := bm.getStringProperty(event.Properties, "user_type", "registered")
-	
+
 	bm.featureUsage.WithLabelValues(feature, userType, event.Environment).Inc()
 }
 
@@ -386,7 +386,7 @@ func (bm *BusinessMetricsCollector) trackConversionStep(ctx context.Context, eve
 	funnel := bm.getStringProperty(event.Properties, "funnel", "default")
 	step := bm.getStringProperty(event.Properties, "step", "unknown")
 	userType := bm.getStringProperty(event.Properties, "user_type", "registered")
-	
+
 	bm.conversionFunnels.WithLabelValues(funnel, step, userType, event.Environment).Inc()
 }
 
@@ -394,7 +394,7 @@ func (bm *BusinessMetricsCollector) trackConversionStep(ctx context.Context, eve
 func (bm *BusinessMetricsCollector) trackRevenue(ctx context.Context, event BusinessEvent) {
 	revenueType := bm.getStringProperty(event.Properties, "revenue_type", "subscription")
 	tier := bm.getStringProperty(event.Properties, "subscription_tier", "basic")
-	
+
 	bm.revenueMetrics.WithLabelValues(revenueType, tier, event.Environment).Add(event.Value)
 }
 
@@ -404,7 +404,7 @@ func (bm *BusinessMetricsCollector) RecordUserMetrics(ctx context.Context, metri
 	if metrics.TotalSessionTime > 0 {
 		bm.userSessions.Observe(float64(metrics.TotalSessionTime))
 	}
-	
+
 	// Update user retention (this would typically be calculated periodically)
 	// For now, we'll just log the metrics
 	bm.logger.Debug("User metrics recorded",
@@ -432,35 +432,35 @@ func (bm *BusinessMetricsCollector) GetBusinessMetrics(c *gin.Context) {
 	metrics := map[string]interface{}{
 		"timestamp": time.Now().Unix(),
 		"metrics": map[string]interface{}{
-			"users_active": "Current gauge value would be here",
+			"users_active":        "Current gauge value would be here",
 			"recipes_created_24h": "Sum of counter values for last 24h",
-			"ai_requests_1h": "Sum of AI requests for last hour",
-			"revenue_today": "Today's revenue sum",
+			"ai_requests_1h":      "Sum of AI requests for last hour",
+			"revenue_today":       "Today's revenue sum",
 		},
 	}
-	
+
 	c.JSON(200, metrics)
 }
 
 // GetUserEngagementReport generates a user engagement report
 func (bm *BusinessMetricsCollector) GetUserEngagementReport(c *gin.Context) {
 	timeRange := c.DefaultQuery("timeRange", "24h")
-	
+
 	// This would typically query a time-series database
 	report := map[string]interface{}{
 		"time_range": timeRange,
 		"engagement_metrics": map[string]interface{}{
-			"daily_active_users": "DAU count",
+			"daily_active_users":       "DAU count",
 			"average_session_duration": "Average session time",
-			"bounce_rate": "Bounce rate percentage",
+			"bounce_rate":              "Bounce rate percentage",
 			"feature_adoption": map[string]interface{}{
-				"ai_features": "AI feature usage percentage",
+				"ai_features":     "AI feature usage percentage",
 				"recipe_creation": "Recipe creation rate",
-				"search_usage": "Search usage rate",
+				"search_usage":    "Search usage rate",
 			},
 		},
 	}
-	
+
 	c.JSON(200, report)
 }
 
@@ -524,7 +524,7 @@ func (h *BusinessEventHandler) HandleEvent(c *gin.Context) {
 
 	// Track the event
 	h.collector.TrackBusinessEvent(c.Request.Context(), event)
-	
+
 	c.JSON(200, gin.H{"status": "success"})
 }
 
@@ -545,13 +545,13 @@ func (h *BusinessEventHandler) HandleBatchEvents(c *gin.Context) {
 		if event.Environment == "" {
 			event.Environment = "production"
 		}
-		
+
 		h.collector.TrackBusinessEvent(c.Request.Context(), event)
 		processed++
 	}
-	
+
 	c.JSON(200, gin.H{
-		"status": "success",
+		"status":    "success",
 		"processed": processed,
 	})
 }

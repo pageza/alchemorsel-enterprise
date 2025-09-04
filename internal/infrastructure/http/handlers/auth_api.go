@@ -48,22 +48,22 @@ type LoginRequest struct {
 
 // AuthResponse represents authentication response with token
 type AuthResponse struct {
-	Success      bool   `json:"success"`
-	AccessToken  string `json:"access_token,omitempty"`
-	RefreshToken string `json:"refresh_token,omitempty"`
-	ExpiresIn    int64  `json:"expires_in,omitempty"`
+	Success      bool          `json:"success"`
+	AccessToken  string        `json:"access_token,omitempty"`
+	RefreshToken string        `json:"refresh_token,omitempty"`
+	ExpiresIn    int64         `json:"expires_in,omitempty"`
 	User         *UserResponse `json:"user,omitempty"`
-	Error        string `json:"error,omitempty"`
-	Message      string `json:"message,omitempty"`
+	Error        string        `json:"error,omitempty"`
+	Message      string        `json:"message,omitempty"`
 }
 
 // UserResponse represents user data in API responses
 type UserResponse struct {
-	ID       string    `json:"id"`
-	Name     string    `json:"name"`
-	Email    string    `json:"email"`
-	Role     string    `json:"role"`
-	IsActive bool      `json:"is_active"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	Role      string    `json:"role"`
+	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -89,11 +89,11 @@ func (h *AuthAPIHandlers) Register(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Message: "User registered successfully",
 		User: &UserResponse{
-			ID:       "mock-user-id",
-			Name:     req.Name,
-			Email:    req.Email,
-			Role:     "user",
-			IsActive: true,
+			ID:        "mock-user-id",
+			Name:      req.Name,
+			Email:     req.Email,
+			Role:      "user",
+			IsActive:  true,
 			CreatedAt: time.Now(),
 		},
 	}
@@ -122,15 +122,15 @@ func (h *AuthAPIHandlers) Login(w http.ResponseWriter, r *http.Request) {
 	response := AuthResponse{
 		Success:      true,
 		AccessToken:  "mock-jwt-access-token",
-		RefreshToken: "mock-jwt-refresh-token", 
+		RefreshToken: "mock-jwt-refresh-token",
 		ExpiresIn:    3600, // 1 hour
 		Message:      "Login successful",
 		User: &UserResponse{
-			ID:       "mock-user-id",
-			Name:     "Mock User",
-			Email:    req.Email,
-			Role:     "user",
-			IsActive: true,
+			ID:        "mock-user-id",
+			Name:      "Mock User",
+			Email:     req.Email,
+			Role:      "user",
+			IsActive:  true,
 			CreatedAt: time.Now().Add(-24 * time.Hour), // Created yesterday
 		},
 	}
@@ -141,7 +141,7 @@ func (h *AuthAPIHandlers) Login(w http.ResponseWriter, r *http.Request) {
 // Logout handles POST /api/v1/auth/logout
 func (h *AuthAPIHandlers) Logout(w http.ResponseWriter, r *http.Request) {
 	// TODO: Invalidate JWT token (add to blacklist)
-	
+
 	response := APIResponse{
 		Success: true,
 		Message: "Logout successful",
@@ -153,7 +153,7 @@ func (h *AuthAPIHandlers) Logout(w http.ResponseWriter, r *http.Request) {
 // RefreshToken handles POST /api/v1/auth/refresh
 func (h *AuthAPIHandlers) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	// TODO: Validate refresh token and generate new access token
-	
+
 	response := AuthResponse{
 		Success:     true,
 		AccessToken: "new-mock-jwt-access-token",
@@ -188,11 +188,11 @@ func (h *AuthAPIHandlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 	response := APIResponse{
 		Success: true,
 		Data: UserResponse{
-			ID:       "mock-user-id",
-			Name:     "Mock User",
-			Email:    "user@example.com",
-			Role:     "user", 
-			IsActive: true,
+			ID:        "mock-user-id",
+			Name:      "Mock User",
+			Email:     "user@example.com",
+			Role:      "user",
+			IsActive:  true,
 			CreatedAt: time.Now().Add(-24 * time.Hour),
 		},
 		Message: "Profile retrieved successfully",
@@ -213,14 +213,14 @@ func (h *AuthAPIHandlers) UpdateProfile(w http.ResponseWriter, r *http.Request) 
 	var updateReq struct {
 		Name string `json:"name"`
 	}
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&updateReq); err != nil {
 		h.writeErrorJSON(w, http.StatusBadRequest, "Invalid JSON payload")
 		return
 	}
 
 	// TODO: Update user profile via user service
-	h.logger.Info("Update profile request", 
+	h.logger.Info("Update profile request",
 		zap.String("user_id", userID),
 		zap.String("new_name", updateReq.Name))
 

@@ -12,50 +12,50 @@ import (
 
 // CacheService implements cache-first pattern with multi-layer caching strategy
 type CacheService struct {
-	redis          *RedisClient
-	localCache     *LocalCache
-	config         *CacheConfig
-	logger         *zap.Logger
-	serializer     Serializer
-	keyBuilder     KeyBuilder
-	invalidator    *CacheInvalidator
-	compressor     Compressor
-	metrics        *CacheMetrics
+	redis       *RedisClient
+	localCache  *LocalCache
+	config      *CacheConfig
+	logger      *zap.Logger
+	serializer  Serializer
+	keyBuilder  KeyBuilder
+	invalidator *CacheInvalidator
+	compressor  Compressor
+	metrics     *CacheMetrics
 }
 
 // CacheConfig holds comprehensive caching configuration
 type CacheConfig struct {
 	// TTL configurations for different data types
-	DefaultTTL        time.Duration `json:"default_ttl"`
-	RecipeTTL         time.Duration `json:"recipe_ttl"`
-	UserTTL           time.Duration `json:"user_ttl"`
-	SessionTTL        time.Duration `json:"session_ttl"`
-	SearchTTL         time.Duration `json:"search_ttl"`
-	AITTL             time.Duration `json:"ai_ttl"`
-	TemplateTTL       time.Duration `json:"template_ttl"`
-	
+	DefaultTTL  time.Duration `json:"default_ttl"`
+	RecipeTTL   time.Duration `json:"recipe_ttl"`
+	UserTTL     time.Duration `json:"user_ttl"`
+	SessionTTL  time.Duration `json:"session_ttl"`
+	SearchTTL   time.Duration `json:"search_ttl"`
+	AITTL       time.Duration `json:"ai_ttl"`
+	TemplateTTL time.Duration `json:"template_ttl"`
+
 	// Cache size and behavior
-	LocalCacheSize    int           `json:"local_cache_size"`
-	CompressionEnabled bool         `json:"compression_enabled"`
-	CompressionThreshold int        `json:"compression_threshold"`
-	
+	LocalCacheSize       int  `json:"local_cache_size"`
+	CompressionEnabled   bool `json:"compression_enabled"`
+	CompressionThreshold int  `json:"compression_threshold"`
+
 	// Performance settings
-	MaxKeyLength      int           `json:"max_key_length"`
-	MaxValueSize      int64         `json:"max_value_size"`
-	WriteThrough      bool          `json:"write_through"`
-	ReadThrough       bool          `json:"read_through"`
-	
+	MaxKeyLength int   `json:"max_key_length"`
+	MaxValueSize int64 `json:"max_value_size"`
+	WriteThrough bool  `json:"write_through"`
+	ReadThrough  bool  `json:"read_through"`
+
 	// Invalidation settings
-	InvalidationBatchSize int      `json:"invalidation_batch_size"`
+	InvalidationBatchSize int           `json:"invalidation_batch_size"`
 	InvalidationTimeout   time.Duration `json:"invalidation_timeout"`
 }
 
 // CacheMetrics tracks comprehensive cache performance
 type CacheMetrics struct {
-	L1Hits       int64         `json:"l1_hits"`        // Local cache hits
-	L1Misses     int64         `json:"l1_misses"`      // Local cache misses
-	L2Hits       int64         `json:"l2_hits"`        // Redis cache hits
-	L2Misses     int64         `json:"l2_misses"`      // Redis cache misses
+	L1Hits       int64         `json:"l1_hits"`   // Local cache hits
+	L1Misses     int64         `json:"l1_misses"` // Local cache misses
+	L2Hits       int64         `json:"l2_hits"`   // Redis cache hits
+	L2Misses     int64         `json:"l2_misses"` // Redis cache misses
 	TotalHits    int64         `json:"total_hits"`
 	TotalMisses  int64         `json:"total_misses"`
 	Errors       int64         `json:"errors"`
@@ -69,14 +69,14 @@ type CacheMetrics struct {
 
 // CacheEntry represents a cached item with metadata
 type CacheEntry struct {
-	Key         string    `json:"key"`
-	Data        []byte    `json:"data"`
+	Key         string        `json:"key"`
+	Data        []byte        `json:"data"`
 	TTL         time.Duration `json:"ttl"`
-	CreatedAt   time.Time `json:"created_at"`
-	AccessCount int64     `json:"access_count"`
-	LastAccess  time.Time `json:"last_access"`
-	Tags        []string  `json:"tags,omitempty"`
-	Compressed  bool      `json:"compressed"`
+	CreatedAt   time.Time     `json:"created_at"`
+	AccessCount int64         `json:"access_count"`
+	LastAccess  time.Time     `json:"last_access"`
+	Tags        []string      `json:"tags,omitempty"`
+	Compressed  bool          `json:"compressed"`
 }
 
 // NewCacheService creates a new cache service with cache-first implementation
@@ -86,14 +86,14 @@ func NewCacheService(redis *RedisClient, config *CacheConfig, logger *zap.Logger
 	}
 
 	service := &CacheService{
-		redis:       redis,
-		localCache:  NewLocalCache(config.LocalCacheSize),
-		config:      config,
-		logger:      logger,
-		serializer:  NewJSONSerializer(),
-		keyBuilder:  *NewKeyBuilder(),
-		compressor:  NewGzipCompressor(),
-		metrics:     &CacheMetrics{LastReset: time.Now()},
+		redis:      redis,
+		localCache: NewLocalCache(config.LocalCacheSize),
+		config:     config,
+		logger:     logger,
+		serializer: NewJSONSerializer(),
+		keyBuilder: *NewKeyBuilder(),
+		compressor: NewGzipCompressor(),
+		metrics:    &CacheMetrics{LastReset: time.Now()},
 	}
 
 	// Initialize cache invalidator
@@ -126,7 +126,7 @@ func (c *CacheService) Get(ctx context.Context, key string) ([]byte, error) {
 		c.metrics.L1Hits++
 		c.metrics.TotalHits++
 		c.logger.Debug("Cache L1 hit", zap.String("key", key))
-		
+
 		// Decompress if needed
 		if entry, ok := data.(*CacheEntry); ok && entry.Compressed {
 			decompressed, err := c.compressor.Decompress(entry.Data)
@@ -231,7 +231,7 @@ func (c *CacheService) Set(ctx context.Context, key string, data []byte, ttl tim
 		} else {
 			entry.Data = compressed
 			entry.Compressed = true
-			c.logger.Debug("Cache data compressed", 
+			c.logger.Debug("Cache data compressed",
 				zap.String("key", key),
 				zap.Int("original_size", len(data)),
 				zap.Int("compressed_size", len(compressed)))
@@ -255,7 +255,7 @@ func (c *CacheService) Set(ctx context.Context, key string, data []byte, ttl tim
 		return err
 	}
 
-	c.logger.Debug("Cache set successful", 
+	c.logger.Debug("Cache set successful",
 		zap.String("key", key),
 		zap.Duration("ttl", ttl),
 		zap.Bool("compressed", entry.Compressed))
@@ -273,14 +273,14 @@ func (c *CacheService) SetWithTags(ctx context.Context, key string, data []byte,
 	// Store tag associations for invalidation
 	for _, tag := range tags {
 		tagKey := c.keyBuilder.BuildTagKey(tag)
-		
+
 		// Add key to tag set
 		pipe := c.redis.client.Pipeline()
 		pipe.SAdd(ctx, tagKey, key)
 		pipe.Expire(ctx, tagKey, ttl+time.Hour) // Tag expires after content
-		
+
 		if _, err := pipe.Exec(ctx); err != nil {
-			c.logger.Error("Failed to set cache tags", 
+			c.logger.Error("Failed to set cache tags",
 				zap.String("key", key),
 				zap.String("tag", tag),
 				zap.Error(err))
@@ -514,11 +514,11 @@ func (c *CacheService) InvalidateByPattern(ctx context.Context, pattern string) 
 // GetStats returns comprehensive cache statistics
 func (c *CacheService) GetStats() *CacheStats {
 	redisMetrics := c.redis.GetMetrics()
-	
+
 	totalOperations := c.metrics.ReadOps + c.metrics.WriteOps
 	hitRatio := float64(0)
 	if totalHits := c.metrics.TotalHits; totalHits > 0 {
-		hitRatio = float64(totalHits) / float64(totalHits + c.metrics.TotalMisses)
+		hitRatio = float64(totalHits) / float64(totalHits+c.metrics.TotalMisses)
 	}
 
 	l1HitRatio := float64(0)
@@ -538,30 +538,30 @@ func (c *CacheService) GetStats() *CacheStats {
 		TotalMisses:     c.metrics.TotalMisses,
 		TotalErrors:     c.metrics.Errors,
 		HitRatio:        hitRatio,
-		
+
 		// L1 (Local) cache metrics
 		L1Hits:     c.metrics.L1Hits,
 		L1Misses:   c.metrics.L1Misses,
 		L1HitRatio: l1HitRatio,
 		L1Size:     int64(c.localCache.Size()),
-		
+
 		// L2 (Redis) cache metrics
 		L2Hits:     c.metrics.L2Hits,
 		L2Misses:   c.metrics.L2Misses,
 		L2HitRatio: l2HitRatio,
-		
+
 		// Performance metrics
 		AvgReadTime:  c.metrics.AvgReadTime,
 		AvgWriteTime: c.metrics.AvgWriteTime,
-		
+
 		// Redis-specific metrics
 		RedisMetrics: redisMetrics,
-		
+
 		// Operations breakdown
-		ReadOperations:  c.metrics.ReadOps,
-		WriteOperations: c.metrics.WriteOps,
+		ReadOperations:    c.metrics.ReadOps,
+		WriteOperations:   c.metrics.WriteOps,
 		InvalidOperations: c.metrics.InvalidOps,
-		
+
 		LastReset: c.metrics.LastReset,
 	}
 }
@@ -575,20 +575,20 @@ func (c *CacheService) ResetStats() {
 // WarmUp pre-loads cache with frequently accessed data
 func (c *CacheService) WarmUp(ctx context.Context, loader CacheLoader) error {
 	c.logger.Info("Starting cache warm-up")
-	
+
 	start := time.Now()
 	count, err := loader.LoadCache(ctx, c)
 	duration := time.Since(start)
-	
+
 	if err != nil {
 		c.logger.Error("Cache warm-up failed", zap.Error(err), zap.Duration("duration", duration))
 		return err
 	}
-	
+
 	c.logger.Info("Cache warm-up completed",
 		zap.Int("items_loaded", count),
 		zap.Duration("duration", duration))
-	
+
 	return nil
 }
 
@@ -637,20 +637,20 @@ func (c *CacheService) updateAvgWriteTime(duration time.Duration) {
 // DefaultCacheConfig returns default cache configuration
 func DefaultCacheConfig() *CacheConfig {
 	return &CacheConfig{
-		DefaultTTL:           time.Hour,
-		RecipeTTL:            time.Hour * 2,
-		UserTTL:              time.Minute * 30,
-		SessionTTL:           time.Hour * 24,
-		SearchTTL:            time.Minute * 15,
-		AITTL:                time.Hour,
-		TemplateTTL:          time.Hour * 6,
-		LocalCacheSize:       1000,
-		CompressionEnabled:   true,
-		CompressionThreshold: 1024, // 1KB
-		MaxKeyLength:         250,
-		MaxValueSize:         10 * 1024 * 1024, // 10MB
-		WriteThrough:         true,
-		ReadThrough:          true,
+		DefaultTTL:            time.Hour,
+		RecipeTTL:             time.Hour * 2,
+		UserTTL:               time.Minute * 30,
+		SessionTTL:            time.Hour * 24,
+		SearchTTL:             time.Minute * 15,
+		AITTL:                 time.Hour,
+		TemplateTTL:           time.Hour * 6,
+		LocalCacheSize:        1000,
+		CompressionEnabled:    true,
+		CompressionThreshold:  1024, // 1KB
+		MaxKeyLength:          250,
+		MaxValueSize:          10 * 1024 * 1024, // 10MB
+		WriteThrough:          true,
+		ReadThrough:           true,
 		InvalidationBatchSize: 100,
 		InvalidationTimeout:   time.Second * 30,
 	}
@@ -659,35 +659,35 @@ func DefaultCacheConfig() *CacheConfig {
 // CacheStats represents comprehensive cache statistics
 type CacheStats struct {
 	// Overall statistics
-	TotalOperations int64         `json:"total_operations"`
-	TotalHits       int64         `json:"total_hits"`
-	TotalMisses     int64         `json:"total_misses"`
-	TotalErrors     int64         `json:"total_errors"`
-	HitRatio        float64       `json:"hit_ratio"`
-	
+	TotalOperations int64   `json:"total_operations"`
+	TotalHits       int64   `json:"total_hits"`
+	TotalMisses     int64   `json:"total_misses"`
+	TotalErrors     int64   `json:"total_errors"`
+	HitRatio        float64 `json:"hit_ratio"`
+
 	// L1 (Local) cache statistics
 	L1Hits     int64   `json:"l1_hits"`
 	L1Misses   int64   `json:"l1_misses"`
 	L1HitRatio float64 `json:"l1_hit_ratio"`
 	L1Size     int64   `json:"l1_size"`
-	
+
 	// L2 (Redis) cache statistics
 	L2Hits     int64   `json:"l2_hits"`
 	L2Misses   int64   `json:"l2_misses"`
 	L2HitRatio float64 `json:"l2_hit_ratio"`
-	
+
 	// Performance metrics
 	AvgReadTime  time.Duration `json:"avg_read_time"`
 	AvgWriteTime time.Duration `json:"avg_write_time"`
-	
+
 	// Operations breakdown
 	ReadOperations    int64 `json:"read_operations"`
 	WriteOperations   int64 `json:"write_operations"`
 	InvalidOperations int64 `json:"invalid_operations"`
-	
+
 	// Redis metrics
 	RedisMetrics *RedisMetrics `json:"redis_metrics"`
-	
+
 	LastReset time.Time `json:"last_reset"`
 }
 

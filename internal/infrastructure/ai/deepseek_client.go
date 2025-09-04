@@ -25,13 +25,13 @@ type DeepSeekClient struct {
 
 // DeepSeekRequest represents a DeepSeek API request
 type DeepSeekRequest struct {
-	Model       string                 `json:"model"`
-	Messages    []DeepSeekMessage      `json:"messages"`
-	Temperature float64                `json:"temperature,omitempty"`
-	MaxTokens   int                    `json:"max_tokens,omitempty"`
-	Stream      bool                   `json:"stream"`
-	TopP        float64                `json:"top_p,omitempty"`
-	Stop        []string               `json:"stop,omitempty"`
+	Model       string            `json:"model"`
+	Messages    []DeepSeekMessage `json:"messages"`
+	Temperature float64           `json:"temperature,omitempty"`
+	MaxTokens   int               `json:"max_tokens,omitempty"`
+	Stream      bool              `json:"stream"`
+	TopP        float64           `json:"top_p,omitempty"`
+	Stop        []string          `json:"stop,omitempty"`
 }
 
 // DeepSeekMessage represents a message in the conversation
@@ -42,10 +42,10 @@ type DeepSeekMessage struct {
 
 // DeepSeekResponse represents a DeepSeek API response
 type DeepSeekResponse struct {
-	ID      string         `json:"id"`
-	Object  string         `json:"object"`
-	Created int64          `json:"created"`
-	Model   string         `json:"model"`
+	ID      string           `json:"id"`
+	Object  string           `json:"object"`
+	Created int64            `json:"created"`
+	Model   string           `json:"model"`
 	Choices []DeepSeekChoice `json:"choices"`
 	Usage   DeepSeekUsage    `json:"usage"`
 }
@@ -178,10 +178,10 @@ func (c *DeepSeekClient) GenerateChatCompletion(ctx context.Context, messages []
 		TokensUsed: response.Usage.TotalTokens,
 		ModelUsed:  response.Model,
 		Metadata: map[string]interface{}{
-			"finish_reason":      choice.FinishReason,
-			"prompt_tokens":      response.Usage.PromptTokens,
-			"completion_tokens":  response.Usage.CompletionTokens,
-			"api_response_id":    response.ID,
+			"finish_reason":     choice.FinishReason,
+			"prompt_tokens":     response.Usage.PromptTokens,
+			"completion_tokens": response.Usage.CompletionTokens,
+			"api_response_id":   response.ID,
 			"created":           response.Created,
 		},
 	}
@@ -259,10 +259,10 @@ func (c *DeepSeekClient) TestConnection(ctx context.Context) error {
 // GetModelInfo returns information about the configured model
 func (c *DeepSeekClient) GetModelInfo() map[string]interface{} {
 	return map[string]interface{}{
-		"provider":  "deepseek",
-		"model":     c.model,
-		"base_url":  c.baseURL,
-		"timeout":   c.httpClient.Timeout,
+		"provider": "deepseek",
+		"model":    c.model,
+		"base_url": c.baseURL,
+		"timeout":  c.httpClient.Timeout,
 		"features": []string{"chat", "streaming", "function_calling"},
 	}
 }

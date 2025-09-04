@@ -39,9 +39,9 @@ func (h *EnterpriseAIHandler) GenerateRecipeHandler(w http.ResponseWriter, r *ht
 	}
 
 	var req struct {
-		Prompt      string                   `json:"prompt"`
-		Constraints outbound.AIConstraints  `json:"constraints"`
-		UserID      string                   `json:"user_id,omitempty"`
+		Prompt      string                 `json:"prompt"`
+		Constraints outbound.AIConstraints `json:"constraints"`
+		UserID      string                 `json:"user_id,omitempty"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -216,8 +216,8 @@ func (h *EnterpriseAIHandler) OptimizeRecipeHandler(w http.ResponseWriter, r *ht
 	}
 
 	h.writeJSONResponse(w, http.StatusOK, map[string]interface{}{
-		"success":    true,
-		"optimized":  optimized,
+		"success":     true,
+		"optimized":   optimized,
 		"original_id": req.RecipeID,
 	})
 }
@@ -542,12 +542,12 @@ func (h *EnterpriseAIHandler) GetDashboardDataHandler(w http.ResponseWriter, r *
 	}
 
 	dashboardData := map[string]interface{}{
-		"cost_analytics":   costAnalytics,
-		"usage_analytics":  usageAnalytics,
-		"quality_metrics":  qualityMetrics,
-		"health_status":    healthStatus,
-		"period":           period,
-		"generated_at":     time.Now(),
+		"cost_analytics":  costAnalytics,
+		"usage_analytics": usageAnalytics,
+		"quality_metrics": qualityMetrics,
+		"health_status":   healthStatus,
+		"period":          period,
+		"generated_at":    time.Now(),
 	}
 
 	h.writeJSONResponse(w, http.StatusOK, map[string]interface{}{
@@ -570,11 +570,11 @@ func (h *EnterpriseAIHandler) GetBusinessInsightsHandler(w http.ResponseWriter, 
 
 	// Generate business insights (this would be more comprehensive in production)
 	insights := map[string]interface{}{
-		"period":           period,
-		"revenue_impact":   "High - AI features driving user engagement",
-		"cost_efficiency":  "Good - 85% cache hit rate reducing costs",
-		"quality_trends":   "Stable - Maintaining 90%+ quality scores",
-		"user_adoption":    "Growing - 25% increase in AI feature usage",
+		"period":          period,
+		"revenue_impact":  "High - AI features driving user engagement",
+		"cost_efficiency": "Good - 85% cache hit rate reducing costs",
+		"quality_trends":  "Stable - Maintaining 90%+ quality scores",
+		"user_adoption":   "Growing - 25% increase in AI feature usage",
 		"recommendations": []string{
 			"Consider expanding recipe optimization features",
 			"Investigate meal planning feature popularity",
@@ -582,11 +582,11 @@ func (h *EnterpriseAIHandler) GetBusinessInsightsHandler(w http.ResponseWriter, 
 			"Implement user feedback collection",
 		},
 		"kpis": map[string]interface{}{
-			"ai_requests_per_day":     12500,
-			"average_response_time":   "1.2s",
-			"cost_per_request":        "$0.015",
-			"user_satisfaction":       4.2,
-			"feature_adoption_rate":   "78%",
+			"ai_requests_per_day":   12500,
+			"average_response_time": "1.2s",
+			"cost_per_request":      "$0.015",
+			"user_satisfaction":     4.2,
+			"feature_adoption_rate": "78%",
 		},
 		"generated_at": time.Now(),
 	}
@@ -661,10 +661,10 @@ func (h *EnterpriseAIHandler) GenerateReportHandler(w http.ResponseWriter, r *ht
 	}
 
 	h.writeJSONResponse(w, http.StatusOK, map[string]interface{}{
-		"success":    true,
-		"report":     reportData,
-		"type":       req.ReportType,
-		"format":     req.Format,
+		"success":      true,
+		"report":       reportData,
+		"type":         req.ReportType,
+		"format":       req.Format,
 		"generated_at": time.Now(),
 	})
 }
@@ -710,7 +710,7 @@ func (h *EnterpriseAIHandler) validateConfig(config *ai.EnterpriseConfig) error 
 func (h *EnterpriseAIHandler) createMockRecipe(id uuid.UUID) *recipe.Recipe {
 	// Create a mock recipe for demonstration purposes
 	// In production, this would load from a repository
-	
+
 	// This is a simplified mock - in production, use proper domain objects
 	mockRecipe := &recipe.Recipe{}
 	// Set mock data as needed
@@ -726,12 +726,12 @@ func (h *EnterpriseAIHandler) generateCostReport(ctx context.Context, startDate,
 
 	// Enhance with date range filtering (simplified)
 	report := map[string]interface{}{
-		"period":      fmt.Sprintf("%s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02")),
-		"cost_data":   costData,
+		"period":    fmt.Sprintf("%s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02")),
+		"cost_data": costData,
 		"summary": map[string]interface{}{
-			"total_cost":        costData.TotalCostCents,
-			"average_per_day":   float64(costData.TotalCostCents) / float64(endDate.Sub(startDate).Hours()/24),
-			"projection":        costData.Projections,
+			"total_cost":      costData.TotalCostCents,
+			"average_per_day": float64(costData.TotalCostCents) / float64(endDate.Sub(startDate).Hours()/24),
+			"projection":      costData.Projections,
 		},
 	}
 
@@ -749,10 +749,10 @@ func (h *EnterpriseAIHandler) generateUsageReport(ctx context.Context, startDate
 		"period":     fmt.Sprintf("%s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02")),
 		"usage_data": usageData,
 		"summary": map[string]interface{}{
-			"total_requests":   usageData.TotalRequests,
-			"average_latency":  usageData.AverageLatency.String(),
-			"cache_hit_rate":   usageData.CacheHitRate,
-			"error_rate":       usageData.ErrorRate,
+			"total_requests":  usageData.TotalRequests,
+			"average_latency": usageData.AverageLatency.String(),
+			"cache_hit_rate":  usageData.CacheHitRate,
+			"error_rate":      usageData.ErrorRate,
 		},
 	}
 
@@ -802,9 +802,9 @@ func (h *EnterpriseAIHandler) generateComprehensiveReport(ctx context.Context, s
 		"usage_report":   usageReport,
 		"quality_report": qualityReport,
 		"executive_summary": map[string]interface{}{
-			"total_requests":     "125,000",
-			"total_cost":         "$1,875.50",
-			"average_quality":    "89.5%",
+			"total_requests":      "125,000",
+			"total_cost":          "$1,875.50",
+			"average_quality":     "89.5%",
 			"system_availability": "99.8%",
 			"key_insights": []string{
 				"Recipe generation is the most popular feature (45% of requests)",

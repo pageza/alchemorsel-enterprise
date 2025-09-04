@@ -8,11 +8,11 @@ import (
 
 // Dashboard data structures for webserver
 type UserDashboardData struct {
-	RecipeStats       *UserRecipeStatsData          `json:"recipe_stats"`
-	ConversationStats *UserConversationStatsData    `json:"conversation_stats"`
-	RecentRecipes     []RecipeResponse              `json:"recent_recipes"`
-	FeaturedRecipes   []RecipeResponse              `json:"featured_recipes"`
-	QuickActions      []QuickActionData             `json:"quick_actions"`
+	RecipeStats       *UserRecipeStatsData       `json:"recipe_stats"`
+	ConversationStats *UserConversationStatsData `json:"conversation_stats"`
+	RecentRecipes     []RecipeResponse           `json:"recent_recipes"`
+	FeaturedRecipes   []RecipeResponse           `json:"featured_recipes"`
+	QuickActions      []QuickActionData          `json:"quick_actions"`
 }
 
 type UserRecipeStatsData struct {
@@ -180,26 +180,26 @@ func (s *WebServer) limitRecipes(recipes []RecipeResponse, limit int) []RecipeRe
 // mapToUserResponse converts a map[string]interface{} to UserResponse
 func (s *WebServer) mapToUserResponse(userMap map[string]interface{}) UserResponse {
 	user := UserResponse{}
-	
+
 	if id, ok := userMap["ID"].(string); ok {
 		user.ID = id
 	}
-	
+
 	if name, ok := userMap["Name"].(string); ok {
 		user.Name = name
 	}
-	
+
 	if email, ok := userMap["Email"].(string); ok {
 		user.Email = email
 	}
-	
+
 	if role, ok := userMap["Role"].(string); ok {
 		user.Role = role
 	}
-	
+
 	if isActive, ok := userMap["IsActive"].(bool); ok {
 		user.IsActive = isActive
 	}
-	
+
 	return user
 }

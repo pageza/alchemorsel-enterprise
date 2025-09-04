@@ -26,19 +26,19 @@ func (suite *RecipeTestSuite) createValidRecipe() (*Recipe, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Add a valid ingredient
 	ingredient := Ingredient{
-		ID:       uuid.New(),
-		Name:     "Test Ingredient",
-		Amount:   1.0,
-		Unit:     MeasurementUnitCup,
+		ID:     uuid.New(),
+		Name:   "Test Ingredient",
+		Amount: 1.0,
+		Unit:   MeasurementUnitCup,
 	}
 	err = recipe.AddIngredient(ingredient)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Add a valid instruction
 	instruction := Instruction{
 		Description: "Test instruction",
@@ -48,7 +48,7 @@ func (suite *RecipeTestSuite) createValidRecipe() (*Recipe, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return recipe, nil
 }
 
@@ -66,18 +66,18 @@ func (suite *RecipeTestSuite) TestRecipeCreation() {
 		// Assert
 		require.NoError(suite.T(), err)
 		require.NotNil(suite.T(), recipe)
-		
+
 		assert.Equal(suite.T(), title, recipe.Title())
 		assert.NotEqual(suite.T(), uuid.Nil, recipe.ID())
 		assert.Equal(suite.T(), RecipeStatusDraft, recipe.status)
 		assert.NotZero(suite.T(), recipe.createdAt)
 		assert.NotZero(suite.T(), recipe.updatedAt)
 		assert.Equal(suite.T(), int64(1), recipe.version)
-		
+
 		// Check domain events
 		events := recipe.Events()
 		assert.Len(suite.T(), events, 1)
-		
+
 		createdEvent, ok := events[0].(RecipeCreatedEvent)
 		assert.True(suite.T(), ok, "Should emit RecipeCreatedEvent")
 		assert.Equal(suite.T(), recipe.ID(), createdEvent.RecipeID)
@@ -161,11 +161,11 @@ func (suite *RecipeTestSuite) TestRecipeModification() {
 		require.NoError(suite.T(), err)
 		assert.Equal(suite.T(), newTitle, recipe.Title())
 		assert.True(suite.T(), recipe.updatedAt.After(originalUpdatedAt))
-		
+
 		// Check domain events
 		events := recipe.Events()
 		assert.Len(suite.T(), events, 1) // Only the update event (creation event was consumed)
-		
+
 		titleEvent, ok := events[0].(RecipeTitleUpdatedEvent)
 		assert.True(suite.T(), ok, "Should emit RecipeTitleUpdatedEvent")
 		assert.Equal(suite.T(), "Original Title", titleEvent.OldTitle)
@@ -193,10 +193,10 @@ func (suite *RecipeTestSuite) TestRecipeIngredients() {
 		// Arrange
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
 		ingredient := Ingredient{
-			ID:       uuid.New(),
-			Name:     "Spaghetti",
-			Amount:   1.0,
-			Unit:     MeasurementUnitPound,
+			ID:     uuid.New(),
+			Name:   "Spaghetti",
+			Amount: 1.0,
+			Unit:   MeasurementUnitPound,
 		}
 
 		// Act
@@ -204,11 +204,11 @@ func (suite *RecipeTestSuite) TestRecipeIngredients() {
 
 		// Assert
 		require.NoError(suite.T(), err)
-		
+
 		// Check domain events
 		events := recipe.Events()
 		assert.Len(suite.T(), events, 1) // Creation event was consumed earlier
-		
+
 		ingredientEvent, ok := events[0].(IngredientAddedEvent)
 		assert.True(suite.T(), ok, "Should emit IngredientAddedEvent")
 		assert.Equal(suite.T(), recipe.ID(), ingredientEvent.RecipeID)
@@ -219,10 +219,10 @@ func (suite *RecipeTestSuite) TestRecipeIngredients() {
 		// Arrange
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
 		ingredient := Ingredient{
-			ID:       uuid.New(),
-			Name:     "", // Invalid - empty name
-			Amount:   1.0,
-			Unit:     MeasurementUnitPound,
+			ID:     uuid.New(),
+			Name:   "", // Invalid - empty name
+			Amount: 1.0,
+			Unit:   MeasurementUnitPound,
 		}
 
 		// Act
@@ -289,11 +289,11 @@ func (suite *RecipeTestSuite) TestRecipePublishing() {
 		require.NoError(suite.T(), err)
 		assert.Equal(suite.T(), RecipeStatusPublished, recipe.status)
 		assert.NotNil(suite.T(), recipe.publishedAt)
-		
+
 		// Check domain events
 		events := recipe.Events()
 		assert.Len(suite.T(), events, 1)
-		
+
 		publishedEvent, ok := events[0].(RecipePublishedEvent)
 		assert.True(suite.T(), ok, "Should emit RecipePublishedEvent")
 		assert.Equal(suite.T(), recipe.ID(), publishedEvent.RecipeID)
@@ -317,10 +317,10 @@ func (suite *RecipeTestSuite) TestRecipePublishing() {
 		// Arrange
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
 		recipe.AddIngredient(Ingredient{
-			ID:       uuid.New(),
-			Name:     "Test Ingredient",
-			Amount:   1.0,
-			Unit:     MeasurementUnitCup,
+			ID:     uuid.New(),
+			Name:   "Test Ingredient",
+			Amount: 1.0,
+			Unit:   MeasurementUnitCup,
 		})
 		// Don't add instructions
 
@@ -361,11 +361,11 @@ func (suite *RecipeTestSuite) TestRecipeArchiving() {
 		// Assert
 		require.NoError(suite.T(), err)
 		assert.Equal(suite.T(), RecipeStatusArchived, recipe.status)
-		
+
 		// Check domain events
 		events := recipe.Events()
 		assert.Len(suite.T(), events, 1)
-		
+
 		archivedEvent, ok := events[0].(RecipeArchivedEvent)
 		assert.True(suite.T(), ok, "Should emit RecipeArchivedEvent")
 		assert.Equal(suite.T(), recipe.ID(), archivedEvent.RecipeID)
@@ -399,11 +399,11 @@ func (suite *RecipeTestSuite) TestRecipeSocialFeatures() {
 
 		// Assert
 		assert.Equal(suite.T(), originalLikes+1, recipe.likes)
-		
+
 		// Check domain events
 		events := recipe.Events()
 		assert.Len(suite.T(), events, 1)
-		
+
 		likedEvent, ok := events[0].(RecipeLikedEvent)
 		assert.True(suite.T(), ok, "Should emit RecipeLikedEvent")
 		assert.Equal(suite.T(), recipe.ID(), likedEvent.RecipeID)
@@ -425,11 +425,11 @@ func (suite *RecipeTestSuite) TestRecipeSocialFeatures() {
 		// Assert
 		require.NoError(suite.T(), err)
 		assert.Equal(suite.T(), 5.0, recipe.averageRating)
-		
+
 		// Check domain events
 		events := recipe.Events()
 		assert.Len(suite.T(), events, 1)
-		
+
 		ratedEvent, ok := events[0].(RecipeRatedEvent)
 		assert.True(suite.T(), ok, "Should emit RecipeRatedEvent")
 		assert.Equal(suite.T(), recipe.ID(), ratedEvent.RecipeID)
@@ -440,7 +440,7 @@ func (suite *RecipeTestSuite) TestRecipeSocialFeatures() {
 	suite.Run("AddMultipleRatings_ShouldCalculateCorrectAverage", func() {
 		// Arrange
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
-		
+
 		// Act - Add ratings of 3, 4, 5
 		recipe.AddRating(Rating{UserID: uuid.New(), Value: 3})
 		recipe.AddRating(Rating{UserID: uuid.New(), Value: 4})
@@ -492,16 +492,16 @@ func (suite *RecipeTestSuite) TestRecipeEvents() {
 		// Act
 		recipe.Like(userID)
 		recipe.UpdateTitle("New Title")
-		
+
 		events := recipe.Events()
 
 		// Assert
 		assert.Len(suite.T(), events, 2)
-		
+
 		// Verify event types
 		likedEvent, ok1 := events[0].(RecipeLikedEvent)
 		titleEvent, ok2 := events[1].(RecipeTitleUpdatedEvent)
-		
+
 		assert.True(suite.T(), ok1, "First event should be RecipeLikedEvent")
 		assert.True(suite.T(), ok2, "Second event should be RecipeTitleUpdatedEvent")
 		assert.Equal(suite.T(), userID, likedEvent.UserID)
@@ -544,10 +544,10 @@ func (suite *RecipeTestSuite) TestRecipeValidation() {
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
 		// Add ingredients but no instructions
 		recipe.AddIngredient(Ingredient{
-			ID:       uuid.New(),
-			Name:     "Test Ingredient",
-			Amount:   1.0,
-			Unit:     MeasurementUnitCup,
+			ID:     uuid.New(),
+			Name:   "Test Ingredient",
+			Amount: 1.0,
+			Unit:   MeasurementUnitCup,
 		})
 
 		// Act
@@ -578,10 +578,10 @@ func BenchmarkRecipeCreation(b *testing.B) {
 // BenchmarkRecipeAddIngredient benchmarks adding ingredients
 func BenchmarkRecipeAddIngredient(b *testing.B) {
 	ingredient := Ingredient{
-		ID:       uuid.New(),
-		Name:     "Test Ingredient",
-		Amount:   1.0,
-		Unit:     "cup",
+		ID:     uuid.New(),
+		Name:   "Test Ingredient",
+		Amount: 1.0,
+		Unit:   "cup",
 	}
 
 	b.ResetTimer()
@@ -602,7 +602,7 @@ func BenchmarkRecipePublish(b *testing.B) {
 		if err != nil {
 			return nil, err
 		}
-		
+
 		ingredient := Ingredient{
 			ID:     uuid.New(),
 			Name:   "Test Ingredient",
@@ -613,7 +613,7 @@ func BenchmarkRecipePublish(b *testing.B) {
 		if err != nil {
 			return nil, err
 		}
-		
+
 		instruction := Instruction{
 			Description: "Test instruction",
 			Duration:    5 * time.Minute,
@@ -622,7 +622,7 @@ func BenchmarkRecipePublish(b *testing.B) {
 		if err != nil {
 			return nil, err
 		}
-		
+
 		return recipe, nil
 	}
 

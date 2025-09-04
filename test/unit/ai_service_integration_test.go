@@ -19,10 +19,10 @@ import (
 // AIServiceIntegrationTestSuite tests AI service integration scenarios
 type AIServiceIntegrationTestSuite struct {
 	suite.Suite
-	aiService       *conversation.AIService
-	mockOllama      *testutils.MockOllamaClient
-	mockOpenAI      *testutils.MockOpenAIClient
-	ctx             context.Context
+	aiService  *conversation.AIService
+	mockOllama *testutils.MockOllamaClient
+	mockOpenAI *testutils.MockOpenAIClient
+	ctx        context.Context
 }
 
 // SetupSuite initializes the test suite
@@ -59,9 +59,9 @@ func (suite *AIServiceIntegrationTestSuite) TestOllamaIntegration() {
 				suite.mockOllama.On("HealthCheck", mock.Anything).Return(nil)
 				suite.mockOllama.On("GenerateChatCompletion", mock.Anything, mock.MatchedBy(func(messages []conversation.ChatMessage) bool {
 					// Verify system prompt is for recipe creation
-					return len(messages) > 0 && 
-						   strings.Contains(messages[0].Content, "RECIPE CREATION MODE") &&
-						   messages[len(messages)-1].Content == "I want to make pasta carbonara"
+					return len(messages) > 0 &&
+						strings.Contains(messages[0].Content, "RECIPE CREATION MODE") &&
+						messages[len(messages)-1].Content == "I want to make pasta carbonara"
 				})).Return("Great! I'll help you make pasta carbonara. Let me gather some information about your preferences.", nil)
 			},
 		},
@@ -73,9 +73,9 @@ func (suite *AIServiceIntegrationTestSuite) TestOllamaIntegration() {
 			setupMocks: func() {
 				suite.mockOllama.On("HealthCheck", mock.Anything).Return(nil)
 				suite.mockOllama.On("GenerateChatCompletion", mock.Anything, mock.MatchedBy(func(messages []conversation.ChatMessage) bool {
-					return len(messages) > 0 && 
-						   strings.Contains(messages[0].Content, "COOKING HELP MODE") &&
-						   messages[len(messages)-1].Content == "How do I properly cook rice?"
+					return len(messages) > 0 &&
+						strings.Contains(messages[0].Content, "COOKING HELP MODE") &&
+						messages[len(messages)-1].Content == "How do I properly cook rice?"
 				})).Return("To cook rice properly, use a 1:2 ratio of rice to water. Bring to boil, then simmer covered for 18 minutes.", nil)
 			},
 		},
@@ -87,9 +87,9 @@ func (suite *AIServiceIntegrationTestSuite) TestOllamaIntegration() {
 			setupMocks: func() {
 				suite.mockOllama.On("HealthCheck", mock.Anything).Return(nil)
 				suite.mockOllama.On("GenerateChatCompletion", mock.Anything, mock.MatchedBy(func(messages []conversation.ChatMessage) bool {
-					return len(messages) > 0 && 
-						   strings.Contains(messages[0].Content, "INGREDIENT SUBSTITUTION MODE") &&
-						   messages[len(messages)-1].Content == "I don't have butter, what can I substitute?"
+					return len(messages) > 0 &&
+						strings.Contains(messages[0].Content, "INGREDIENT SUBSTITUTION MODE") &&
+						messages[len(messages)-1].Content == "I don't have butter, what can I substitute?"
 				})).Return("You can substitute butter with olive oil (3/4 the amount), vegetable oil, or margarine in most recipes.", nil)
 			},
 		},
@@ -147,12 +147,12 @@ func (suite *AIServiceIntegrationTestSuite) TestOpenAIFallback() {
 			setupMocks: func() {
 				// Ollama health check fails
 				suite.mockOllama.On("HealthCheck", mock.Anything).Return(assert.AnError)
-				
+
 				// OpenAI succeeds
 				suite.mockOpenAI.On("GenerateChatCompletion", mock.Anything, mock.MatchedBy(func(messages []conversation.ChatMessage) bool {
-					return len(messages) > 0 && 
-						   strings.Contains(messages[0].Content, "RECIPE CREATION MODE") &&
-						   messages[len(messages)-1].Content == "Create a chocolate cake recipe"
+					return len(messages) > 0 &&
+						strings.Contains(messages[0].Content, "RECIPE CREATION MODE") &&
+						messages[len(messages)-1].Content == "Create a chocolate cake recipe"
 				})).Return("I'll help you create a delicious chocolate cake recipe! Here's what we'll need...", nil)
 			},
 		},
@@ -166,12 +166,12 @@ func (suite *AIServiceIntegrationTestSuite) TestOpenAIFallback() {
 				suite.mockOllama.On("HealthCheck", mock.Anything).Return(nil)
 				suite.mockOllama.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
 					Return("", assert.AnError)
-				
+
 				// OpenAI succeeds
 				suite.mockOpenAI.On("GenerateChatCompletion", mock.Anything, mock.MatchedBy(func(messages []conversation.ChatMessage) bool {
-					return len(messages) > 0 && 
-						   strings.Contains(messages[0].Content, "COOKING HELP MODE") &&
-						   messages[len(messages)-1].Content == "How do I make perfect scrambled eggs?"
+					return len(messages) > 0 &&
+						strings.Contains(messages[0].Content, "COOKING HELP MODE") &&
+						messages[len(messages)-1].Content == "How do I make perfect scrambled eggs?"
 				})).Return("For perfect scrambled eggs, use low heat and stir constantly. Add butter for creaminess.", nil)
 			},
 		},
@@ -282,26 +282,26 @@ func (suite *AIServiceIntegrationTestSuite) TestConversationHistoryHandling() {
 			if len(messages) != 6 {
 				return false
 			}
-			
+
 			// Check system prompt
 			if messages[0].Role != "system" {
 				return false
 			}
-			
+
 			// Check conversation history is included
 			if messages[1].Content != "I want to make pasta" {
 				return false
 			}
-			
+
 			if messages[2].Content != "What type of pasta?" {
 				return false
 			}
-			
+
 			// Check current message is last
 			if messages[5].Content != "Spaghetti carbonara please" {
 				return false
 			}
-			
+
 			return true
 		})).Return("Perfect! Spaghetti carbonara is a classic. Let me create a traditional recipe for you.", nil)
 
@@ -459,7 +459,7 @@ func (suite *AIServiceIntegrationTestSuite) TestSystemPromptGeneration() {
 				}
 
 				return true
-			})).Return("Test response for " + string(tc.intent), nil)
+			})).Return("Test response for "+string(tc.intent), nil)
 
 			conv := &conversation.Conversation{
 				ID:     uuid.New().String(),
@@ -487,11 +487,11 @@ func (suite *AIServiceIntegrationTestSuite) TestSystemPromptGeneration() {
 // TestRecipeExtractionFromConversation tests recipe extraction functionality
 func (suite *AIServiceIntegrationTestSuite) TestRecipeExtractionFromConversation() {
 	testCases := []struct {
-		name              string
-		messages          []*conversation.Message
-		expectedTitle     string
+		name                string
+		messages            []*conversation.Message
+		expectedTitle       string
 		expectedIngredients []string
-		expectedStep      string
+		expectedStep        string
 	}{
 		{
 			name: "Complete Recipe Discussion",
@@ -513,9 +513,9 @@ func (suite *AIServiceIntegrationTestSuite) TestRecipeExtractionFromConversation
 					Content: "Perfect! That will work well. Bacon is a great substitute for pancetta.",
 				},
 			},
-			expectedTitle:      "Carbonara",
+			expectedTitle:       "Carbonara",
 			expectedIngredients: []string{"pasta", "eggs", "cheese"},
-			expectedStep:       "ready_to_create",
+			expectedStep:        "ready_to_create",
 		},
 		{
 			name: "Partial Recipe Discussion",
@@ -533,9 +533,9 @@ func (suite *AIServiceIntegrationTestSuite) TestRecipeExtractionFromConversation
 					Content: "Maybe something healthy",
 				},
 			},
-			expectedTitle:      "",
+			expectedTitle:       "",
 			expectedIngredients: []string{"chicken"},
-			expectedStep:       "gathering_info",
+			expectedStep:        "gathering_info",
 		},
 		{
 			name: "Dietary Requirements Discussion",
@@ -553,9 +553,9 @@ func (suite *AIServiceIntegrationTestSuite) TestRecipeExtractionFromConversation
 					Content: "2 servings please, and I want it to be healthy",
 				},
 			},
-			expectedTitle:      "Pasta",
+			expectedTitle:       "Pasta",
 			expectedIngredients: []string{"pasta"},
-			expectedStep:       "gathering_details",
+			expectedStep:        "gathering_details",
 		},
 	}
 
@@ -743,7 +743,7 @@ func TestAIServiceWithDifferentModels(t *testing.T) {
 		aiService := conversation.NewAIService(mockOllama, mockOpenAI)
 
 		models := []string{"llama2", "codellama", "mistral", "gemma"}
-		
+
 		for _, model := range models {
 			t.Run(fmt.Sprintf("Model_%s", model), func(t *testing.T) {
 				mockOllama.On("HealthCheck", mock.Anything).Return(nil)

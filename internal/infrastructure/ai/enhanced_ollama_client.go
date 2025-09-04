@@ -56,7 +56,7 @@ func (c *EnhancedOllamaClient) GenerateCompletion(ctx context.Context, prompt st
 	defaultContext := conversation.ConversationContext{
 		Complexity: "medium",
 	}
-	
+
 	options := conversation.GenerationOptions{
 		Intent:      conversation.IntentGeneral,
 		Context:     defaultContext,
@@ -65,7 +65,7 @@ func (c *EnhancedOllamaClient) GenerateCompletion(ctx context.Context, prompt st
 		Temperature: 0.7,
 		Quality:     conversation.QualityBalanced,
 	}
-	
+
 	// Convert prompt to messages format
 	messages := []conversation.ChatMessage{
 		{
@@ -73,12 +73,12 @@ func (c *EnhancedOllamaClient) GenerateCompletion(ctx context.Context, prompt st
 			Content: prompt,
 		},
 	}
-	
+
 	result, err := c.GenerateChatCompletionWithOptions(ctx, messages, options)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return result.Content, nil
 }
 
@@ -88,7 +88,7 @@ func (c *EnhancedOllamaClient) GenerateChatCompletionWithOptions(
 	messages []conversation.ChatMessage,
 	options conversation.GenerationOptions,
 ) (*conversation.GenerationResult, error) {
-	
+
 	// Select optimal model
 	selectedModel, err := c.modelManager.SelectOptimalModel(options.Intent, options.Context)
 	if err != nil {
@@ -97,50 +97,50 @@ func (c *EnhancedOllamaClient) GenerateChatCompletionWithOptions(
 			zap.String("fallback", c.modelManager.GetFallbackModel()))
 		selectedModel = c.modelManager.GetFallbackModel()
 	}
-	
+
 	// Check cache first
 	if c.responseCache != nil {
 		if cached := c.responseCache.Get(ctx, messages, selectedModel); cached != nil {
 			c.logger.Debug("Cache hit for completion request",
 				zap.String("model", selectedModel),
 				zap.Int("message_count", len(messages)))
-			
+
 			// Record cache hit metric
 			if c.metricsCollector != nil {
 				c.metricsCollector.RecordCacheHit(selectedModel)
 			}
-			
+
 			return cached, nil
 		}
 	}
-	
+
 	// Generate with telemetry
 	startTime := time.Now()
 	result, err := c.generateWithModel(ctx, messages, selectedModel, options)
 	duration := time.Since(startTime)
-	
+
 	// Update model metrics
 	if result != nil {
 		c.modelManager.UpdateModelMetrics(selectedModel, duration, result.TokensUsed, result.Quality)
 	}
-	
+
 	// Collect performance metrics
 	if c.metricsCollector != nil {
 		c.metricsCollector.RecordGeneration(selectedModel, duration, result.TokensUsed, err)
 	}
-	
+
 	// Cache successful high-quality results
 	if err == nil && result.Quality > 0.8 && c.responseCache != nil {
 		cacheTTL := 5 * time.Minute
 		if options.Quality == conversation.QualityHigh {
 			cacheTTL = 15 * time.Minute // Cache high-quality responses longer
 		}
-		
+
 		if cacheErr := c.responseCache.Set(ctx, messages, selectedModel, result, cacheTTL); cacheErr != nil {
 			c.logger.Warn("Failed to cache response", zap.Error(cacheErr))
 		}
 	}
-	
+
 	return result, err
 }
 
@@ -151,18 +151,18 @@ func (c *EnhancedOllamaClient) generateWithModel(
 	model string,
 	options conversation.GenerationOptions,
 ) (*conversation.GenerationResult, error) {
-	
+
 	c.logger.Debug("Generating completion with model",
 		zap.String("model", model),
 		zap.String("intent", string(options.Intent)),
 		zap.Bool("streaming", options.Streaming),
 		zap.String("quality", string(options.Quality)))
-	
+
 	// Convert messages to the format expected by base client
 	prompt := c.formatMessagesAsPrompt(messages)
-	
+
 	startTime := time.Now()
-	
+
 	// Call the base client
 	promptMessages := []conversation.ChatMessage{{Role: "user", Content: prompt}}
 	response, err := c.baseClient.GenerateChatCompletion(ctx, promptMessages)
@@ -170,30 +170,30 @@ func (c *EnhancedOllamaClient) generateWithModel(
 		c.logger.Error("Generation failed",
 			zap.String("model", model),
 			zap.Error(err))
-		
+
 		// Try fallback model if available
 		fallbackModel := c.modelManager.GetFallbackModel()
 		if fallbackModel != model {
 			c.logger.Info("Retrying with fallback model",
 				zap.String("fallback_model", fallbackModel))
-			
+
 			// Update health status for failed model
 			c.modelManager.UpdateModelHealth(model, "failed")
-			
+
 			return c.generateWithModel(ctx, messages, fallbackModel, options)
 		}
-		
+
 		return nil, fmt.Errorf("generation failed with model %s: %w", model, err)
 	}
-	
+
 	duration := time.Since(startTime)
-	
+
 	// Calculate quality score (simplified heuristic)
 	quality := c.calculateQualityScore(response, options)
-	
+
 	// Estimate token usage (rough approximation)
 	tokensUsed := len(response) / 4 // Rough approximation: 4 chars per token
-	
+
 	result := &conversation.GenerationResult{
 		Content:    response,
 		Quality:    quality,
@@ -201,20 +201,20 @@ func (c *EnhancedOllamaClient) generateWithModel(
 		TokensUsed: tokensUsed,
 		ModelUsed:  model,
 		Metadata: map[string]interface{}{
-			"temperature":    options.Temperature,
-			"max_tokens":     options.MaxTokens,
-			"streaming":      options.Streaming,
-			"quality_level":  string(options.Quality),
-			"intent":         string(options.Intent),
+			"temperature":   options.Temperature,
+			"max_tokens":    options.MaxTokens,
+			"streaming":     options.Streaming,
+			"quality_level": string(options.Quality),
+			"intent":        string(options.Intent),
 		},
 	}
-	
+
 	c.logger.Debug("Generation completed",
 		zap.String("model", model),
 		zap.Duration("duration", duration),
 		zap.Int("tokens_used", tokensUsed),
 		zap.Float64("quality", quality))
-	
+
 	return result, nil
 }
 
@@ -223,7 +223,7 @@ func (c *EnhancedOllamaClient) formatMessagesAsPrompt(messages []conversation.Ch
 	if len(messages) == 0 {
 		return ""
 	}
-	
+
 	// Simple formatting - in production, this would be more sophisticated
 	var prompt string
 	for _, msg := range messages {
@@ -236,12 +236,12 @@ func (c *EnhancedOllamaClient) formatMessagesAsPrompt(messages []conversation.Ch
 			prompt += fmt.Sprintf("Assistant: %s\n\n", msg.Content)
 		}
 	}
-	
+
 	// Add final assistant prompt
 	if len(messages) > 0 && messages[len(messages)-1].Role != "assistant" {
 		prompt += "Assistant: "
 	}
-	
+
 	return prompt
 }
 
@@ -250,9 +250,9 @@ func (c *EnhancedOllamaClient) calculateQualityScore(response string, options co
 	if response == "" {
 		return 0.0
 	}
-	
+
 	score := 0.5 // Base score
-	
+
 	// Length-based scoring
 	responseLength := len(response)
 	if responseLength > 50 {
@@ -264,7 +264,7 @@ func (c *EnhancedOllamaClient) calculateQualityScore(response string, options co
 	if responseLength > 500 {
 		score += 0.1
 	}
-	
+
 	// Coherence indicators (simple heuristics)
 	if responseLength > 20 {
 		// Check for sentence structure
@@ -272,7 +272,7 @@ func (c *EnhancedOllamaClient) calculateQualityScore(response string, options co
 			score += 0.1
 		}
 	}
-	
+
 	// Intent-specific scoring
 	switch options.Intent {
 	case conversation.IntentRecipeCreation:
@@ -286,7 +286,7 @@ func (c *EnhancedOllamaClient) calculateQualityScore(response string, options co
 			score += 0.1
 		}
 	}
-	
+
 	// Ensure score is within bounds
 	if score > 1.0 {
 		score = 1.0
@@ -294,7 +294,7 @@ func (c *EnhancedOllamaClient) calculateQualityScore(response string, options co
 	if score < 0.0 {
 		score = 0.0
 	}
-	
+
 	return score
 }
 
@@ -327,11 +327,11 @@ func containsKeyword(text, keyword string) bool {
 	// Simple substring search - in production, use proper text analysis
 	textLen := len(text)
 	keywordLen := len(keyword)
-	
+
 	if keywordLen > textLen {
 		return false
 	}
-	
+
 	for i := 0; i <= textLen-keywordLen; i++ {
 		match := true
 		for j := 0; j < keywordLen; j++ {
@@ -344,7 +344,7 @@ func containsKeyword(text, keyword string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -356,13 +356,13 @@ func (c *EnhancedOllamaClient) GetModelInfo() []*conversation.ModelInfo {
 // Shutdown gracefully shuts down the enhanced client
 func (c *EnhancedOllamaClient) Shutdown(ctx context.Context) error {
 	c.logger.Info("Shutting down enhanced Ollama client")
-	
+
 	if c.modelManager != nil {
 		if err := c.modelManager.Shutdown(ctx); err != nil {
 			c.logger.Error("Failed to shutdown model manager", zap.Error(err))
 			return err
 		}
 	}
-	
+
 	return nil
 }

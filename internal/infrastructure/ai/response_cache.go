@@ -53,19 +53,19 @@ func (rc *ResponseCache) SetEnabled(enabled bool) {
 // GenerateCacheKey generates a cache key for the given messages and model
 func (rc *ResponseCache) GenerateCacheKey(messages []conversation.ChatMessage, model string) string {
 	hasher := sha256.New()
-	
+
 	// Include last 3 messages for context (to avoid excessive cache misses)
 	contextMessages := messages
 	if len(messages) > 3 {
 		contextMessages = messages[len(messages)-3:]
 	}
-	
+
 	// Hash the conversation context
 	for _, msg := range contextMessages {
 		hasher.Write([]byte(fmt.Sprintf("%s:%s", msg.Role, msg.Content)))
 	}
 	hasher.Write([]byte(model))
-	
+
 	hash := fmt.Sprintf("%x", hasher.Sum(nil))
 	return fmt.Sprintf("%s:chat:%s", rc.keyPrefix, hash[:16])
 }
@@ -75,9 +75,9 @@ func (rc *ResponseCache) Get(ctx context.Context, messages []conversation.ChatMe
 	if !rc.enabled {
 		return nil
 	}
-	
+
 	key := rc.GenerateCacheKey(messages, model)
-	
+
 	data, err := rc.redis.Get(ctx, key).Result()
 	if err != nil {
 		if err != redis.Nil {
@@ -87,7 +87,7 @@ func (rc *ResponseCache) Get(ctx context.Context, messages []conversation.ChatMe
 		}
 		return nil
 	}
-	
+
 	var cached CachedResponse
 	if err := json.Unmarshal([]byte(data), &cached); err != nil {
 		rc.logger.Error("Failed to unmarshal cached response",
@@ -95,7 +95,7 @@ func (rc *ResponseCache) Get(ctx context.Context, messages []conversation.ChatMe
 			zap.Error(err))
 		return nil
 	}
-	
+
 	// Convert cached response to GenerationResult
 	result := &conversation.GenerationResult{
 		Content:    cached.Content,
@@ -105,12 +105,12 @@ func (rc *ResponseCache) Get(ctx context.Context, messages []conversation.ChatMe
 		ModelUsed:  cached.Model,
 		Metadata:   cached.Metadata,
 	}
-	
+
 	rc.logger.Debug("Cache hit",
 		zap.String("key", key),
 		zap.String("model", model),
 		zap.Time("generated_at", cached.GeneratedAt))
-	
+
 	return result
 }
 
@@ -119,9 +119,9 @@ func (rc *ResponseCache) Set(ctx context.Context, messages []conversation.ChatMe
 	if !rc.enabled {
 		return nil
 	}
-	
+
 	key := rc.GenerateCacheKey(messages, model)
-	
+
 	cached := CachedResponse{
 		Content:     result.Content,
 		Quality:     result.Quality,
@@ -131,25 +131,25 @@ func (rc *ResponseCache) Set(ctx context.Context, messages []conversation.ChatMe
 		Duration:    result.Duration,
 		Metadata:    result.Metadata,
 	}
-	
+
 	data, err := json.Marshal(cached)
 	if err != nil {
 		return fmt.Errorf("failed to marshal cache data: %w", err)
 	}
-	
+
 	if err := rc.redis.Set(ctx, key, data, ttl).Err(); err != nil {
 		rc.logger.Error("Failed to cache response",
 			zap.String("key", key),
 			zap.Error(err))
 		return fmt.Errorf("failed to set cache: %w", err)
 	}
-	
+
 	rc.logger.Debug("Cached response",
 		zap.String("key", key),
 		zap.String("model", model),
 		zap.Duration("ttl", ttl),
 		zap.Float64("quality", result.Quality))
-	
+
 	return nil
 }
 
@@ -158,16 +158,16 @@ func (rc *ResponseCache) Delete(ctx context.Context, messages []conversation.Cha
 	if !rc.enabled {
 		return nil
 	}
-	
+
 	key := rc.GenerateCacheKey(messages, model)
-	
+
 	if err := rc.redis.Del(ctx, key).Err(); err != nil {
 		rc.logger.Error("Failed to delete cached response",
 			zap.String("key", key),
 			zap.Error(err))
 		return fmt.Errorf("failed to delete cache: %w", err)
 	}
-	
+
 	rc.logger.Debug("Deleted cached response", zap.String("key", key))
 	return nil
 }
@@ -177,22 +177,22 @@ func (rc *ResponseCache) Clear(ctx context.Context) error {
 	if !rc.enabled {
 		return nil
 	}
-	
+
 	pattern := fmt.Sprintf("%s:*", rc.keyPrefix)
 	keys, err := rc.redis.Keys(ctx, pattern).Result()
 	if err != nil {
 		return fmt.Errorf("failed to get cache keys: %w", err)
 	}
-	
+
 	if len(keys) == 0 {
 		rc.logger.Info("No cache entries to clear")
 		return nil
 	}
-	
+
 	if err := rc.redis.Del(ctx, keys...).Err(); err != nil {
 		return fmt.Errorf("failed to delete cache keys: %w", err)
 	}
-	
+
 	rc.logger.Info("Cleared cache entries", zap.Int("count", len(keys)))
 	return nil
 }
@@ -202,20 +202,20 @@ func (rc *ResponseCache) GetStats(ctx context.Context) (*CacheStats, error) {
 	if !rc.enabled {
 		return &CacheStats{Enabled: false}, nil
 	}
-	
+
 	pattern := fmt.Sprintf("%s:*", rc.keyPrefix)
 	keys, err := rc.redis.Keys(ctx, pattern).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cache keys: %w", err)
 	}
-	
+
 	stats := &CacheStats{
 		Enabled:    true,
 		TotalKeys:  len(keys),
 		KeyPrefix:  rc.keyPrefix,
 		DefaultTTL: rc.defaultTTL,
 	}
-	
+
 	// Get memory usage (rough estimate)
 	if len(keys) > 0 {
 		// Sample a few keys to estimate average size
@@ -223,7 +223,7 @@ func (rc *ResponseCache) GetStats(ctx context.Context) (*CacheStats, error) {
 		if len(keys) < sampleSize {
 			sampleSize = len(keys)
 		}
-		
+
 		var totalSize int64
 		for i := 0; i < sampleSize; i++ {
 			val, err := rc.redis.Get(ctx, keys[i]).Result()
@@ -231,19 +231,19 @@ func (rc *ResponseCache) GetStats(ctx context.Context) (*CacheStats, error) {
 				totalSize += int64(len(val))
 			}
 		}
-		
+
 		if sampleSize > 0 {
 			avgSize := totalSize / int64(sampleSize)
 			stats.EstimatedMemoryUsage = avgSize * int64(len(keys))
 		}
 	}
-	
+
 	return stats, nil
 }
 
 // CacheStats represents cache statistics
 type CacheStats struct {
-	Enabled               bool          `json:"enabled"`
+	Enabled              bool          `json:"enabled"`
 	TotalKeys            int           `json:"total_keys"`
 	KeyPrefix            string        `json:"key_prefix"`
 	DefaultTTL           time.Duration `json:"default_ttl"`
@@ -255,10 +255,10 @@ func (rc *ResponseCache) Cleanup(ctx context.Context) error {
 	if !rc.enabled {
 		return nil
 	}
-	
+
 	// Redis handles TTL expiration automatically, but we can implement
 	// additional cleanup logic here if needed
-	
+
 	rc.logger.Debug("Cache cleanup completed (Redis handles TTL automatically)")
 	return nil
 }
@@ -274,13 +274,13 @@ func (rc *ResponseCache) GetTTL(ctx context.Context, messages []conversation.Cha
 	if !rc.enabled {
 		return 0, fmt.Errorf("cache is disabled")
 	}
-	
+
 	key := rc.GenerateCacheKey(messages, model)
 	ttl, err := rc.redis.TTL(ctx, key).Result()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get TTL: %w", err)
 	}
-	
+
 	return ttl, nil
 }
 
@@ -289,12 +289,12 @@ func (rc *ResponseCache) Exists(ctx context.Context, messages []conversation.Cha
 	if !rc.enabled {
 		return false, nil
 	}
-	
+
 	key := rc.GenerateCacheKey(messages, model)
 	count, err := rc.redis.Exists(ctx, key).Result()
 	if err != nil {
 		return false, fmt.Errorf("failed to check existence: %w", err)
 	}
-	
+
 	return count > 0, nil
 }

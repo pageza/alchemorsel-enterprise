@@ -25,30 +25,30 @@ type HTTPCacheMiddleware struct {
 // HTTPCacheConfig configures HTTP caching behavior
 type HTTPCacheConfig struct {
 	// TTL configurations for different response types
-	DefaultTTL    time.Duration `json:"default_ttl"`
-	APITTL        time.Duration `json:"api_ttl"`
-	StaticTTL     time.Duration `json:"static_ttl"`
-	HTMXTTL       time.Duration `json:"htmx_ttl"`
-	
+	DefaultTTL time.Duration `json:"default_ttl"`
+	APITTL     time.Duration `json:"api_ttl"`
+	StaticTTL  time.Duration `json:"static_ttl"`
+	HTMXTTL    time.Duration `json:"htmx_ttl"`
+
 	// Caching behavior
 	CacheGETOnly        bool     `json:"cache_get_only"`
 	CacheOnlySuccessful bool     `json:"cache_only_successful"`
 	CompressResponses   bool     `json:"compress_responses"`
-	SkipPaths          []string `json:"skip_paths"`
-	CacheableMethods   []string `json:"cacheable_methods"`
-	
+	SkipPaths           []string `json:"skip_paths"`
+	CacheableMethods    []string `json:"cacheable_methods"`
+
 	// Response size limits
-	MaxCacheableSize   int64 `json:"max_cacheable_size"`
-	MinCacheableSize   int64 `json:"min_cacheable_size"`
-	
+	MaxCacheableSize int64 `json:"max_cacheable_size"`
+	MinCacheableSize int64 `json:"min_cacheable_size"`
+
 	// Headers
 	VaryHeaders        []string `json:"vary_headers"`
 	CacheControlHeader string   `json:"cache_control_header"`
 	ETags              bool     `json:"etags"`
-	
+
 	// 14KB optimization settings
 	FirstPacketOptimization bool `json:"first_packet_optimization"`
-	FirstPacketTarget      int  `json:"first_packet_target"` // 14KB target
+	FirstPacketTarget       int  `json:"first_packet_target"` // 14KB target
 }
 
 // CachedResponse represents a cached HTTP response
@@ -74,7 +74,7 @@ type ResponseWriter struct {
 // NewHTTPCacheMiddleware creates a new HTTP cache middleware
 func NewHTTPCacheMiddleware(cache *CacheService, logger *zap.Logger) *HTTPCacheMiddleware {
 	config := DefaultHTTPCacheConfig()
-	
+
 	return &HTTPCacheMiddleware{
 		cache:      cache,
 		keyBuilder: NewKeyBuilder(),
@@ -105,7 +105,7 @@ func (hcm *HTTPCacheMiddleware) Middleware() func(http.Handler) http.Handler {
 
 			// Generate cache key
 			cacheKey := hcm.generateCacheKey(r)
-			
+
 			// Try to serve from cache
 			if hcm.tryServeFromCache(w, r, cacheKey) {
 				return
@@ -113,7 +113,7 @@ func (hcm *HTTPCacheMiddleware) Middleware() func(http.Handler) http.Handler {
 
 			// Wrap response writer to capture response
 			rw := NewResponseWriter(w)
-			
+
 			// Handle conditional requests (If-None-Match)
 			if hcm.handleConditionalRequest(rw, r, cacheKey) {
 				return
@@ -134,7 +134,7 @@ func (hcm *HTTPCacheMiddleware) shouldCache(r *http.Request) bool {
 	if hcm.config.CacheGETOnly && r.Method != http.MethodGet {
 		return false
 	}
-	
+
 	// Check if method is in cacheable methods list
 	if len(hcm.config.CacheableMethods) > 0 {
 		methodAllowed := false
@@ -237,7 +237,7 @@ func (hcm *HTTPCacheMiddleware) tryServeFromCache(w http.ResponseWriter, r *http
 	// Set cache headers
 	w.Header().Set("X-Cache", "HIT")
 	w.Header().Set("X-Cache-Key", hcm.hashString(cacheKey)[:8])
-	
+
 	if cachedResp.ETag != "" {
 		w.Header().Set("ETag", cachedResp.ETag)
 	}
@@ -251,7 +251,7 @@ func (hcm *HTTPCacheMiddleware) tryServeFromCache(w http.ResponseWriter, r *http
 	w.WriteHeader(cachedResp.StatusCode)
 	w.Write(cachedResp.Body)
 
-	hcm.logger.Debug("Served from cache", 
+	hcm.logger.Debug("Served from cache",
 		zap.String("key", cacheKey),
 		zap.Int("status", cachedResp.StatusCode),
 		zap.Int("size", len(cachedResp.Body)),
@@ -351,7 +351,7 @@ func (hcm *HTTPCacheMiddleware) cacheResponse(r *http.Request, rw *ResponseWrite
 		if err := hcm.cache.Set(ctx, cacheKey, data, ttl); err != nil {
 			hcm.logger.Error("Failed to cache response", zap.String("key", cacheKey), zap.Error(err))
 		} else {
-			hcm.logger.Debug("Response cached", 
+			hcm.logger.Debug("Response cached",
 				zap.String("key", cacheKey),
 				zap.Int("status", cachedResp.StatusCode),
 				zap.Int("size", len(cachedResp.Body)),
@@ -362,7 +362,7 @@ func (hcm *HTTPCacheMiddleware) cacheResponse(r *http.Request, rw *ResponseWrite
 	// Set cache headers on response
 	rw.Header().Set("X-Cache", "MISS")
 	rw.Header().Set("X-Cache-Key", hcm.hashString(cacheKey)[:8])
-	
+
 	if hcm.config.CacheControlHeader != "" {
 		rw.Header().Set("Cache-Control", hcm.config.CacheControlHeader)
 	}
@@ -425,7 +425,7 @@ func (hcm *HTTPCacheMiddleware) determineTTL(r *http.Request, rw *ResponseWriter
 func (hcm *HTTPCacheMiddleware) optimizeFirstPacket(cachedResp *CachedResponse, r *http.Request) {
 	bodySize := len(cachedResp.Body)
 	target := hcm.config.FirstPacketTarget
-	
+
 	if bodySize <= target {
 		return // Already within target
 	}
@@ -455,9 +455,9 @@ func (hcm *HTTPCacheMiddleware) optimizeFirstPacket(cachedResp *CachedResponse, 
 func (hcm *HTTPCacheMiddleware) optimizeHTMLFirstPacket(cachedResp *CachedResponse, target int) {
 	// This is a simplified optimization
 	// In production, you'd want more sophisticated HTML parsing and optimization
-	
+
 	html := string(cachedResp.Body)
-	
+
 	// Add performance hints in the head section
 	optimizationHints := `
 <!-- 14KB First Packet Optimization -->
@@ -476,12 +476,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 `
-	
+
 	// Insert optimization hints after <head> tag
 	if headIndex := strings.Index(html, "<head>"); headIndex != -1 {
 		insertPoint := headIndex + 6
 		optimizedHTML := html[:insertPoint] + optimizationHints + html[insertPoint:]
-		
+
 		// If still too large, we could truncate non-critical content
 		if len(optimizedHTML) > target {
 			// Mark content as critical vs non-critical
@@ -490,7 +490,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		} else {
 			cachedResp.Body = []byte(optimizedHTML)
 		}
-		
+
 		// Add header to indicate optimization
 		cachedResp.Headers["X-First-Packet-Optimized"] = []string{"true"}
 	}
@@ -500,12 +500,12 @@ document.addEventListener('DOMContentLoaded', function() {
 func (hcm *HTTPCacheMiddleware) optimizeJSONFirstPacket(cachedResp *CachedResponse, target int) {
 	// For JSON, we could implement field prioritization
 	// This is a placeholder for more sophisticated JSON optimization
-	
+
 	if len(cachedResp.Body) > target {
 		// Add header to indicate large JSON response
 		cachedResp.Headers["X-Large-Response"] = []string{"true"}
 		cachedResp.Headers["X-Response-Size"] = []string{strconv.Itoa(len(cachedResp.Body))}
-		
+
 		hcm.logger.Info("Large JSON response - consider pagination or field selection",
 			zap.Int("size", len(cachedResp.Body)),
 			zap.Int("target", target))
@@ -542,19 +542,19 @@ func extractMaxAge(cacheControl string) int {
 func isStaticResource(path, contentType string) bool {
 	staticExtensions := []string{".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".woff", ".woff2"}
 	staticContentTypes := []string{"text/css", "application/javascript", "image/", "font/"}
-	
+
 	for _, ext := range staticExtensions {
 		if strings.HasSuffix(path, ext) {
 			return true
 		}
 	}
-	
+
 	for _, ct := range staticContentTypes {
 		if strings.HasPrefix(contentType, ct) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -567,7 +567,7 @@ func isHopByHopHeader(name string) bool {
 		"Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization",
 		"TE", "Trailers", "Transfer-Encoding", "Upgrade",
 	}
-	
+
 	nameLower := strings.ToLower(name)
 	for _, header := range hopByHopHeaders {
 		if nameLower == strings.ToLower(header) {
@@ -594,14 +594,14 @@ func (rw *ResponseWriter) WriteHeader(statusCode int) {
 	}
 	rw.statusCode = statusCode
 	rw.written = true
-	
+
 	// Copy headers
 	for name, values := range rw.headers {
 		for _, value := range values {
 			rw.ResponseWriter.Header().Add(name, value)
 		}
 	}
-	
+
 	rw.ResponseWriter.WriteHeader(statusCode)
 }
 
@@ -609,7 +609,7 @@ func (rw *ResponseWriter) Write(data []byte) (int, error) {
 	if !rw.written {
 		rw.WriteHeader(http.StatusOK)
 	}
-	
+
 	// Write to both buffer and original writer
 	rw.body.Write(data)
 	return rw.ResponseWriter.Write(data)
@@ -620,33 +620,33 @@ func (rw *ResponseWriter) Header() http.Header {
 	if rw.headers == nil {
 		rw.headers = make(http.Header)
 	}
-	
+
 	// Copy from original header
 	for name, values := range rw.ResponseWriter.Header() {
 		rw.headers[name] = values
 	}
-	
+
 	return rw.headers
 }
 
 // DefaultHTTPCacheConfig returns default HTTP cache configuration
 func DefaultHTTPCacheConfig() *HTTPCacheConfig {
 	return &HTTPCacheConfig{
-		DefaultTTL:             time.Minute * 5,
-		APITTL:                 time.Minute * 2,
-		StaticTTL:              time.Hour * 24,
-		HTMXTTL:                time.Minute * 10,
-		CacheGETOnly:           true,
-		CacheOnlySuccessful:    true,
-		CompressResponses:      true,
-		SkipPaths:              []string{"/health", "/metrics", "/debug"},
-		CacheableMethods:       []string{"GET", "HEAD"},
-		MaxCacheableSize:       10 * 1024 * 1024, // 10MB
-		MinCacheableSize:       100,               // 100 bytes
-		VaryHeaders:            []string{"Accept-Encoding", "Authorization"},
-		CacheControlHeader:     "public, max-age=300",
-		ETags:                  true,
+		DefaultTTL:              time.Minute * 5,
+		APITTL:                  time.Minute * 2,
+		StaticTTL:               time.Hour * 24,
+		HTMXTTL:                 time.Minute * 10,
+		CacheGETOnly:            true,
+		CacheOnlySuccessful:     true,
+		CompressResponses:       true,
+		SkipPaths:               []string{"/health", "/metrics", "/debug"},
+		CacheableMethods:        []string{"GET", "HEAD"},
+		MaxCacheableSize:        10 * 1024 * 1024, // 10MB
+		MinCacheableSize:        100,              // 100 bytes
+		VaryHeaders:             []string{"Accept-Encoding", "Authorization"},
+		CacheControlHeader:      "public, max-age=300",
+		ETags:                   true,
 		FirstPacketOptimization: true,
-		FirstPacketTarget:      14 * 1024, // 14KB
+		FirstPacketTarget:       14 * 1024, // 14KB
 	}
 }

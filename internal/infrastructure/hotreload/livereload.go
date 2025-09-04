@@ -20,29 +20,29 @@ import (
 
 // LiveReloadServer provides HTTP-based live reload functionality
 type LiveReloadServer struct {
-	port     int
-	server   *http.Server
-	watcher  *fsnotify.Watcher
-	
+	port    int
+	server  *http.Server
+	watcher *fsnotify.Watcher
+
 	// Configuration
-	watchPaths     []string
-	includeExts    []string
+	watchPaths      []string
+	includeExts     []string
 	excludePatterns []string
-	debounceDelay  time.Duration
-	
+	debounceDelay   time.Duration
+
 	// Channels
-	shutdown  chan struct{}
+	shutdown chan struct{}
 }
 
 // ReloadMessage represents a live reload message sent to browsers
 type ReloadMessage struct {
-	Command   string            `json:"command"`
-	Path      string            `json:"path,omitempty"`
-	LiveCSS   bool              `json:"liveCSS,omitempty"`
-	Live      bool              `json:"live,omitempty"`
-	Original  string            `json:"original,omitempty"`
-	Ext       string            `json:"ext,omitempty"`
-	Timestamp int64             `json:"timestamp"`
+	Command   string                 `json:"command"`
+	Path      string                 `json:"path,omitempty"`
+	LiveCSS   bool                   `json:"liveCSS,omitempty"`
+	Live      bool                   `json:"live,omitempty"`
+	Original  string                 `json:"original,omitempty"`
+	Ext       string                 `json:"ext,omitempty"`
+	Timestamp int64                  `json:"timestamp"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -119,7 +119,6 @@ func (s *LiveReloadServer) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to setup file watcher: %w", err)
 	}
 
-
 	// Start file watching goroutine
 	go s.watchFiles(ctx)
 
@@ -188,7 +187,6 @@ func (s *LiveReloadServer) addWatchPath(path string) error {
 		return nil
 	})
 }
-
 
 // watchFiles monitors file system changes
 func (s *LiveReloadServer) watchFiles(ctx context.Context) {
@@ -259,12 +257,11 @@ func (s *LiveReloadServer) handleFileChange(event fsnotify.Event) {
 	log.Printf("File changed: %s (%s)", event.Name, event.Op.String())
 }
 
-
 // serveLiveReloadScript serves the client-side JavaScript
 func (s *LiveReloadServer) serveLiveReloadScript(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript")
 	w.Header().Set("Cache-Control", "no-cache")
-	
+
 	script := fmt.Sprintf(`
 // Alchemorsel v3 LiveReload Client
 (function() {
@@ -344,7 +341,7 @@ func (s *LiveReloadServer) serveLiveReloadScript(w http.ResponseWriter, r *http.
 	
 })();
 `, s.port)
-	
+
 	w.Write([]byte(script))
 }
 

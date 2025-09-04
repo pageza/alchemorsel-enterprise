@@ -23,16 +23,16 @@ type DevProxy struct {
 	apiTarget    *url.URL
 	webTarget    *url.URL
 	reloadServer *LiveReloadServer
-	
+
 	// Proxy instances
 	apiProxy *httputil.ReverseProxy
 	webProxy *httputil.ReverseProxy
-	
+
 	// Configuration
 	injectScript  bool
 	corsEnabled   bool
 	cacheDisabled bool
-	
+
 	// Statistics
 	stats     *ProxyStats
 	statsLock sync.RWMutex
@@ -40,14 +40,14 @@ type DevProxy struct {
 
 // ProxyStats tracks proxy usage statistics
 type ProxyStats struct {
-	RequestCount    int64
-	APIRequests     int64
-	WebRequests     int64
-	StaticRequests  int64
-	ErrorCount      int64
-	StartTime       time.Time
-	LastRequest     time.Time
-	ResponseTimes   []time.Duration
+	RequestCount   int64
+	APIRequests    int64
+	WebRequests    int64
+	StaticRequests int64
+	ErrorCount     int64
+	StartTime      time.Time
+	LastRequest    time.Time
+	ResponseTimes  []time.Duration
 }
 
 // ProxyConfig configures the development proxy
@@ -193,14 +193,14 @@ func (p *DevProxy) handleWebProxy(w http.ResponseWriter, r *http.Request) {
 // handleStaticProxy routes static asset requests
 func (p *DevProxy) handleStaticProxy(w http.ResponseWriter, r *http.Request) {
 	p.updateStats("static")
-	
+
 	// Disable caching for static assets in development
 	if p.cacheDisabled {
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		w.Header().Set("Pragma", "no-cache")
 		w.Header().Set("Expires", "0")
 	}
-	
+
 	// Route to web service for static assets
 	p.webProxy.ServeHTTP(w, r)
 }
@@ -209,7 +209,7 @@ func (p *DevProxy) handleStaticProxy(w http.ResponseWriter, r *http.Request) {
 func (p *DevProxy) handleLiveReloadProxy(reloadPort int) http.HandlerFunc {
 	target, _ := url.Parse(fmt.Sprintf("http://localhost:%d", reloadPort))
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		proxy.ServeHTTP(w, r)
 	}
@@ -219,7 +219,7 @@ func (p *DevProxy) handleLiveReloadProxy(reloadPort int) http.HandlerFunc {
 func (p *DevProxy) handleLiveReloadScript(reloadPort int) http.HandlerFunc {
 	target, _ := url.Parse(fmt.Sprintf("http://localhost:%d", reloadPort))
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		proxy.ServeHTTP(w, r)
 	}
@@ -246,7 +246,7 @@ func (p *DevProxy) modifyWebResponse(resp *http.Response) error {
 	// Inject live reload script
 	body := string(bodyBytes)
 	liveReloadScript := fmt.Sprintf(`<script src="/livereload.js"></script>`)
-	
+
 	// Try to inject before </head>
 	headRegex := regexp.MustCompile(`(?i)</head>`)
 	if headRegex.MatchString(body) {
@@ -293,7 +293,7 @@ func (p *DevProxy) handleProxyError(w http.ResponseWriter, r *http.Request, err 
 	// Return development-friendly error page
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusBadGateway)
-	
+
 	errorHTML := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -344,7 +344,7 @@ func (p *DevProxy) corsMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-			
+
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusNoContent)
 				return
@@ -365,9 +365,9 @@ func (p *DevProxy) corsMiddleware(next http.Handler) http.Handler {
 func (p *DevProxy) statsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		next.ServeHTTP(w, r)
-		
+
 		duration := time.Since(start)
 		p.updateResponseTime(duration)
 	})
@@ -377,10 +377,10 @@ func (p *DevProxy) statsMiddleware(next http.Handler) http.Handler {
 func (p *DevProxy) updateStats(requestType string) {
 	p.statsLock.Lock()
 	defer p.statsLock.Unlock()
-	
+
 	p.stats.RequestCount++
 	p.stats.LastRequest = time.Now()
-	
+
 	switch requestType {
 	case "api":
 		p.stats.APIRequests++
@@ -395,12 +395,12 @@ func (p *DevProxy) updateStats(requestType string) {
 func (p *DevProxy) updateResponseTime(duration time.Duration) {
 	p.statsLock.Lock()
 	defer p.statsLock.Unlock()
-	
+
 	if len(p.stats.ResponseTimes) >= 100 {
 		// Keep only the last 100 response times
 		p.stats.ResponseTimes = p.stats.ResponseTimes[1:]
 	}
-	
+
 	p.stats.ResponseTimes = append(p.stats.ResponseTimes, duration)
 }
 
@@ -409,13 +409,13 @@ func (p *DevProxy) updateResponseTime(duration time.Duration) {
 // handleProxyStatus returns proxy status
 func (p *DevProxy) handleProxyStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	status := map[string]interface{}{
-		"service":           "alchemorsel-v3-dev-proxy",
-		"status":            "running",
-		"port":              p.port,
-		"api_target":        p.apiTarget.String(),
-		"web_target":        p.webTarget.String(),
+		"service":    "alchemorsel-v3-dev-proxy",
+		"status":     "running",
+		"port":       p.port,
+		"api_target": p.apiTarget.String(),
+		"web_target": p.webTarget.String(),
 		"features": map[string]bool{
 			"live_reload_injection": p.injectScript,
 			"cors_enabled":          p.corsEnabled,
@@ -423,7 +423,7 @@ func (p *DevProxy) handleProxyStatus(w http.ResponseWriter, r *http.Request) {
 		},
 		"uptime": time.Since(p.stats.StartTime).String(),
 	}
-	
+
 	json.NewEncoder(w).Encode(status)
 }
 
@@ -431,9 +431,9 @@ func (p *DevProxy) handleProxyStatus(w http.ResponseWriter, r *http.Request) {
 func (p *DevProxy) handleProxyStats(w http.ResponseWriter, r *http.Request) {
 	p.statsLock.RLock()
 	defer p.statsLock.RUnlock()
-	
+
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// Calculate average response time
 	var avgResponseTime time.Duration
 	if len(p.stats.ResponseTimes) > 0 {
@@ -443,7 +443,7 @@ func (p *DevProxy) handleProxyStats(w http.ResponseWriter, r *http.Request) {
 		}
 		avgResponseTime = total / time.Duration(len(p.stats.ResponseTimes))
 	}
-	
+
 	stats := map[string]interface{}{
 		"requests": map[string]int64{
 			"total":  p.stats.RequestCount,
@@ -462,7 +462,7 @@ func (p *DevProxy) handleProxyStats(w http.ResponseWriter, r *http.Request) {
 			"web": p.webTarget.String(),
 		},
 	}
-	
+
 	json.NewEncoder(w).Encode(stats)
 }
 
@@ -470,12 +470,12 @@ func (p *DevProxy) handleProxyStats(w http.ResponseWriter, r *http.Request) {
 func (p *DevProxy) handleProxyHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	
+
 	health := map[string]interface{}{
 		"status":    "healthy",
 		"timestamp": time.Now().Unix(),
 		"proxy":     "running",
 	}
-	
+
 	json.NewEncoder(w).Encode(health)
 }

@@ -59,16 +59,16 @@ func NewGzipCompressor() *GzipCompressor {
 func (c *GzipCompressor) Compress(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	writer := gzip.NewWriter(&buf)
-	
+
 	if _, err := writer.Write(data); err != nil {
 		writer.Close()
 		return nil, fmt.Errorf("failed to write compressed data: %w", err)
 	}
-	
+
 	if err := writer.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
 	}
-	
+
 	return buf.Bytes(), nil
 }
 
@@ -79,18 +79,18 @@ func (c *GzipCompressor) Decompress(data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 	}
 	defer reader.Close()
-	
+
 	decompressed, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read decompressed data: %w", err)
 	}
-	
+
 	return decompressed, nil
 }
 
 // KeyBuilder provides standardized cache key generation
 type KeyBuilder struct {
-	prefix   string
+	prefix    string
 	separator string
 }
 
@@ -171,21 +171,21 @@ func (kb *KeyBuilder) hashFilters(filters map[string]interface{}) string {
 	if len(filters) == 0 {
 		return "none"
 	}
-	
+
 	// Sort keys for consistent hashing
 	keys := make([]string, 0, len(filters))
 	for k := range filters {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	
+
 	// Build filter string
 	parts := make([]string, 0, len(keys))
 	for _, key := range keys {
 		value := fmt.Sprintf("%v", filters[key])
 		parts = append(parts, fmt.Sprintf("%s=%s", key, url.QueryEscape(value)))
 	}
-	
+
 	filterString := strings.Join(parts, "&")
 	return kb.hashString(filterString)
 }
@@ -198,11 +198,11 @@ func (kb *KeyBuilder) hashString(s string) string {
 
 // CacheInvalidator handles complex invalidation scenarios
 type CacheInvalidator struct {
-	redis       *RedisClient
-	localCache  *LocalCache
-	logger      *zap.Logger
-	batchSize   int
-	timeout     time.Duration
+	redis      *RedisClient
+	localCache *LocalCache
+	logger     *zap.Logger
+	batchSize  int
+	timeout    time.Duration
 }
 
 // NewCacheInvalidator creates a new cache invalidator
@@ -222,39 +222,39 @@ func (ci *CacheInvalidator) InvalidateByTag(ctx context.Context, tags ...string)
 	defer cancel()
 
 	ci.logger.Info("Starting tag-based cache invalidation", zap.Strings("tags", tags))
-	
+
 	totalInvalidated := 0
 	for _, tag := range tags {
 		tagKey := (&KeyBuilder{}).BuildTagKey(tag)
-		
+
 		// Get all keys associated with this tag
 		keysToInvalidate, err := ci.redis.client.SMembers(ctx, tagKey).Result()
 		if err != nil {
 			ci.logger.Error("Failed to get keys for tag", zap.String("tag", tag), zap.Error(err))
 			continue
 		}
-		
+
 		if len(keysToInvalidate) == 0 {
 			continue
 		}
-		
+
 		// Invalidate keys in batches
 		for i := 0; i < len(keysToInvalidate); i += ci.batchSize {
 			end := i + ci.batchSize
 			if end > len(keysToInvalidate) {
 				end = len(keysToInvalidate)
 			}
-			
+
 			batch := keysToInvalidate[i:end]
-			
+
 			// Remove from local cache
 			for _, key := range batch {
 				ci.localCache.Delete(key)
 			}
-			
+
 			// Remove from Redis
 			if err := ci.redis.Delete(ctx, batch...); err != nil {
-				ci.logger.Error("Failed to delete cache batch", 
+				ci.logger.Error("Failed to delete cache batch",
 					zap.String("tag", tag),
 					zap.Strings("keys", batch),
 					zap.Error(err))
@@ -262,17 +262,17 @@ func (ci *CacheInvalidator) InvalidateByTag(ctx context.Context, tags ...string)
 				totalInvalidated += len(batch)
 			}
 		}
-		
+
 		// Clean up the tag set
 		if err := ci.redis.Delete(ctx, tagKey); err != nil {
 			ci.logger.Error("Failed to delete tag key", zap.String("tag", tag), zap.Error(err))
 		}
 	}
-	
+
 	ci.logger.Info("Tag-based cache invalidation completed",
 		zap.Strings("tags", tags),
 		zap.Int("keys_invalidated", totalInvalidated))
-	
+
 	return nil
 }
 
@@ -282,22 +282,22 @@ func (ci *CacheInvalidator) InvalidateByPattern(ctx context.Context, pattern str
 	defer cancel()
 
 	ci.logger.Info("Starting pattern-based cache invalidation", zap.String("pattern", pattern))
-	
+
 	// Find matching keys in Redis
 	keysToInvalidate, err := ci.redis.ScanKeys(ctx, pattern)
 	if err != nil {
 		ci.logger.Error("Failed to scan keys for pattern", zap.String("pattern", pattern), zap.Error(err))
 		return err
 	}
-	
+
 	if len(keysToInvalidate) == 0 {
 		ci.logger.Info("No keys found matching pattern", zap.String("pattern", pattern))
 		return nil
 	}
-	
+
 	// Invalidate local cache
 	ci.localCache.InvalidatePattern(pattern)
-	
+
 	// Invalidate Redis cache in batches
 	totalInvalidated := 0
 	for i := 0; i < len(keysToInvalidate); i += ci.batchSize {
@@ -305,11 +305,11 @@ func (ci *CacheInvalidator) InvalidateByPattern(ctx context.Context, pattern str
 		if end > len(keysToInvalidate) {
 			end = len(keysToInvalidate)
 		}
-		
+
 		batch := keysToInvalidate[i:end]
-		
+
 		if err := ci.redis.Delete(ctx, batch...); err != nil {
-			ci.logger.Error("Failed to delete cache batch", 
+			ci.logger.Error("Failed to delete cache batch",
 				zap.String("pattern", pattern),
 				zap.Strings("keys", batch),
 				zap.Error(err))
@@ -317,11 +317,11 @@ func (ci *CacheInvalidator) InvalidateByPattern(ctx context.Context, pattern str
 			totalInvalidated += len(batch)
 		}
 	}
-	
+
 	ci.logger.Info("Pattern-based cache invalidation completed",
 		zap.String("pattern", pattern),
 		zap.Int("keys_invalidated", totalInvalidated))
-	
+
 	return nil
 }
 
@@ -333,16 +333,16 @@ func (ci *CacheInvalidator) InvalidateRecipeRelated(ctx context.Context, recipeI
 		"alchemorsel:v3:search:*",
 		"alchemorsel:v3:ai:*recipe*",
 	}
-	
+
 	for _, pattern := range patterns {
 		if err := ci.InvalidateByPattern(ctx, pattern); err != nil {
-			ci.logger.Error("Failed to invalidate recipe-related cache", 
+			ci.logger.Error("Failed to invalidate recipe-related cache",
 				zap.String("recipe_id", recipeID),
 				zap.String("pattern", pattern),
 				zap.Error(err))
 		}
 	}
-	
+
 	return nil
 }
 
@@ -353,23 +353,23 @@ func (ci *CacheInvalidator) InvalidateUserRelated(ctx context.Context, userID st
 		fmt.Sprintf("alchemorsel:v3:session:%s:*", userID),
 		fmt.Sprintf("alchemorsel:v3:recipes:list:*user:%s*", userID),
 	}
-	
+
 	for _, pattern := range patterns {
 		if err := ci.InvalidateByPattern(ctx, pattern); err != nil {
-			ci.logger.Error("Failed to invalidate user-related cache", 
+			ci.logger.Error("Failed to invalidate user-related cache",
 				zap.String("user_id", userID),
 				zap.String("pattern", pattern),
 				zap.Error(err))
 		}
 	}
-	
+
 	return nil
 }
 
 // CacheWarmer provides cache warming functionality
 type CacheWarmer struct {
-	cache   *CacheService
-	logger  *zap.Logger
+	cache  *CacheService
+	logger *zap.Logger
 }
 
 // NewCacheWarmer creates a new cache warmer
@@ -383,7 +383,7 @@ func NewCacheWarmer(cache *CacheService, logger *zap.Logger) *CacheWarmer {
 // WarmupRecipes loads popular recipes into cache
 func (cw *CacheWarmer) WarmupRecipes(ctx context.Context, recipeIDs []string) error {
 	cw.logger.Info("Starting recipe cache warmup", zap.Int("count", len(recipeIDs)))
-	
+
 	// This would typically load recipes from the database
 	// For now, we'll simulate the warming process
 	warmed := 0
@@ -392,44 +392,44 @@ func (cw *CacheWarmer) WarmupRecipes(ctx context.Context, recipeIDs []string) er
 		// 1. Load recipe from database
 		// 2. Store in cache with appropriate TTL
 		// 3. Handle errors gracefully
-		
+
 		key := (&KeyBuilder{}).BuildRecipeKey(recipeID)
 		// Simulate recipe data
 		recipeData := map[string]interface{}{
-			"id":          recipeID,
-			"title":       fmt.Sprintf("Recipe %s", recipeID),
-			"warmed_at":   time.Now(),
+			"id":        recipeID,
+			"title":     fmt.Sprintf("Recipe %s", recipeID),
+			"warmed_at": time.Now(),
 		}
-		
+
 		data, err := json.Marshal(recipeData)
 		if err != nil {
 			cw.logger.Error("Failed to marshal recipe data", zap.String("recipe_id", recipeID), zap.Error(err))
 			continue
 		}
-		
+
 		if err := cw.cache.Set(ctx, key, data, cw.cache.config.RecipeTTL); err != nil {
 			cw.logger.Error("Failed to warm recipe cache", zap.String("recipe_id", recipeID), zap.Error(err))
 			continue
 		}
-		
+
 		warmed++
 	}
-	
-	cw.logger.Info("Recipe cache warmup completed", 
+
+	cw.logger.Info("Recipe cache warmup completed",
 		zap.Int("total", len(recipeIDs)),
 		zap.Int("warmed", warmed))
-	
+
 	return nil
 }
 
 // WarmupSearchResults loads popular search results into cache
 func (cw *CacheWarmer) WarmupSearchResults(ctx context.Context, searches []SearchQuery) error {
 	cw.logger.Info("Starting search cache warmup", zap.Int("count", len(searches)))
-	
+
 	warmed := 0
 	for _, search := range searches {
 		key := (&KeyBuilder{}).BuildSearchKey(search.Query, search.Filters)
-		
+
 		// Simulate search results
 		searchResults := map[string]interface{}{
 			"query":     search.Query,
@@ -437,25 +437,25 @@ func (cw *CacheWarmer) WarmupSearchResults(ctx context.Context, searches []Searc
 			"total":     3,
 			"warmed_at": time.Now(),
 		}
-		
+
 		data, err := json.Marshal(searchResults)
 		if err != nil {
 			cw.logger.Error("Failed to marshal search results", zap.String("query", search.Query), zap.Error(err))
 			continue
 		}
-		
+
 		if err := cw.cache.Set(ctx, key, data, cw.cache.config.SearchTTL); err != nil {
 			cw.logger.Error("Failed to warm search cache", zap.String("query", search.Query), zap.Error(err))
 			continue
 		}
-		
+
 		warmed++
 	}
-	
-	cw.logger.Info("Search cache warmup completed", 
+
+	cw.logger.Info("Search cache warmup completed",
 		zap.Int("total", len(searches)),
 		zap.Int("warmed", warmed))
-	
+
 	return nil
 }
 
@@ -486,7 +486,7 @@ func (chc *CacheHealthChecker) CheckHealth(ctx context.Context) *CacheHealthStat
 	status := &CacheHealthStatus{
 		Timestamp: time.Now(),
 	}
-	
+
 	// Check Redis connectivity
 	if err := chc.redis.Ping(ctx); err != nil {
 		status.RedisHealthy = false
@@ -494,26 +494,26 @@ func (chc *CacheHealthChecker) CheckHealth(ctx context.Context) *CacheHealthStat
 	} else {
 		status.RedisHealthy = true
 	}
-	
+
 	// Check cache performance
 	stats := chc.cache.GetStats()
 	status.CacheStats = stats
-	
+
 	// Check hit ratio (should be above threshold)
 	if stats.HitRatio < 0.8 { // 80% hit ratio threshold
-		status.Warnings = append(status.Warnings, 
+		status.Warnings = append(status.Warnings,
 			fmt.Sprintf("Cache hit ratio below threshold: %.2f%%", stats.HitRatio*100))
 	}
-	
+
 	// Check average response time
 	if stats.AvgReadTime > time.Millisecond*100 {
-		status.Warnings = append(status.Warnings, 
+		status.Warnings = append(status.Warnings,
 			fmt.Sprintf("Average read time above threshold: %v", stats.AvgReadTime))
 	}
-	
+
 	// Overall health
 	status.OverallHealthy = status.RedisHealthy && len(status.Errors) == 0
-	
+
 	return status
 }
 

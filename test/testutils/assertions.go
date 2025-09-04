@@ -31,7 +31,7 @@ func (ra *RecipeAssertions) ValidRecipe(recipe *recipe.Recipe, msgAndArgs ...int
 	require.NotNil(ra.t, recipe, "Recipe should not be nil")
 	assert.NotEqual(ra.t, uuid.Nil, recipe.ID(), "Recipe should have a valid ID")
 	assert.NotEmpty(ra.t, recipe.Title(), "Recipe should have a title")
-	
+
 	// Check that recipe can be published (has required fields)
 	err := recipe.Publish()
 	if err != nil {
@@ -121,11 +121,11 @@ func (ha *HTTPAssertions) StatusCode(resp *http.Response, expectedCode int, msgA
 // JSONResponse asserts that the response is valid JSON and unmarshals it
 func (ha *HTTPAssertions) JSONResponse(resp *http.Response, target interface{}, msgAndArgs ...interface{}) {
 	require.NotNil(ha.t, resp, "Response should not be nil")
-	
+
 	contentType := resp.Header.Get("Content-Type")
-	assert.True(ha.t, strings.Contains(contentType, "application/json"), 
+	assert.True(ha.t, strings.Contains(contentType, "application/json"),
 		"Response should have JSON content type, got: %s", contentType)
-	
+
 	decoder := json.NewDecoder(resp.Body)
 	err := decoder.Decode(target)
 	assert.NoError(ha.t, err, "Response should be valid JSON")
@@ -134,10 +134,10 @@ func (ha *HTTPAssertions) JSONResponse(resp *http.Response, target interface{}, 
 // ErrorResponse asserts that the response contains an error
 func (ha *HTTPAssertions) ErrorResponse(resp *http.Response, expectedMessage string, msgAndArgs ...interface{}) {
 	require.NotNil(ha.t, resp, "Response should not be nil")
-	
+
 	var errorResp map[string]interface{}
 	ha.JSONResponse(resp, &errorResp)
-	
+
 	if expectedMessage != "" {
 		errorMsg, exists := errorResp["error"]
 		assert.True(ha.t, exists, "Response should contain error field")
@@ -148,7 +148,7 @@ func (ha *HTTPAssertions) ErrorResponse(resp *http.Response, expectedMessage str
 // Header asserts that a header exists with expected value
 func (ha *HTTPAssertions) Header(resp *http.Response, headerName, expectedValue string, msgAndArgs ...interface{}) {
 	require.NotNil(ha.t, resp, "Response should not be nil")
-	
+
 	actualValue := resp.Header.Get(headerName)
 	assert.Equal(ha.t, expectedValue, actualValue, msgAndArgs...)
 }
@@ -156,7 +156,7 @@ func (ha *HTTPAssertions) Header(resp *http.Response, headerName, expectedValue 
 // HasHeader asserts that a header exists
 func (ha *HTTPAssertions) HasHeader(resp *http.Response, headerName string, msgAndArgs ...interface{}) {
 	require.NotNil(ha.t, resp, "Response should not be nil")
-	
+
 	_, exists := resp.Header[headerName]
 	assert.True(ha.t, exists, "Response should have header %s", headerName)
 }
@@ -164,15 +164,15 @@ func (ha *HTTPAssertions) HasHeader(resp *http.Response, headerName string, msgA
 // SecurityHeaders asserts that security headers are present
 func (ha *HTTPAssertions) SecurityHeaders(resp *http.Response, msgAndArgs ...interface{}) {
 	require.NotNil(ha.t, resp, "Response should not be nil")
-	
+
 	securityHeaders := []string{
 		"X-Content-Type-Options",
-		"X-Frame-Options", 
+		"X-Frame-Options",
 		"X-XSS-Protection",
 		"Strict-Transport-Security",
 		"Content-Security-Policy",
 	}
-	
+
 	for _, header := range securityHeaders {
 		ha.HasHeader(resp, header, "Security header %s should be present", header)
 	}
@@ -190,7 +190,7 @@ func NewPerformanceAssertions(t *testing.T) *PerformanceAssertions {
 
 // ResponseTime asserts that an operation completes within expected time
 func (pa *PerformanceAssertions) ResponseTime(duration time.Duration, maxDuration time.Duration, msgAndArgs ...interface{}) {
-	assert.True(pa.t, duration <= maxDuration, 
+	assert.True(pa.t, duration <= maxDuration,
 		"Operation took %v, expected less than %v", duration, maxDuration)
 }
 
@@ -255,14 +255,14 @@ func NewEventAssertions(t *testing.T) *EventAssertions {
 func (ea *EventAssertions) EventPublished(mockBus *MockMessageBus, eventType reflect.Type, msgAndArgs ...interface{}) {
 	events := mockBus.GetPublishedEvents()
 	found := false
-	
+
 	for _, event := range events {
 		if reflect.TypeOf(event) == eventType {
 			found = true
 			break
 		}
 	}
-	
+
 	assert.True(ea.t, found, "Event of type %s should have been published", eventType.Name())
 }
 
@@ -291,14 +291,14 @@ func NewEmailAssertions(t *testing.T) *EmailAssertions {
 func (ea *EmailAssertions) EmailSent(mockEmail *MockEmailService, to, subject string, msgAndArgs ...interface{}) {
 	emails := mockEmail.GetSentEmails()
 	found := false
-	
+
 	for _, email := range emails {
 		if email.To == to && strings.Contains(email.Subject, subject) {
 			found = true
 			break
 		}
 	}
-	
+
 	assert.True(ea.t, found, "Email to %s with subject containing '%s' should have been sent", to, subject)
 }
 
@@ -333,21 +333,21 @@ func (sa *SecurityAssertions) JWTValid(token string, msgAndArgs ...interface{}) 
 // PasswordHash asserts that a password is properly hashed
 func (sa *SecurityAssertions) PasswordHash(hash string, msgAndArgs ...interface{}) {
 	assert.NotEmpty(sa.t, hash, "Password hash should not be empty")
-	assert.True(sa.t, strings.HasPrefix(hash, "$2a$") || strings.HasPrefix(hash, "$2b$"), 
+	assert.True(sa.t, strings.HasPrefix(hash, "$2a$") || strings.HasPrefix(hash, "$2b$"),
 		"Password should be bcrypt hashed")
 }
 
 // ComprehensiveAssertions combines all assertion types
 type ComprehensiveAssertions struct {
-	t            *testing.T
-	Recipe       *RecipeAssertions
-	User         *UserAssertions
-	HTTP         *HTTPAssertions
-	Performance  *PerformanceAssertions
-	Database     *DatabaseAssertions
-	Event        *EventAssertions
-	Email        *EmailAssertions
-	Security     *SecurityAssertions
+	t           *testing.T
+	Recipe      *RecipeAssertions
+	User        *UserAssertions
+	HTTP        *HTTPAssertions
+	Performance *PerformanceAssertions
+	Database    *DatabaseAssertions
+	Event       *EventAssertions
+	Email       *EmailAssertions
+	Security    *SecurityAssertions
 }
 
 // NewComprehensiveAssertions creates a comprehensive assertions helper
@@ -367,16 +367,16 @@ func NewComprehensiveAssertions(t *testing.T, db *TestDatabase) *ComprehensiveAs
 
 // TestResult represents the result of a test operation
 type TestResult struct {
-	Success   bool
-	Error     error
-	Duration  time.Duration
-	Metadata  map[string]interface{}
+	Success  bool
+	Error    error
+	Duration time.Duration
+	Metadata map[string]interface{}
 }
 
 // AssertTestResult asserts on a test result
 func (ca *ComprehensiveAssertions) TestResult(result *TestResult, expectSuccess bool, maxDuration time.Duration, msgAndArgs ...interface{}) {
 	require.NotNil(ca.t, result, "Test result should not be nil")
-	
+
 	if expectSuccess {
 		assert.True(ca.t, result.Success, "Test should succeed")
 		assert.NoError(ca.t, result.Error, "Test should not return error")
@@ -384,7 +384,7 @@ func (ca *ComprehensiveAssertions) TestResult(result *TestResult, expectSuccess 
 		assert.False(ca.t, result.Success, "Test should fail")
 		assert.Error(ca.t, result.Error, "Test should return error")
 	}
-	
+
 	if maxDuration > 0 {
 		ca.Performance.ResponseTime(result.Duration, maxDuration, msgAndArgs...)
 	}
@@ -402,7 +402,7 @@ func CreateTestResult(fn func() error) *TestResult {
 	start := time.Now()
 	err := fn()
 	duration := time.Since(start)
-	
+
 	return &TestResult{
 		Success:  err == nil,
 		Error:    err,

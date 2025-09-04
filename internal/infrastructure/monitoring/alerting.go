@@ -11,15 +11,15 @@ import (
 
 // AlertingConfig holds alerting configuration
 type AlertingConfig struct {
-	SlackWebhookURL   string
-	PagerDutyKey      string
-	EmailSMTPHost     string
-	EmailSMTPPort     int
-	EmailUsername     string
-	EmailPassword     string
-	EmailFromAddress  string
-	DefaultReceivers  []string
-	EscalationPolicy  EscalationPolicy
+	SlackWebhookURL  string
+	PagerDutyKey     string
+	EmailSMTPHost    string
+	EmailSMTPPort    int
+	EmailUsername    string
+	EmailPassword    string
+	EmailFromAddress string
+	DefaultReceivers []string
+	EscalationPolicy EscalationPolicy
 }
 
 // EscalationPolicy defines how alerts escalate
@@ -35,23 +35,23 @@ type EscalationLevel struct {
 
 // AlertManager handles alert dispatching and escalation
 type AlertManager struct {
-	config    AlertingConfig
-	logger    *zap.Logger
-	httpClient *http.Client
+	config       AlertingConfig
+	logger       *zap.Logger
+	httpClient   *http.Client
 	activeAlerts map[string]*ActiveAlert
 }
 
 // ActiveAlert tracks the state of an active alert
 type ActiveAlert struct {
-	ID          string
-	Name        string
-	Severity    string
-	StartTime   time.Time
-	LastSent    time.Time
+	ID              string
+	Name            string
+	Severity        string
+	StartTime       time.Time
+	LastSent        time.Time
 	EscalationLevel int
-	Acknowledged bool
-	Resolved    bool
-	Metadata    map[string]interface{}
+	Acknowledged    bool
+	Resolved        bool
+	Metadata        map[string]interface{}
 }
 
 // AlertMessage represents an alert to be sent via alerting channels
@@ -72,9 +72,9 @@ type AlertMessage struct {
 // NewAlertManager creates a new alert manager
 func NewAlertManager(config AlertingConfig, logger *zap.Logger) *AlertManager {
 	return &AlertManager{
-		config:     config,
-		logger:     logger,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		config:       config,
+		logger:       logger,
+		httpClient:   &http.Client{Timeout: 30 * time.Second},
 		activeAlerts: make(map[string]*ActiveAlert),
 	}
 }
@@ -139,17 +139,17 @@ func (am *AlertManager) SendAlert(ctx context.Context, alert AlertMessage) error
 // sendSlackAlert sends alert to Slack
 func (am *AlertManager) sendSlackAlert(ctx context.Context, alert AlertMessage, receivers []string) error {
 	color := am.getSlackColor(alert.Severity)
-	
+
 	payload := SlackPayload{
-		Channel:     "#alerts",
-		Username:    "Alchemorsel Alerts",
-		IconEmoji:   ":warning:",
+		Channel:   "#alerts",
+		Username:  "Alchemorsel Alerts",
+		IconEmoji: ":warning:",
 		Attachments: []SlackAttachment{
 			{
-				Color:      color,
-				Title:      fmt.Sprintf("%s: %s", alert.Severity, alert.Name),
-				Text:       alert.Description,
-				Timestamp:  alert.Timestamp.Unix(),
+				Color:     color,
+				Title:     fmt.Sprintf("%s: %s", alert.Severity, alert.Name),
+				Text:      alert.Description,
+				Timestamp: alert.Timestamp.Unix(),
 				Fields: []SlackField{
 					{Title: "Service", Value: alert.Service, Short: true},
 					{Title: "Environment", Value: alert.Environment, Short: true},
@@ -216,8 +216,8 @@ func (am *AlertManager) sendEmailAlert(ctx context.Context, alert AlertMessage, 
 
 	for _, receiver := range receivers {
 		if err := am.sendEmail(ctx, receiver, subject, body); err != nil {
-			am.logger.Error("Failed to send email", 
-				zap.String("receiver", receiver), 
+			am.logger.Error("Failed to send email",
+				zap.String("receiver", receiver),
 				zap.Error(err))
 		}
 	}
@@ -233,7 +233,7 @@ func (am *AlertManager) ResolveAlert(ctx context.Context, alertID string) error 
 	}
 
 	activeAlert.Resolved = true
-	
+
 	// Send resolution notification
 	resolutionAlert := AlertMessage{
 		ID:          alertID,
@@ -273,7 +273,7 @@ func (am *AlertManager) AcknowledgeAlert(ctx context.Context, alertID, acknowled
 	}
 
 	activeAlert.Acknowledged = true
-	
+
 	// Send acknowledgment notification
 	ackAlert := AlertMessage{
 		ID:          alertID,
@@ -298,8 +298,8 @@ func (am *AlertManager) AcknowledgeAlert(ctx context.Context, alertID, acknowled
 		am.sendPagerDutyEvent(ctx, payload)
 	}
 
-	am.logger.Info("Alert acknowledged", 
-		zap.String("alert_id", alertID), 
+	am.logger.Info("Alert acknowledged",
+		zap.String("alert_id", alertID),
 		zap.String("acknowledger", acknowledger))
 	return nil
 }
@@ -308,14 +308,14 @@ func (am *AlertManager) AcknowledgeAlert(ctx context.Context, alertID, acknowled
 func (am *AlertManager) startEscalation(alertID string) {
 	for level, escalation := range am.config.EscalationPolicy.Levels {
 		time.Sleep(escalation.Duration)
-		
+
 		activeAlert, exists := am.activeAlerts[alertID]
 		if !exists || activeAlert.Acknowledged || activeAlert.Resolved {
 			return // Alert was resolved or acknowledged
 		}
 
 		activeAlert.EscalationLevel = level + 1
-		
+
 		am.logger.Warn("Escalating alert",
 			zap.String("alert_id", alertID),
 			zap.Int("level", level+1))
@@ -406,9 +406,9 @@ Annotations: %v
 
 Dashboard: https://grafana.alchemorsel.com
 Runbook: %s
-`, 
-		alert.Name, alert.Severity, alert.Service, alert.Environment, 
-		alert.Description, alert.Timestamp.Format(time.RFC3339), 
+`,
+		alert.Name, alert.Severity, alert.Service, alert.Environment,
+		alert.Description, alert.Timestamp.Format(time.RFC3339),
 		alert.ID, alert.Labels, alert.Annotations, alert.RunbookURL)
 }
 

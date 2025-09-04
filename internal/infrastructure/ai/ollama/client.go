@@ -34,12 +34,12 @@ func NewClient(logger *zap.Logger) *Client {
 	if baseURL == "" {
 		baseURL = "http://localhost:11434"
 	}
-	
+
 	model := os.Getenv("ALCHEMORSEL_OLLAMA_MODEL")
 	if model == "" {
 		model = "llama3.2:3b"
 	}
-	
+
 	timeout := 30 * time.Second
 	if timeoutStr := os.Getenv("ALCHEMORSEL_OLLAMA_TIMEOUT"); timeoutStr != "" {
 		if parsedTimeout, err := time.ParseDuration(timeoutStr); err == nil {
@@ -65,26 +65,26 @@ func NewClient(logger *zap.Logger) *Client {
 
 // Ollama API structures
 type GenerateRequest struct {
-	Model       string                 `json:"model"`
-	Prompt      string                 `json:"prompt"`
-	System      string                 `json:"system,omitempty"`
-	Stream      bool                   `json:"stream"`
-	Options     map[string]interface{} `json:"options,omitempty"`
-	Context     []int                  `json:"context,omitempty"`
-	Raw         bool                   `json:"raw,omitempty"`
+	Model   string                 `json:"model"`
+	Prompt  string                 `json:"prompt"`
+	System  string                 `json:"system,omitempty"`
+	Stream  bool                   `json:"stream"`
+	Options map[string]interface{} `json:"options,omitempty"`
+	Context []int                  `json:"context,omitempty"`
+	Raw     bool                   `json:"raw,omitempty"`
 }
 
 type GenerateResponse struct {
-	Model     string `json:"model"`
-	Response  string `json:"response"`
-	Done      bool   `json:"done"`
-	Context   []int  `json:"context,omitempty"`
-	TotalDuration     int64 `json:"total_duration,omitempty"`
-	LoadDuration      int64 `json:"load_duration,omitempty"`
-	PromptEvalCount   int   `json:"prompt_eval_count,omitempty"`
-	PromptEvalDuration int64 `json:"prompt_eval_duration,omitempty"`
-	EvalCount         int   `json:"eval_count,omitempty"`
-	EvalDuration      int64 `json:"eval_duration,omitempty"`
+	Model              string `json:"model"`
+	Response           string `json:"response"`
+	Done               bool   `json:"done"`
+	Context            []int  `json:"context,omitempty"`
+	TotalDuration      int64  `json:"total_duration,omitempty"`
+	LoadDuration       int64  `json:"load_duration,omitempty"`
+	PromptEvalCount    int    `json:"prompt_eval_count,omitempty"`
+	PromptEvalDuration int64  `json:"prompt_eval_duration,omitempty"`
+	EvalCount          int    `json:"eval_count,omitempty"`
+	EvalDuration       int64  `json:"eval_duration,omitempty"`
 }
 
 type ChatMessage struct {
@@ -93,22 +93,22 @@ type ChatMessage struct {
 }
 
 type ChatRequest struct {
-	Model    string        `json:"model"`
-	Messages []ChatMessage `json:"messages"`
-	Stream   bool          `json:"stream"`
+	Model    string                 `json:"model"`
+	Messages []ChatMessage          `json:"messages"`
+	Stream   bool                   `json:"stream"`
 	Options  map[string]interface{} `json:"options,omitempty"`
 }
 
 type ChatResponse struct {
-	Model     string      `json:"model"`
-	Message   ChatMessage `json:"message"`
-	Done      bool        `json:"done"`
-	TotalDuration     int64 `json:"total_duration,omitempty"`
-	LoadDuration      int64 `json:"load_duration,omitempty"`
-	PromptEvalCount   int   `json:"prompt_eval_count,omitempty"`
-	PromptEvalDuration int64 `json:"prompt_eval_duration,omitempty"`
-	EvalCount         int   `json:"eval_count,omitempty"`
-	EvalDuration      int64 `json:"eval_duration,omitempty"`
+	Model              string      `json:"model"`
+	Message            ChatMessage `json:"message"`
+	Done               bool        `json:"done"`
+	TotalDuration      int64       `json:"total_duration,omitempty"`
+	LoadDuration       int64       `json:"load_duration,omitempty"`
+	PromptEvalCount    int         `json:"prompt_eval_count,omitempty"`
+	PromptEvalDuration int64       `json:"prompt_eval_duration,omitempty"`
+	EvalCount          int         `json:"eval_count,omitempty"`
+	EvalDuration       int64       `json:"eval_duration,omitempty"`
 }
 
 // Recipe generation response structure for parsing JSON
@@ -143,22 +143,22 @@ type Nutrition struct {
 // Health check to verify Ollama service is available
 func (c *Client) HealthCheck(ctx context.Context) error {
 	endpoint := c.baseURL + "/api/tags"
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create health check request: %w", err)
 	}
-	
+
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("ollama health check failed: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("ollama health check failed with status %d", resp.StatusCode)
 	}
-	
+
 	c.logger.Debug("Ollama health check passed")
 	return nil
 }
@@ -271,7 +271,7 @@ func (c *Client) buildRecipeUserPrompt(prompt string, constraints outbound.AICon
 // generateChatCompletion uses Ollama's chat API for structured responses
 func (c *Client) generateChatCompletion(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
 	endpoint := c.baseURL + "/api/chat"
-	
+
 	reqBody := ChatRequest{
 		Model: c.model,
 		Messages: []ChatMessage{
@@ -280,10 +280,10 @@ func (c *Client) generateChatCompletion(ctx context.Context, systemPrompt, userP
 		},
 		Stream: false,
 		Options: map[string]interface{}{
-			"temperature":    0.7,
-			"num_predict":    2000,
-			"stop":          []string{"\n\nHuman:", "\n\nAssistant:"},
-			"num_ctx":       4096,
+			"temperature": 0.7,
+			"num_predict": 2000,
+			"stop":        []string{"\n\nHuman:", "\n\nAssistant:"},
+			"num_ctx":     4096,
 		},
 	}
 
@@ -335,21 +335,21 @@ func (c *Client) generateChatCompletion(ctx context.Context, systemPrompt, userP
 func (c *Client) parseRecipeResponse(response string) (*outbound.AIRecipeResponse, error) {
 	// Clean the response - sometimes models include extra text
 	response = strings.TrimSpace(response)
-	
+
 	// Find JSON content between braces
 	start := strings.Index(response, "{")
 	end := strings.LastIndex(response, "}")
-	
+
 	if start == -1 || end == -1 || end <= start {
 		return nil, fmt.Errorf("no valid JSON found in response")
 	}
-	
+
 	jsonStr := response[start : end+1]
 
 	var recipeResp RecipeGenResponse
 	if err := json.Unmarshal([]byte(jsonStr), &recipeResp); err != nil {
-		c.logger.Error("Failed to parse JSON response", 
-			zap.Error(err), 
+		c.logger.Error("Failed to parse JSON response",
+			zap.Error(err),
 			zap.String("response", jsonStr[:min(len(jsonStr), 500)]))
 		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
@@ -436,7 +436,7 @@ func (c *Client) SuggestIngredients(ctx context.Context, partial []string) ([]st
 	}
 
 	prompt := fmt.Sprintf("Suggest 5 complementary ingredients for a recipe that already includes: %s\nRespond with ONLY a JSON array of ingredient names, like: [\"ingredient1\", \"ingredient2\"]", strings.Join(partial, ", "))
-	
+
 	response, err := c.generateSimpleCompletion(ctx, prompt)
 	if err != nil {
 		// Fallback suggestions
@@ -473,7 +473,7 @@ func (c *Client) AnalyzeNutrition(ctx context.Context, ingredients []string) (*o
 	}
 
 	prompt := fmt.Sprintf("Analyze the nutrition content for these ingredients: %s\nRespond with ONLY a JSON object like: {\"calories\": 350, \"protein_g\": 20.0, \"carbs_g\": 45.0, \"fat_g\": 12.0, \"fiber_g\": 5.0}", strings.Join(ingredients, ", "))
-	
+
 	response, err := c.generateSimpleCompletion(ctx, prompt)
 	if err != nil {
 		// Fallback nutrition
@@ -505,7 +505,7 @@ func (c *Client) AnalyzeNutrition(ctx context.Context, ingredients []string) (*o
 		Carbs:    nutrition.Carbs,
 		Fat:      nutrition.Fat,
 		Fiber:    nutrition.Fiber,
-		Sugar:    8.0,  // Default
+		Sugar:    8.0,   // Default
 		Sodium:   600.0, // Default
 	}, nil
 }
@@ -513,15 +513,15 @@ func (c *Client) AnalyzeNutrition(ctx context.Context, ingredients []string) (*o
 // generateSimpleCompletion uses Ollama's generate API for simple prompts
 func (c *Client) generateSimpleCompletion(ctx context.Context, prompt string) (string, error) {
 	endpoint := c.baseURL + "/api/generate"
-	
+
 	reqBody := GenerateRequest{
 		Model:  c.model,
 		Prompt: prompt,
 		Stream: false,
 		Options: map[string]interface{}{
-			"temperature":    0.3,
-			"num_predict":    200,
-			"stop":          []string{"\n", "Human:", "Assistant:"},
+			"temperature": 0.3,
+			"num_predict": 200,
+			"stop":        []string{"\n", "Human:", "Assistant:"},
 		},
 	}
 
@@ -567,7 +567,7 @@ func (c *Client) GenerateDescription(ctx context.Context, recipe *recipe.Recipe)
 	}
 
 	prompt := fmt.Sprintf("Write a brief, appetizing description for this recipe: %s with ingredients: %v", recipe.Title(), recipe.Ingredients())
-	
+
 	response, err := c.generateSimpleCompletion(ctx, prompt)
 	if err != nil {
 		return fmt.Sprintf("A wonderful %s recipe that brings together fantastic flavors.", recipe.Title()), nil
@@ -594,7 +594,7 @@ func extractMainDish(prompt string) string {
 	dishes := map[string]string{
 		"pasta":     "Pasta",
 		"chicken":   "Chicken Dish",
-		"beef":      "Beef Dish", 
+		"beef":      "Beef Dish",
 		"fish":      "Fish Dish",
 		"vegetable": "Vegetable Dish",
 		"salad":     "Salad",
@@ -643,15 +643,15 @@ func generateFallbackInstructions(prompt string, constraints outbound.AIConstrai
 
 func generateFallbackTags(prompt string, constraints outbound.AIConstraints) []string {
 	tags := []string{"ai-generated", "local-ai", "ollama"}
-	
+
 	if constraints.Cuisine != "" {
 		tags = append(tags, constraints.Cuisine)
 	}
-	
+
 	for _, dietary := range constraints.Dietary {
 		tags = append(tags, dietary)
 	}
-	
+
 	return tags
 }
 

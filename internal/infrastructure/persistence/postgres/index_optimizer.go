@@ -32,29 +32,29 @@ func (io *IndexOptimizer) SetDB(db *gorm.DB) {
 
 // IndexUsageStats represents index usage statistics
 type IndexUsageStats struct {
-	SchemaName     string `json:"schema_name"`
-	TableName      string `json:"table_name"`
-	IndexName      string `json:"index_name"`
-	IndexSize      int64  `json:"index_size"`
-	TuplesFetched  int64  `json:"tuples_fetched"`
-	TuplesRead     int64  `json:"tuples_read"`
-	IndexScans     int64  `json:"index_scans"`
-	IndexTupleReads int64 `json:"index_tuple_reads"`
-	LastUsed       *time.Time `json:"last_used"`
-	Effectiveness  float64 `json:"effectiveness"`
+	SchemaName      string     `json:"schema_name"`
+	TableName       string     `json:"table_name"`
+	IndexName       string     `json:"index_name"`
+	IndexSize       int64      `json:"index_size"`
+	TuplesFetched   int64      `json:"tuples_fetched"`
+	TuplesRead      int64      `json:"tuples_read"`
+	IndexScans      int64      `json:"index_scans"`
+	IndexTupleReads int64      `json:"index_tuple_reads"`
+	LastUsed        *time.Time `json:"last_used"`
+	Effectiveness   float64    `json:"effectiveness"`
 }
 
 // TableStats represents table statistics
 type TableStats struct {
-	SchemaName    string  `json:"schema_name"`
-	TableName     string  `json:"table_name"`
-	RowCount      int64   `json:"row_count"`
-	TableSize     int64   `json:"table_size"`
-	IndexSize     int64   `json:"index_size"`
-	SeqScans      int64   `json:"seq_scans"`
-	SeqTupleReads int64   `json:"seq_tuple_reads"`
-	IndexScans    int64   `json:"index_scans"`
-	IndexTupleReads int64 `json:"index_tuple_reads"`
+	SchemaName      string  `json:"schema_name"`
+	TableName       string  `json:"table_name"`
+	RowCount        int64   `json:"row_count"`
+	TableSize       int64   `json:"table_size"`
+	IndexSize       int64   `json:"index_size"`
+	SeqScans        int64   `json:"seq_scans"`
+	SeqTupleReads   int64   `json:"seq_tuple_reads"`
+	IndexScans      int64   `json:"index_scans"`
+	IndexTupleReads int64   `json:"index_tuple_reads"`
 	IndexEfficiency float64 `json:"index_efficiency"`
 }
 
@@ -71,36 +71,36 @@ type MissingIndexSuggestion struct {
 
 // UnusedIndex represents an unused or low-usage index
 type UnusedIndex struct {
-	SchemaName   string    `json:"schema_name"`
-	TableName    string    `json:"table_name"`
-	IndexName    string    `json:"index_name"`
-	IndexSize    int64     `json:"index_size"`
-	LastUsed     *time.Time `json:"last_used"`
-	UsageCount   int64     `json:"usage_count"`
-	Recommendation string  `json:"recommendation"`
-	DropSQL      string    `json:"drop_sql"`
+	SchemaName     string     `json:"schema_name"`
+	TableName      string     `json:"table_name"`
+	IndexName      string     `json:"index_name"`
+	IndexSize      int64      `json:"index_size"`
+	LastUsed       *time.Time `json:"last_used"`
+	UsageCount     int64      `json:"usage_count"`
+	Recommendation string     `json:"recommendation"`
+	DropSQL        string     `json:"drop_sql"`
 }
 
 // IndexAnalysisReport provides comprehensive index analysis
 type IndexAnalysisReport struct {
-	Timestamp           time.Time                `json:"timestamp"`
-	TableStats          []TableStats             `json:"table_stats"`
-	IndexUsageStats     []IndexUsageStats        `json:"index_usage_stats"`
-	UnusedIndexes       []UnusedIndex            `json:"unused_indexes"`
-	MissingIndexes      []MissingIndexSuggestion `json:"missing_indexes"`
-	OverallIndexHealth  IndexHealthScore         `json:"overall_index_health"`
-	Recommendations     []string                 `json:"recommendations"`
-	OptimizationScript  string                   `json:"optimization_script"`
+	Timestamp          time.Time                `json:"timestamp"`
+	TableStats         []TableStats             `json:"table_stats"`
+	IndexUsageStats    []IndexUsageStats        `json:"index_usage_stats"`
+	UnusedIndexes      []UnusedIndex            `json:"unused_indexes"`
+	MissingIndexes     []MissingIndexSuggestion `json:"missing_indexes"`
+	OverallIndexHealth IndexHealthScore         `json:"overall_index_health"`
+	Recommendations    []string                 `json:"recommendations"`
+	OptimizationScript string                   `json:"optimization_script"`
 }
 
 // IndexHealthScore represents overall index health
 type IndexHealthScore struct {
-	Score                float64 `json:"score"`
-	IndexUsageRatio      float64 `json:"index_usage_ratio"`
-	UnusedIndexCount     int     `json:"unused_index_count"`
-	MissingIndexCount    int     `json:"missing_index_count"`
-	OverallEfficiency    float64 `json:"overall_efficiency"`
-	RecommendationCount  int     `json:"recommendation_count"`
+	Score               float64 `json:"score"`
+	IndexUsageRatio     float64 `json:"index_usage_ratio"`
+	UnusedIndexCount    int     `json:"unused_index_count"`
+	MissingIndexCount   int     `json:"missing_index_count"`
+	OverallEfficiency   float64 `json:"overall_efficiency"`
+	RecommendationCount int     `json:"recommendation_count"`
 }
 
 // AnalyzeIndexes performs comprehensive index analysis
@@ -350,9 +350,9 @@ func (io *IndexOptimizer) suggestMissingIndexes(ctx context.Context, tableStats 
 
 	// Common patterns that benefit from indexes
 	commonPatterns := []struct {
-		table   string
-		columns []string
-		reason  string
+		table    string
+		columns  []string
+		reason   string
 		priority string
 	}{
 		{"recipes", []string{"status", "published_at"}, "Frequently filtered by status and ordered by publish date", "high"},
@@ -434,19 +434,19 @@ func (io *IndexOptimizer) calculateIndexHealth(
 	missingIndexes []MissingIndexSuggestion,
 ) IndexHealthScore {
 	score := 100.0
-	
+
 	// Calculate index usage ratio
 	var totalScans, indexScans int64
 	for _, stat := range tableStats {
 		totalScans += stat.SeqScans + stat.IndexScans
 		indexScans += stat.IndexScans
 	}
-	
+
 	var indexUsageRatio float64
 	if totalScans > 0 {
 		indexUsageRatio = float64(indexScans) / float64(totalScans) * 100
 	}
-	
+
 	// Calculate overall efficiency
 	var totalEfficiency float64
 	var efficiencyCount int
@@ -456,16 +456,16 @@ func (io *IndexOptimizer) calculateIndexHealth(
 			efficiencyCount++
 		}
 	}
-	
+
 	var overallEfficiency float64
 	if efficiencyCount > 0 {
 		overallEfficiency = totalEfficiency / float64(efficiencyCount)
 	}
-	
+
 	// Penalize for unused indexes
 	unusedPenalty := float64(len(unusedIndexes)) * 5.0
 	score -= unusedPenalty
-	
+
 	// Penalize for missing high-priority indexes
 	highPriorityMissing := 0
 	for _, missing := range missingIndexes {
@@ -475,17 +475,17 @@ func (io *IndexOptimizer) calculateIndexHealth(
 	}
 	missingPenalty := float64(highPriorityMissing) * 10.0
 	score -= missingPenalty
-	
+
 	// Penalize for low index usage
 	if indexUsageRatio < 90 {
 		usagePenalty := (90 - indexUsageRatio) * 0.5
 		score -= usagePenalty
 	}
-	
+
 	if score < 0 {
 		score = 0
 	}
-	
+
 	return IndexHealthScore{
 		Score:               score,
 		IndexUsageRatio:     indexUsageRatio,
@@ -499,21 +499,21 @@ func (io *IndexOptimizer) calculateIndexHealth(
 // generateRecommendations generates optimization recommendations
 func (io *IndexOptimizer) generateRecommendations(report *IndexAnalysisReport) []string {
 	var recommendations []string
-	
+
 	// Index usage recommendations
 	if report.OverallIndexHealth.IndexUsageRatio < 90 {
-		recommendations = append(recommendations, 
-			fmt.Sprintf("Index usage ratio is %.1f%% - consider adding missing indexes", 
+		recommendations = append(recommendations,
+			fmt.Sprintf("Index usage ratio is %.1f%% - consider adding missing indexes",
 				report.OverallIndexHealth.IndexUsageRatio))
 	}
-	
+
 	// Unused index recommendations
 	if len(report.UnusedIndexes) > 0 {
 		recommendations = append(recommendations,
 			fmt.Sprintf("Found %d unused indexes - consider dropping to save space and improve write performance",
 				len(report.UnusedIndexes)))
 	}
-	
+
 	// Missing index recommendations
 	highPriorityMissing := 0
 	for _, missing := range report.MissingIndexes {
@@ -521,13 +521,13 @@ func (io *IndexOptimizer) generateRecommendations(report *IndexAnalysisReport) [
 			highPriorityMissing++
 		}
 	}
-	
+
 	if highPriorityMissing > 0 {
 		recommendations = append(recommendations,
 			fmt.Sprintf("Found %d high-priority missing indexes - immediate attention recommended",
 				highPriorityMissing))
 	}
-	
+
 	// Table-specific recommendations
 	for _, stat := range report.TableStats {
 		if stat.IndexEfficiency < 80 && stat.SeqScans+stat.IndexScans > 100 {
@@ -536,22 +536,22 @@ func (io *IndexOptimizer) generateRecommendations(report *IndexAnalysisReport) [
 					stat.TableName, stat.IndexEfficiency))
 		}
 	}
-	
+
 	return recommendations
 }
 
 // generateOptimizationScript generates SQL script for optimization
 func (io *IndexOptimizer) generateOptimizationScript(report *IndexAnalysisReport) string {
 	var script strings.Builder
-	
+
 	script.WriteString("-- Database Index Optimization Script\n")
 	script.WriteString(fmt.Sprintf("-- Generated: %s\n", report.Timestamp.Format(time.RFC3339)))
 	script.WriteString("-- WARNING: Review each statement before execution\n\n")
-	
+
 	// Add missing indexes (high priority first)
 	highPriorityMissing := make([]MissingIndexSuggestion, 0)
 	otherMissing := make([]MissingIndexSuggestion, 0)
-	
+
 	for _, missing := range report.MissingIndexes {
 		if missing.Priority == "high" {
 			highPriorityMissing = append(highPriorityMissing, missing)
@@ -559,7 +559,7 @@ func (io *IndexOptimizer) generateOptimizationScript(report *IndexAnalysisReport
 			otherMissing = append(otherMissing, missing)
 		}
 	}
-	
+
 	if len(highPriorityMissing) > 0 {
 		script.WriteString("-- HIGH PRIORITY: Add missing indexes\n")
 		for _, missing := range highPriorityMissing {
@@ -567,7 +567,7 @@ func (io *IndexOptimizer) generateOptimizationScript(report *IndexAnalysisReport
 			script.WriteString(fmt.Sprintf("%s\n\n", missing.CreateSQL))
 		}
 	}
-	
+
 	if len(otherMissing) > 0 {
 		script.WriteString("-- MEDIUM/LOW PRIORITY: Additional indexes\n")
 		for _, missing := range otherMissing {
@@ -575,7 +575,7 @@ func (io *IndexOptimizer) generateOptimizationScript(report *IndexAnalysisReport
 			script.WriteString(fmt.Sprintf("%s\n\n", missing.CreateSQL))
 		}
 	}
-	
+
 	// Drop unused indexes
 	if len(report.UnusedIndexes) > 0 {
 		script.WriteString("-- Remove unused indexes (review carefully)\n")
@@ -584,9 +584,9 @@ func (io *IndexOptimizer) generateOptimizationScript(report *IndexAnalysisReport
 			script.WriteString(fmt.Sprintf("-- %s\n\n", unused.DropSQL))
 		}
 	}
-	
+
 	script.WriteString("-- End of optimization script\n")
-	
+
 	return script.String()
 }
 
@@ -598,7 +598,7 @@ func (io *IndexOptimizer) OptimizeIndexesConcurrently(ctx context.Context, sugge
 				zap.String("table", suggestion.TableName),
 				zap.Strings("columns", suggestion.Columns),
 			)
-			
+
 			if err := io.db.WithContext(ctx).Exec(suggestion.CreateSQL).Error; err != nil {
 				io.logger.Error("Failed to create index",
 					zap.String("sql", suggestion.CreateSQL),
@@ -606,13 +606,13 @@ func (io *IndexOptimizer) OptimizeIndexesConcurrently(ctx context.Context, sugge
 				)
 				continue
 			}
-			
+
 			io.logger.Info("Successfully created index",
 				zap.String("table", suggestion.TableName),
 				zap.Strings("columns", suggestion.Columns),
 			)
 		}
 	}
-	
+
 	return nil
 }

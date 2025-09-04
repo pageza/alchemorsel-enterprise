@@ -42,11 +42,11 @@ func (suite *ConversationServiceTestSuite) TestCreateConversation() {
 	userID := suite.testSuite.GetTestUserID("testuser")
 
 	testCases := []struct {
-		name            string
-		firstMessage    string
-		expectedIntent  conversation.ConversationIntent
-		expectedTitle   string
-		shouldError     bool
+		name           string
+		firstMessage   string
+		expectedIntent conversation.ConversationIntent
+		expectedTitle  string
+		shouldError    bool
 	}{
 		{
 			name:           "Recipe Creation Request",
@@ -151,10 +151,10 @@ func (suite *ConversationServiceTestSuite) TestAddMessage() {
 			shouldError: false,
 		},
 		{
-			name:     "Assistant Message",
-			role:     conversation.RoleAssistant,
-			content:  "I'd be happy to help you make pasta!",
-			metadata: map[string]interface{}{"ai_provider": "ollama"},
+			name:        "Assistant Message",
+			role:        conversation.RoleAssistant,
+			content:     "I'd be happy to help you make pasta!",
+			metadata:    map[string]interface{}{"ai_provider": "ollama"},
 			shouldError: false,
 		},
 		{

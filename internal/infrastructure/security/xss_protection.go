@@ -30,10 +30,10 @@ func NewXSSProtectionService(logger *zap.Logger) *XSSProtectionService {
 		allowedAttributes:  make(map[string]bool),
 		urlSchemeWhitelist: make(map[string]bool),
 	}
-	
+
 	service.initializeDefaults()
 	service.initializeDangerousPatterns()
-	
+
 	return service
 }
 
@@ -48,27 +48,27 @@ func (x *XSSProtectionService) initializeDefaults() {
 		"table", "thead", "tbody", "tr", "td", "th",
 		"a", "img",
 	}
-	
+
 	for _, tag := range safeTags {
 		x.allowedTags[tag] = true
 	}
-	
+
 	// Safe attributes
 	safeAttributes := []string{
 		"href", "src", "alt", "title", "class", "id",
 		"width", "height", "style",
 		"colspan", "rowspan",
 	}
-	
+
 	for _, attr := range safeAttributes {
 		x.allowedAttributes[attr] = true
 	}
-	
+
 	// Safe URL schemes
 	safeSchemes := []string{
 		"http", "https", "mailto", "tel", "ftp",
 	}
-	
+
 	for _, scheme := range safeSchemes {
 		x.urlSchemeWhitelist[scheme] = true
 	}
@@ -81,74 +81,74 @@ func (x *XSSProtectionService) initializeDangerousPatterns() {
 		`(?i)<script[^>]*>.*?</script>`,
 		`(?i)<script[^>]*/>`,
 		`(?i)<script[^>]*>`,
-		
+
 		// JavaScript event handlers
 		`(?i)on\w+\s*=\s*["'][^"']*["']`,
 		`(?i)on\w+\s*=\s*[^"'\s>]+`,
-		
+
 		// JavaScript URLs
 		`(?i)javascript:\s*[^"'\s>]*`,
 		`(?i)vbscript:\s*[^"'\s>]*`,
 		`(?i)data:\s*[^"'\s>]*`,
-		
+
 		// Style tags and expressions
 		`(?i)<style[^>]*>.*?</style>`,
 		`(?i)expression\s*\(`,
 		`(?i)url\s*\(\s*["']?javascript:`,
-		
+
 		// Meta and link tags
 		`(?i)<meta[^>]*http-equiv`,
 		`(?i)<link[^>]*rel\s*=\s*["']?stylesheet`,
-		
+
 		// Object, embed, applet tags
 		`(?i)<object[^>]*>`,
 		`(?i)<embed[^>]*>`,
 		`(?i)<applet[^>]*>`,
-		
+
 		// IFrame tags
 		`(?i)<iframe[^>]*>`,
 		`(?i)<frame[^>]*>`,
 		`(?i)<frameset[^>]*>`,
-		
+
 		// Form tags
 		`(?i)<form[^>]*>`,
 		`(?i)<input[^>]*>`,
 		`(?i)<textarea[^>]*>`,
 		`(?i)<select[^>]*>`,
 		`(?i)<button[^>]*>`,
-		
+
 		// Base tag
 		`(?i)<base[^>]*>`,
-		
+
 		// Comment-based XSS
 		`<!--.*?-->`,
-		
+
 		// CDATA sections
 		`<!\[CDATA\[.*?\]\]>`,
-		
+
 		// XML processing instructions
 		`<\?.*?\?>`,
-		
+
 		// Import statements
 		`(?i)@import`,
-		
+
 		// Function calls in attributes
 		`(?i)(alert|confirm|prompt|eval|setTimeout|setInterval)\s*\(`,
-		
+
 		// Document methods
 		`(?i)document\.(write|writeln|open|close|cookie)`,
-		
+
 		// Window methods
 		`(?i)window\.(open|location|navigate)`,
-		
+
 		// Location object
 		`(?i)location\.(href|replace|assign)`,
-		
+
 		// Dangerous CSS
 		`(?i)behavior\s*:\s*url`,
 		`(?i)-moz-binding\s*:`,
 	}
-	
+
 	x.dangerousPatterns = make([]*regexp.Regexp, len(patterns))
 	for i, pattern := range patterns {
 		x.dangerousPatterns[i] = regexp.MustCompile(pattern)
@@ -168,13 +168,13 @@ func (x *XSSProtectionService) SanitizeHTML(input string) string {
 			input = pattern.ReplaceAllString(input, "")
 		}
 	}
-	
+
 	// Parse and sanitize HTML
 	sanitized := x.sanitizeHTMLTags(input)
-	
+
 	// Additional cleanup
 	sanitized = x.cleanupHTML(sanitized)
-	
+
 	return sanitized
 }
 
@@ -182,17 +182,17 @@ func (x *XSSProtectionService) SanitizeHTML(input string) string {
 func (x *XSSProtectionService) sanitizeHTMLTags(input string) string {
 	// Regex to find HTML tags
 	tagRegex := regexp.MustCompile(`<(/?)(\w+)([^>]*)>`)
-	
+
 	result := tagRegex.ReplaceAllStringFunc(input, func(match string) string {
 		matches := tagRegex.FindStringSubmatch(match)
 		if len(matches) != 4 {
 			return ""
 		}
-		
+
 		isClosing := matches[1] == "/"
 		tagName := strings.ToLower(matches[2])
 		attributes := matches[3]
-		
+
 		// Check if tag is allowed
 		if !x.allowedTags[tagName] {
 			x.logger.Debug("Removing disallowed HTML tag",
@@ -200,22 +200,22 @@ func (x *XSSProtectionService) sanitizeHTMLTags(input string) string {
 			)
 			return ""
 		}
-		
+
 		// For closing tags, just return if allowed
 		if isClosing {
 			return fmt.Sprintf("</%s>", tagName)
 		}
-		
+
 		// Sanitize attributes
 		sanitizedAttrs := x.sanitizeAttributes(attributes)
-		
+
 		if sanitizedAttrs == "" {
 			return fmt.Sprintf("<%s>", tagName)
 		}
-		
+
 		return fmt.Sprintf("<%s%s>", tagName, sanitizedAttrs)
 	})
-	
+
 	return result
 }
 
@@ -224,21 +224,21 @@ func (x *XSSProtectionService) sanitizeAttributes(attributes string) string {
 	if attributes == "" {
 		return ""
 	}
-	
+
 	// Regex to find attributes
 	attrRegex := regexp.MustCompile(`(\w+)\s*=\s*["']([^"']*)["']`)
-	
+
 	var sanitizedAttrs []string
-	
+
 	matches := attrRegex.FindAllStringSubmatch(attributes, -1)
 	for _, match := range matches {
 		if len(match) != 3 {
 			continue
 		}
-		
+
 		attrName := strings.ToLower(match[1])
 		attrValue := match[2]
-		
+
 		// Check if attribute is allowed
 		if !x.allowedAttributes[attrName] {
 			x.logger.Debug("Removing disallowed HTML attribute",
@@ -246,20 +246,20 @@ func (x *XSSProtectionService) sanitizeAttributes(attributes string) string {
 			)
 			continue
 		}
-		
+
 		// Sanitize attribute value
 		sanitizedValue := x.sanitizeAttributeValue(attrName, attrValue)
 		if sanitizedValue == "" {
 			continue
 		}
-		
+
 		sanitizedAttrs = append(sanitizedAttrs, fmt.Sprintf(`%s="%s"`, attrName, sanitizedValue))
 	}
-	
+
 	if len(sanitizedAttrs) == 0 {
 		return ""
 	}
-	
+
 	return " " + strings.Join(sanitizedAttrs, " ")
 }
 
@@ -275,17 +275,17 @@ func (x *XSSProtectionService) sanitizeAttributeValue(attrName, value string) st
 			return ""
 		}
 	}
-	
+
 	// Special handling for URLs
 	if attrName == "href" || attrName == "src" {
 		return x.sanitizeURL(value)
 	}
-	
+
 	// Special handling for style attributes
 	if attrName == "style" {
 		return x.sanitizeCSS(value)
 	}
-	
+
 	// HTML encode the value
 	return html.EscapeString(value)
 }
@@ -293,7 +293,7 @@ func (x *XSSProtectionService) sanitizeAttributeValue(attrName, value string) st
 // sanitizeURL validates and sanitizes URLs
 func (x *XSSProtectionService) sanitizeURL(url string) string {
 	url = strings.TrimSpace(url)
-	
+
 	// Check for JavaScript URLs
 	if strings.HasPrefix(strings.ToLower(url), "javascript:") ||
 		strings.HasPrefix(strings.ToLower(url), "vbscript:") ||
@@ -301,7 +301,7 @@ func (x *XSSProtectionService) sanitizeURL(url string) string {
 		x.logger.Warn("Dangerous URL scheme detected", zap.String("url", url))
 		return ""
 	}
-	
+
 	// Check scheme whitelist
 	if strings.Contains(url, ":") {
 		parts := strings.SplitN(url, ":", 2)
@@ -311,20 +311,20 @@ func (x *XSSProtectionService) sanitizeURL(url string) string {
 			return ""
 		}
 	}
-	
+
 	return html.EscapeString(url)
 }
 
 // sanitizeCSS sanitizes CSS styles
 func (x *XSSProtectionService) sanitizeCSS(css string) string {
 	css = strings.TrimSpace(css)
-	
+
 	// Remove dangerous CSS patterns
 	dangerousCSS := []string{
 		"expression", "behavior", "javascript:", "vbscript:",
 		"@import", "binding", "-moz-binding",
 	}
-	
+
 	cssLower := strings.ToLower(css)
 	for _, danger := range dangerousCSS {
 		if strings.Contains(cssLower, danger) {
@@ -332,7 +332,7 @@ func (x *XSSProtectionService) sanitizeCSS(css string) string {
 			return ""
 		}
 	}
-	
+
 	return html.EscapeString(css)
 }
 
@@ -342,11 +342,11 @@ func (x *XSSProtectionService) cleanupHTML(input string) string {
 	input = strings.ReplaceAll(input, "javascript:", "")
 	input = strings.ReplaceAll(input, "vbscript:", "")
 	input = strings.ReplaceAll(input, "data:", "")
-	
+
 	// Normalize whitespace
 	input = regexp.MustCompile(`\s+`).ReplaceAllString(input, " ")
 	input = strings.TrimSpace(input)
-	
+
 	return input
 }
 
@@ -355,15 +355,15 @@ func (x *XSSProtectionService) StripHTML(input string) string {
 	// Remove all HTML tags
 	tagRegex := regexp.MustCompile(`<[^>]*>`)
 	result := tagRegex.ReplaceAllString(input, "")
-	
+
 	// Decode HTML entities
 	result = html.UnescapeString(result)
-	
+
 	// Remove any remaining dangerous content
 	for _, pattern := range x.dangerousPatterns {
 		result = pattern.ReplaceAllString(result, "")
 	}
-	
+
 	return strings.TrimSpace(result)
 }
 
@@ -383,7 +383,7 @@ func (x *XSSProtectionService) XSSProtectionMiddleware() gin.HandlerFunc {
 		// Set XSS protection headers
 		c.Header("X-XSS-Protection", "1; mode=block")
 		c.Header("X-Content-Type-Options", "nosniff")
-		
+
 		// For POST/PUT requests, validate form data
 		if c.Request.Method == "POST" || c.Request.Method == "PUT" {
 			if err := c.Request.ParseForm(); err == nil {
@@ -395,7 +395,7 @@ func (x *XSSProtectionService) XSSProtectionMiddleware() gin.HandlerFunc {
 								zap.String("error", err.Error()),
 								zap.String("ip", c.ClientIP()),
 							)
-							
+
 							c.JSON(http.StatusBadRequest, gin.H{
 								"error": "Invalid input detected",
 								"field": key,
@@ -407,7 +407,7 @@ func (x *XSSProtectionService) XSSProtectionMiddleware() gin.HandlerFunc {
 				}
 			}
 		}
-		
+
 		c.Next()
 	}
 }
@@ -431,7 +431,7 @@ func (x *XSSProtectionService) SafeJS(input string) template.JS {
 		regexp.MustCompile(`(?i)location\.href`),
 		regexp.MustCompile(`(?i)window\.location`),
 	}
-	
+
 	result := input
 	for _, pattern := range jsPatterns {
 		if pattern.MatchString(result) {
@@ -439,7 +439,7 @@ func (x *XSSProtectionService) SafeJS(input string) template.JS {
 			result = pattern.ReplaceAllString(result, "")
 		}
 	}
-	
+
 	return template.JS(result)
 }
 
@@ -503,7 +503,7 @@ func (x *XSSProtectionService) GetContentSecurityPolicy(nonce string) string {
 		"object-src 'none'",
 		"media-src 'self'",
 	}
-	
+
 	if nonce != "" {
 		// Add nonce for inline scripts and styles
 		for i, directive := range csp {
@@ -515,6 +515,6 @@ func (x *XSSProtectionService) GetContentSecurityPolicy(nonce string) string {
 			}
 		}
 	}
-	
+
 	return strings.Join(csp, "; ")
 }

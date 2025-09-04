@@ -24,17 +24,17 @@ import (
 
 // PureAPIServer represents a pure JSON API HTTP server (no frontend templates)
 type PureAPIServer struct {
-	config             *config.Config
-	logger             *zap.Logger
-	server             *http.Server
-	router             *chi.Mux
-	recipeService      inbound.RecipeService
-	userService        *user.UserService
-	authService        *security.AuthService
-	aiService          outbound.AIService
+	config              *config.Config
+	logger              *zap.Logger
+	server              *http.Server
+	router              *chi.Mux
+	recipeService       inbound.RecipeService
+	userService         *user.UserService
+	authService         *security.AuthService
+	aiService           outbound.AIService
 	conversationService *conversation.Service
-	healthCheck        *healthcheck.EnterpriseHealthCheck
-	openAPIHandler     *OpenAPIHandler
+	healthCheck         *healthcheck.EnterpriseHealthCheck
+	openAPIHandler      *OpenAPIHandler
 }
 
 // NewPureAPIServer creates a new pure API server instance
@@ -49,15 +49,15 @@ func NewPureAPIServer(
 	healthCheck *healthcheck.EnterpriseHealthCheck,
 ) *PureAPIServer {
 	server := &PureAPIServer{
-		config:             cfg,
-		logger:             log,
-		recipeService:      recipeService,
-		userService:        userService,
-		authService:        authService,
-		aiService:          aiService,
+		config:              cfg,
+		logger:              log,
+		recipeService:       recipeService,
+		userService:         userService,
+		authService:         authService,
+		aiService:           aiService,
 		conversationService: conversationService,
-		healthCheck:        healthCheck,
-		openAPIHandler:     NewOpenAPIHandler(log),
+		healthCheck:         healthCheck,
+		openAPIHandler:      NewOpenAPIHandler(log),
 	}
 
 	server.router = server.setupRoutes()
@@ -83,7 +83,7 @@ func (s *PureAPIServer) setupRoutes() *chi.Mux {
 	r.Use(chimiddleware.Recoverer)
 	r.Use(middleware.Security())
 	r.Use(middleware.CORS())
-	
+
 	// API-specific middleware
 	r.Use(chimiddleware.Timeout(30 * time.Second))
 	r.Use(chimiddleware.Compress(5))
@@ -119,10 +119,10 @@ func (s *PureAPIServer) setupAPIV3Routes(r chi.Router) {
 	// Authentication routes
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/register", authH.Register)
-		r.Post("/login", authH.Login) 
+		r.Post("/login", authH.Login)
 		r.Post("/logout", authH.Logout)
 		r.Post("/refresh", authH.RefreshToken)
-		
+
 		// Protected auth routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.AuthenticateAPI(s.authService))
@@ -136,7 +136,7 @@ func (s *PureAPIServer) setupAPIV3Routes(r chi.Router) {
 		// Public routes
 		r.Get("/", h.ListRecipes)
 		r.Get("/{id}", h.GetRecipe)
-		
+
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.AuthenticateAPI(s.authService))
@@ -168,7 +168,7 @@ func (s *PureAPIServer) setupAPIV3Routes(r chi.Router) {
 		r.Post("/conversations/{id}/messages", chatH.SendMessage)
 	})
 
-	// User routes  
+	// User routes
 	r.Route("/users", func(r chi.Router) {
 		r.Use(middleware.AuthenticateAPI(s.authService))
 		r.Get("/{id}/recipes", h.GetUserRecipes)
@@ -203,7 +203,7 @@ func (s *PureAPIServer) Shutdown(ctx context.Context) error {
 // handleHealthCheck provides enterprise health check endpoint
 func (s *PureAPIServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	// Determine check mode from query parameter
 	mode := healthcheck.ModeStandard
 	if modeParam := r.URL.Query().Get("mode"); modeParam != "" {
@@ -216,10 +216,10 @@ func (s *PureAPIServer) handleHealthCheck(w http.ResponseWriter, r *http.Request
 			mode = healthcheck.ModeMaintenance
 		}
 	}
-	
+
 	// Perform enterprise health check
 	response := s.healthCheck.CheckWithMode(ctx, mode)
-	
+
 	// Determine HTTP status code
 	statusCode := http.StatusOK
 	if response.Status == healthcheck.StatusUnhealthy {
@@ -227,10 +227,10 @@ func (s *PureAPIServer) handleHealthCheck(w http.ResponseWriter, r *http.Request
 	} else if response.Status == healthcheck.StatusDegraded {
 		statusCode = http.StatusPartialContent
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	
+
 	// Use JSON encoding for enterprise response
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		s.logger.Error("Failed to encode health check response", zap.Error(err))
@@ -242,7 +242,7 @@ func (s *PureAPIServer) handleHealthCheck(w http.ResponseWriter, r *http.Request
 func (s *PureAPIServer) handleReadinessCheck(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	response := s.healthCheck.CheckWithMode(ctx, healthcheck.ModeStandard)
-	
+
 	// Service is ready only if all checks pass
 	if response.Status != healthcheck.StatusHealthy {
 		w.Header().Set("Content-Type", "application/json")
@@ -254,7 +254,7 @@ func (s *PureAPIServer) handleReadinessCheck(w http.ResponseWriter, r *http.Requ
 		})
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{

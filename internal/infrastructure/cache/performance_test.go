@@ -18,7 +18,7 @@ func BenchmarkCacheOperations(b *testing.B) {
 	defer cleanup()
 
 	ctx := context.Background()
-	
+
 	b.Run("Set", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -47,10 +47,10 @@ func BenchmarkCacheOperations(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			key := fmt.Sprintf("getset_key_%d", i%100) // Reuse keys for realistic scenario
-			
+
 			// Try to get first
 			cache.Get(ctx, key)
-			
+
 			// Set if not found (simulating cache-first pattern)
 			data := []byte(fmt.Sprintf("getset_data_%d", i))
 			cache.Set(ctx, key, data, time.Hour)
@@ -64,7 +64,7 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 	defer cleanup()
 
 	ctx := context.Background()
-	
+
 	// Setup initial data
 	for i := 0; i < 1000; i++ {
 		key := fmt.Sprintf("concurrent_key_%d", i)
@@ -124,13 +124,13 @@ func BenchmarkCacheSize(b *testing.B) {
 	defer cleanup()
 
 	ctx := context.Background()
-	
+
 	sizes := []int{
-		100,      // 100B
-		1024,     // 1KB
-		10240,    // 10KB
-		102400,   // 100KB
-		1048576,  // 1MB
+		100,     // 100B
+		1024,    // 1KB
+		10240,   // 10KB
+		102400,  // 100KB
+		1048576, // 1MB
 	}
 
 	for _, size := range sizes {
@@ -201,7 +201,7 @@ func BenchmarkSpecializedServices(b *testing.B) {
 				"user_id": fmt.Sprintf("user_%d", i),
 				"data":    fmt.Sprintf("template_data_%d", i),
 			}
-			
+
 			key := container.TemplateCache.keyBuilder.BuildTemplateKey(templateName, data)
 			container.CacheService.Get(ctx, key)
 		}
@@ -218,16 +218,16 @@ func TestCachePerformanceUnderLoad(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	
+
 	// Test parameters
 	duration := 30 * time.Second
 	numWorkers := 50
 	targetOpsPerSec := 10000
 
 	var (
-		wg          sync.WaitGroup
-		start       = time.Now()
-		stop        = make(chan struct{})
+		wg    sync.WaitGroup
+		start = time.Now()
+		stop  = make(chan struct{})
 	)
 
 	// Start workers
@@ -235,10 +235,10 @@ func TestCachePerformanceUnderLoad(t *testing.T) {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			
+
 			ops := 0
 			errors := 0
-			
+
 			for {
 				select {
 				case <-stop:
@@ -248,7 +248,7 @@ func TestCachePerformanceUnderLoad(t *testing.T) {
 					// Perform cache operation
 					key := fmt.Sprintf("load_test_key_%d_%d", workerID, ops)
 					data := []byte(fmt.Sprintf("load_test_data_%d_%d", workerID, ops))
-					
+
 					if ops%3 == 0 {
 						// Write operation
 						if err := cache.Set(ctx, key, data, time.Hour); err != nil {
@@ -263,9 +263,9 @@ func TestCachePerformanceUnderLoad(t *testing.T) {
 							}
 						}
 					}
-					
+
 					ops++
-					
+
 					// Small delay to control rate
 					time.Sleep(time.Duration(1000000000/(targetOpsPerSec/numWorkers)) * time.Nanosecond)
 				}
@@ -284,7 +284,7 @@ func TestCachePerformanceUnderLoad(t *testing.T) {
 
 	// Calculate final stats
 	stats := cache.GetStats()
-	
+
 	t.Logf("Load test completed in %v", elapsed)
 	t.Logf("Total operations: %d", stats.TotalOperations)
 	t.Logf("Hit ratio: %.2f%%", stats.HitRatio*100)
@@ -316,48 +316,48 @@ func TestMemoryUsage(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	
+
 	// Test memory usage with large dataset
-	dataSize := 1024 // 1KB per item
+	dataSize := 1024  // 1KB per item
 	numItems := 10000 // 10MB total
-	
+
 	data := make([]byte, dataSize)
 	for i := range data {
 		data[i] = byte(i % 256)
 	}
 
 	start := time.Now()
-	
+
 	// Fill cache
 	for i := 0; i < numItems; i++ {
 		key := fmt.Sprintf("memory_test_key_%d", i)
 		if err := cache.Set(ctx, key, data, time.Hour); err != nil {
 			t.Fatalf("Failed to set key %s: %v", key, err)
 		}
-		
+
 		// Log progress
 		if i%1000 == 0 {
 			t.Logf("Stored %d items", i)
 		}
 	}
-	
+
 	elapsed := time.Since(start)
 	t.Logf("Stored %d items (%dMB) in %v", numItems, (numItems*dataSize)/(1024*1024), elapsed)
 
 	// Test retrieval performance
 	start = time.Now()
 	hits := 0
-	
+
 	for i := 0; i < numItems; i++ {
 		key := fmt.Sprintf("memory_test_key_%d", i)
 		if _, err := cache.Get(ctx, key); err == nil {
 			hits++
 		}
 	}
-	
+
 	elapsed = time.Since(start)
 	hitRatio := float64(hits) / float64(numItems)
-	
+
 	t.Logf("Retrieved %d/%d items (%.2f%%) in %v", hits, numItems, hitRatio*100, elapsed)
 	t.Logf("Average retrieval time: %v", elapsed/time.Duration(numItems))
 

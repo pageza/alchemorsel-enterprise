@@ -63,12 +63,12 @@ func main() {
 	// Create FX application for web frontend
 	app := fx.New(
 		fx.NopLogger,
-		
+
 		// Configuration
 		fx.Provide(func() (*config.Config, error) {
 			return config.Load("")
 		}),
-		
+
 		// Logger
 		fx.Provide(func(cfg *config.Config) (*zap.Logger, error) {
 			return logger.New(logger.Config{
@@ -77,10 +77,10 @@ func main() {
 				Development: cfg.App.Debug,
 			})
 		}),
-		
+
 		// API Client for backend communication
 		fx.Provide(webserver.NewAPIClient),
-		
+
 		// Health Check
 		fx.Provide(func(cfg *config.Config, log *zap.Logger) *healthcheck.EnterpriseHealthCheck {
 			if cfg.Monitoring.HealthCheck.EnableEnterprise {
@@ -93,10 +93,10 @@ func main() {
 			basic.SetCacheTTL(cfg.Monitoring.HealthCheck.CacheTTL)
 			return &healthcheck.EnterpriseHealthCheck{HealthCheck: basic}
 		}),
-		
+
 		// Web Server
 		fx.Provide(webserver.NewWebServer),
-		
+
 		// Lifecycle
 		fx.Invoke(registerLifecycleHooks),
 		fx.Invoke(initializeWebHealthChecks),
@@ -118,23 +118,23 @@ func registerLifecycleHooks(
 			if port := os.Getenv("PORT"); port != "" {
 				cfg.Server.Port = parsePort(port)
 			}
-			
+
 			// Use different port for web frontend (8080 default)
 			if cfg.Server.Port == 3000 {
 				cfg.Server.Port = 8080
 			}
-			
+
 			log.Info("Starting Web Frontend server",
 				zap.Int("port", cfg.Server.Port),
 				zap.String("environment", cfg.App.Environment),
 				zap.String("api_url", getAPIURL(cfg)),
 			)
-			
+
 			fmt.Printf("🚀 Alchemorsel v3 Web Frontend starting on http://localhost:%d\n", cfg.Server.Port)
 			fmt.Printf("🔗 Connected to API Backend at %s\n", getAPIURL(cfg))
 			fmt.Println("🎨 HTMX-powered interactive UI")
 			fmt.Println("🍳 Recipe management with AI capabilities")
-			
+
 			// Start server in a simple goroutine without complex verification
 			go func() {
 				log.Info("Starting web server listener", zap.Int("port", cfg.Server.Port))
@@ -142,7 +142,7 @@ func registerLifecycleHooks(
 					log.Error("Web server error", zap.Error(err))
 				}
 			}()
-			
+
 			// Give server a moment to start binding, but don't wait for confirmation
 			time.Sleep(50 * time.Millisecond)
 			log.Info("Web server startup initiated",
@@ -170,7 +170,7 @@ func getAPIURL(cfg *config.Config) string {
 	if apiURL := os.Getenv("API_URL"); apiURL != "" {
 		return apiURL
 	}
-	
+
 	// Default for Docker Compose (api service name)
 	return "http://api:8080"
 }
@@ -183,16 +183,16 @@ func initializeWebHealthChecks(
 	apiClient *webserver.APIClient,
 ) {
 	log.Info("Initializing web service health checks")
-	
+
 	// Register system checker
 	systemChecker := healthcheck.NewCustomChecker("system", func(ctx context.Context) (healthcheck.Status, string, interface{}) {
 		return healthcheck.StatusHealthy, "System operational", map[string]interface{}{
-			"service": "alchemorsel-web",
-			"version": cfg.App.Version,
+			"service":     "alchemorsel-web",
+			"version":     cfg.App.Version,
 			"environment": cfg.App.Environment,
 		}
 	})
-	
+
 	// Register API dependency checker
 	apiChecker := healthcheck.NewCustomChecker("api_backend", func(ctx context.Context) (healthcheck.Status, string, interface{}) {
 		if apiClient.VerifyConnection(ctx) {
@@ -204,13 +204,13 @@ func initializeWebHealthChecks(
 			"api_url": getAPIURL(cfg),
 		}
 	})
-	
+
 	if cfg.Monitoring.HealthCheck.EnableCircuitBreaker {
 		circuitConfig := healthcheck.CircuitBreakerConfig{
 			FailureThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.FailureThreshold,
 			SuccessThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.SuccessThreshold,
-			Timeout:         cfg.Monitoring.HealthCheck.CircuitBreaker.Timeout,
-			MaxRequests:     cfg.Monitoring.HealthCheck.CircuitBreaker.MaxRequests,
+			Timeout:          cfg.Monitoring.HealthCheck.CircuitBreaker.Timeout,
+			MaxRequests:      cfg.Monitoring.HealthCheck.CircuitBreaker.MaxRequests,
 		}
 		hc.RegisterWithCircuitBreaker("system", systemChecker, circuitConfig)
 		hc.RegisterWithCircuitBreaker("api_backend", apiChecker, circuitConfig)
@@ -218,16 +218,16 @@ func initializeWebHealthChecks(
 		hc.Register("system", systemChecker)
 		hc.Register("api_backend", apiChecker)
 	}
-	
+
 	// Register dependencies if enabled
 	if cfg.Monitoring.HealthCheck.EnableDependencies {
 		// Register API backend as a dependency
 		apiDep := healthcheck.ServiceDependency("api_backend", true, []string{}, apiChecker)
 		hc.RegisterDependency(apiDep)
-		
+
 		log.Info("Registered web service dependencies")
 	}
-	
+
 	log.Info("Web service health checks initialized successfully",
 		zap.Bool("circuit_breaker", cfg.Monitoring.HealthCheck.EnableCircuitBreaker),
 		zap.Bool("dependencies", cfg.Monitoring.HealthCheck.EnableDependencies),
@@ -238,15 +238,15 @@ func initializeWebHealthChecks(
 func setupGracefulShutdown(log *zap.Logger) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	
+
 	go func() {
 		<-sigChan
 		log.Info("Received shutdown signal, gracefully stopping...")
-		
+
 		// Give the application time to cleanup
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		
+
 		// The FX framework will handle the actual shutdown
 		_ = ctx
 	}()
@@ -262,7 +262,7 @@ func runHealthCheck() {
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode == http.StatusOK {
 		fmt.Println("Health check passed")
 		os.Exit(0)

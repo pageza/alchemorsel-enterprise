@@ -21,13 +21,13 @@ import (
 
 // TestHealthCheckHelper provides utilities for health check testing
 type TestHealthCheckHelper struct {
-	t             *testing.T
-	logger        *zap.Logger
+	t                 *testing.T
+	logger            *zap.Logger
 	postgresContainer testcontainers.Container
 	redisContainer    testcontainers.Container
-	pgPool        *pgxpool.Pool
-	redisClient   *redis.Client
-	mu            sync.Mutex
+	pgPool            *pgxpool.Pool
+	redisClient       *redis.Client
+	mu                sync.Mutex
 }
 
 // NewTestHealthCheckHelper creates a new test helper
@@ -200,15 +200,15 @@ func (h *TestHealthCheckHelper) Cleanup() {
 
 // MockChecker provides a configurable mock checker for testing
 type MockChecker struct {
-	name     string
-	status   Status
-	message  string
-	duration time.Duration
-	metadata interface{}
-	delay    time.Duration
-	err      error
+	name      string
+	status    Status
+	message   string
+	duration  time.Duration
+	metadata  interface{}
+	delay     time.Duration
+	err       error
 	callCount int
-	mu       sync.Mutex
+	mu        sync.Mutex
 }
 
 // NewMockChecker creates a new mock checker
@@ -435,24 +435,24 @@ func TestMetricsConfig() MetricsConfig {
 // WaitForCircuitBreakerState waits for a circuit breaker to reach a specific state
 func WaitForCircuitBreakerState(t *testing.T, cb *CircuitBreaker, expectedState CircuitBreakerState, timeout time.Duration) {
 	deadline := time.Now().Add(timeout)
-	
+
 	for time.Now().Before(deadline) {
 		if cb.GetState() == expectedState {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	
-	require.Failf(t, "Circuit breaker state timeout", 
+
+	require.Failf(t, "Circuit breaker state timeout",
 		"Expected state %s, got %s", expectedState, cb.GetState())
 }
 
 // AssertDependencyOrder verifies that dependencies are returned in topological order
 func AssertDependencyOrder(t *testing.T, dependencies []DependencyStatus, expectedOrder []string) {
 	require.Len(t, dependencies, len(expectedOrder), "Dependency count mismatch")
-	
+
 	for i, expected := range expectedOrder {
-		require.Equal(t, expected, dependencies[i].Name, 
+		require.Equal(t, expected, dependencies[i].Name,
 			"Dependency order mismatch at position %d", i)
 	}
 }
@@ -474,10 +474,10 @@ func AssertCheckResult(t *testing.T, check Check, expectedStatus Status, expecte
 func AssertResponseStructure(t *testing.T, response Response) {
 	require.NotEmpty(t, response.Version, "Version should not be empty")
 	require.NotZero(t, response.Timestamp, "Timestamp should be set")
-	require.Contains(t, []Status{StatusHealthy, StatusDegraded, StatusUnhealthy}, 
+	require.Contains(t, []Status{StatusHealthy, StatusDegraded, StatusUnhealthy},
 		response.Status, "Status should be valid")
 	require.True(t, response.TotalDuration >= 0, "TotalDuration should be non-negative")
-	
+
 	for _, check := range response.Checks {
 		AssertCheckResult(t, check, check.Status, check.Name)
 	}
@@ -486,7 +486,7 @@ func AssertResponseStructure(t *testing.T, response Response) {
 // AssertEnterpriseResponseStructure validates the structure of an enterprise health check response
 func AssertEnterpriseResponseStructure(t *testing.T, response EnterpriseResponse) {
 	AssertResponseStructure(t, response.Response)
-	
+
 	require.NotEmpty(t, response.SystemInfo.Hostname, "Hostname should not be empty")
 	require.NotEmpty(t, response.SystemInfo.Platform, "Platform should not be empty")
 	require.NotEmpty(t, response.SystemInfo.Architecture, "Architecture should not be empty")

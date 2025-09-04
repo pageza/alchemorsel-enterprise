@@ -33,7 +33,7 @@ func NewClient(logger *zap.Logger) *Client {
 		// Also try the prefixed version that would come from config
 		apiKey = os.Getenv("ALCHEMORSEL_AI_OPENAI_KEY")
 	}
-	
+
 	var baseURL string
 	if apiKey == "" {
 		logger.Info("OpenAI API key not found, using local Ollama (llama3.2:3b) for AI features")
@@ -220,7 +220,7 @@ func (c *Client) callOpenAI(ctx context.Context, systemPrompt, userPrompt string
 	if strings.Contains(c.baseURL, "localhost:11434") {
 		model = "llama3.2:3b"
 	}
-	
+
 	reqBody := ChatCompletionRequest{
 		Model: model,
 		Messages: []Message{
@@ -281,21 +281,21 @@ func (c *Client) callOpenAI(ctx context.Context, systemPrompt, userPrompt string
 func (c *Client) parseRecipeResponse(response string) (*outbound.AIRecipeResponse, error) {
 	// Clean the response - sometimes GPT includes extra text
 	response = strings.TrimSpace(response)
-	
+
 	// Find JSON content between braces
 	start := strings.Index(response, "{")
 	end := strings.LastIndex(response, "}")
-	
+
 	if start == -1 || end == -1 || end <= start {
 		return nil, fmt.Errorf("no valid JSON found in response")
 	}
-	
+
 	jsonStr := response[start : end+1]
 
 	var recipeResp RecipeGenResponse
 	if err := json.Unmarshal([]byte(jsonStr), &recipeResp); err != nil {
-		c.logger.Error("Failed to parse JSON response", 
-			zap.Error(err), 
+		c.logger.Error("Failed to parse JSON response",
+			zap.Error(err),
 			zap.String("response", jsonStr))
 		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
@@ -375,7 +375,7 @@ func extractMainDish(prompt string) string {
 	dishes := map[string]string{
 		"pasta":     "Pasta",
 		"chicken":   "Chicken Dish",
-		"beef":      "Beef Dish", 
+		"beef":      "Beef Dish",
 		"fish":      "Fish Dish",
 		"vegetable": "Vegetable Dish",
 		"salad":     "Salad",
@@ -446,15 +446,15 @@ func generateMockInstructions(prompt string, constraints outbound.AIConstraints)
 
 func generateMockTags(prompt string, constraints outbound.AIConstraints) []string {
 	tags := []string{"ai-generated", "easy"}
-	
+
 	if constraints.Cuisine != "" {
 		tags = append(tags, constraints.Cuisine)
 	}
-	
+
 	for _, dietary := range constraints.Dietary {
 		tags = append(tags, dietary)
 	}
-	
+
 	return tags
 }
 

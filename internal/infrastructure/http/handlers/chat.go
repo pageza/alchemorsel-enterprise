@@ -109,13 +109,13 @@ func (h *ChatHandler) HandleChatMessage(w http.ResponseWriter, r *http.Request) 
 // HandleChatPage renders the chat page
 func (h *ChatHandler) HandleChatPage(w http.ResponseWriter, r *http.Request) {
 	user := getUserFromHTTPContext(r.Context())
-	
+
 	data := map[string]interface{}{
-		"Title":          "Chat with AI Chef - Alchemorsel",
-		"Description":    "Chat with our AI Chef to create amazing recipes through conversation",
-		"User":           user,
+		"Title":           "Chat with AI Chef - Alchemorsel",
+		"Description":     "Chat with our AI Chef to create amazing recipes through conversation",
+		"User":            user,
 		"IsAuthenticated": user != nil,
-		"CurrentPage":    "chat",
+		"CurrentPage":     "chat",
 	}
 
 	if err := renderHTMLTemplate(w, "chat", data); err != nil {
@@ -237,12 +237,12 @@ func (h *ChatHandler) HandleConversationRename(w http.ResponseWriter, r *http.Re
 
 	conversationID := r.FormValue("conversation_id")
 	newTitle := strings.TrimSpace(r.FormValue("title"))
-	
+
 	if conversationID == "" {
 		h.writeErrorResponse(w, "Conversation ID required", http.StatusBadRequest)
 		return
 	}
-	
+
 	if newTitle == "" {
 		h.writeErrorResponse(w, "Title cannot be empty", http.StatusBadRequest)
 		return
@@ -310,7 +310,7 @@ func (h *ChatHandler) HandleConversationListHTMX(w http.ResponseWriter, r *http.
 
 		// Format time
 		timeFormatted := h.formatTimeAgo(conv.UpdatedAt)
-		
+
 		html += fmt.Sprintf(`
 			<div class="conversation-item" onclick="loadConversation('%s')" data-conversation-id="%s">
 				<div class="conversation-title">%s</div>
@@ -387,7 +387,7 @@ func renderHTMLTemplate(w http.ResponseWriter, templateName string, data interfa
 	// This should use your existing template rendering system
 	// For now, return a simple implementation
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	
+
 	// You'll need to integrate this with your existing template system
 	// from the main.go file
 	return fmt.Errorf("template rendering not implemented - integrate with existing system")
@@ -492,7 +492,7 @@ func (h *ChatHandler) writeHTMXError(w http.ResponseWriter, message string) {
 				</div>
 			</div>
 		</div>`, h.escapeHTML(message))
-	
+
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(html))
 }
@@ -501,7 +501,7 @@ func (h *ChatHandler) writeHTMXError(w http.ResponseWriter, message string) {
 func (h *ChatHandler) formatTimeAgo(t time.Time) string {
 	now := time.Now()
 	diff := now.Sub(t)
-	
+
 	if diff < time.Minute {
 		return "Just now"
 	} else if diff < time.Hour {
@@ -526,7 +526,6 @@ func (h *ChatHandler) formatTimeAgo(t time.Time) string {
 		return t.Format("Jan 2, 2006")
 	}
 }
-
 
 // escapeHTML escapes HTML characters to prevent XSS
 func (h *ChatHandler) escapeHTML(s string) string {

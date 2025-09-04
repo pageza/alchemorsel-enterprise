@@ -42,17 +42,17 @@ type LatencyTarget struct {
 
 // LatencyData stores latency measurements for a target
 type LatencyData struct {
-	Target        LatencyTarget
-	Measurements  []LatencyMeasurement
-	Average       time.Duration
-	Minimum       time.Duration
-	Maximum       time.Duration
-	P50           time.Duration
-	P95           time.Duration
-	P99           time.Duration
-	LastUpdated   time.Time
-	ErrorRate     float64
-	mu            sync.RWMutex
+	Target       LatencyTarget
+	Measurements []LatencyMeasurement
+	Average      time.Duration
+	Minimum      time.Duration
+	Maximum      time.Duration
+	P50          time.Duration
+	P95          time.Duration
+	P99          time.Duration
+	LastUpdated  time.Time
+	ErrorRate    float64
+	mu           sync.RWMutex
 }
 
 // LatencyMeasurement represents a single latency measurement
@@ -81,7 +81,7 @@ func NewLatencyMonitor(logger *zap.Logger) *LatencyMonitor {
 // Start begins latency monitoring
 func (lm *LatencyMonitor) Start(ctx context.Context, config LatencyMonitorConfig) error {
 	lm.config = config
-	
+
 	// Initialize monitoring data for each target
 	for _, target := range config.Targets {
 		lm.measurements[target.Name] = &LatencyData{
@@ -98,7 +98,7 @@ func (lm *LatencyMonitor) Start(ctx context.Context, config LatencyMonitorConfig
 	// Start cleanup goroutine
 	go lm.cleanupOldData(ctx)
 
-	lm.logger.Info("Latency monitoring started", 
+	lm.logger.Info("Latency monitoring started",
 		zap.Int("targets", len(config.Targets)),
 		zap.Duration("interval", config.ProbeInterval))
 
@@ -166,17 +166,17 @@ func (lm *LatencyMonitor) probeTarget(target LatencyTarget) {
 // probeTCP performs a TCP connection probe
 func (lm *LatencyMonitor) probeTCP(target LatencyTarget) (time.Duration, bool, string) {
 	start := time.Now()
-	
-	conn, err := net.DialTimeout("tcp", 
-		fmt.Sprintf("%s:%d", target.Address, target.Port), 
+
+	conn, err := net.DialTimeout("tcp",
+		fmt.Sprintf("%s:%d", target.Address, target.Port),
 		lm.config.ProbeTimeout)
-	
+
 	latency := time.Since(start)
-	
+
 	if err != nil {
 		return latency, false, err.Error()
 	}
-	
+
 	conn.Close()
 	return latency, true, ""
 }
@@ -184,31 +184,31 @@ func (lm *LatencyMonitor) probeTCP(target LatencyTarget) (time.Duration, bool, s
 // probeHTTP performs an HTTP probe
 func (lm *LatencyMonitor) probeHTTP(target LatencyTarget) (time.Duration, bool, string) {
 	start := time.Now()
-	
+
 	client := &http.Client{
 		Timeout: lm.config.ProbeTimeout,
 	}
-	
+
 	protocol := target.Protocol
 	if protocol == "" {
 		protocol = "http"
 	}
-	
+
 	url := fmt.Sprintf("%s://%s:%d/health", protocol, target.Address, target.Port)
 	resp, err := client.Head(url)
-	
+
 	latency := time.Since(start)
-	
+
 	if err != nil {
 		return latency, false, err.Error()
 	}
-	
+
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 		return latency, true, ""
 	}
-	
+
 	return latency, false, fmt.Sprintf("HTTP %d", resp.StatusCode)
 }
 
@@ -416,7 +416,7 @@ func (lm *LatencyMonitor) performCleanup() {
 
 	for _, data := range lm.measurements {
 		data.mu.Lock()
-		
+
 		// Filter out old measurements
 		filtered := make([]LatencyMeasurement, 0)
 		for _, measurement := range data.Measurements {
@@ -424,10 +424,10 @@ func (lm *LatencyMonitor) performCleanup() {
 				filtered = append(filtered, measurement)
 			}
 		}
-		
+
 		data.Measurements = filtered
 		lm.updateStatistics(data)
-		
+
 		data.mu.Unlock()
 	}
 }
@@ -439,13 +439,13 @@ func (lm *LatencyMonitor) GetLatencyMetrics() map[string]map[string]float64 {
 
 	for targetName, data := range allData {
 		metrics[targetName] = map[string]float64{
-			"average_ms":  float64(data.Average.Nanoseconds()) / 1e6,
-			"minimum_ms":  float64(data.Minimum.Nanoseconds()) / 1e6,
-			"maximum_ms":  float64(data.Maximum.Nanoseconds()) / 1e6,
-			"p50_ms":      float64(data.P50.Nanoseconds()) / 1e6,
-			"p95_ms":      float64(data.P95.Nanoseconds()) / 1e6,
-			"p99_ms":      float64(data.P99.Nanoseconds()) / 1e6,
-			"error_rate":  data.ErrorRate,
+			"average_ms": float64(data.Average.Nanoseconds()) / 1e6,
+			"minimum_ms": float64(data.Minimum.Nanoseconds()) / 1e6,
+			"maximum_ms": float64(data.Maximum.Nanoseconds()) / 1e6,
+			"p50_ms":     float64(data.P50.Nanoseconds()) / 1e6,
+			"p95_ms":     float64(data.P95.Nanoseconds()) / 1e6,
+			"p99_ms":     float64(data.P99.Nanoseconds()) / 1e6,
+			"error_rate": data.ErrorRate,
 		}
 	}
 
@@ -479,7 +479,7 @@ func (lm *LatencyMonitor) GetTargetHealth() map[string]TargetHealth {
 
 	for targetName, data := range allData {
 		status := HealthStatusHealthy
-		
+
 		// Determine health based on error rate and latency
 		if data.ErrorRate > 0.1 { // More than 10% errors
 			status = HealthStatusUnhealthy

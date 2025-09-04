@@ -105,10 +105,10 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*user.U
 	var role user.UserRole
 	var createdAt, updatedAt time.Time
 	var lastLoginAt *time.Time
-	
+
 	err := r.db.QueryRow(ctx, query, email).Scan(
 		&id,
-		&name, 
+		&name,
 		&userEmail,
 		&passwordHash,
 		&isActive,
@@ -118,7 +118,7 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*user.U
 		&updatedAt,
 		&lastLoginAt,
 	)
-	
+
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("user not found with email: %s", email)

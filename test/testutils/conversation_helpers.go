@@ -35,9 +35,9 @@ func NewConversationTestSuite() *ConversationTestSuite {
 		MockOllamaClient:     NewMockOllamaClient(),
 		MockOpenAIClient:     NewMockOpenAIClient(),
 		TestUsers: map[string]string{
-			"testuser":   "550e8400-e29b-41d4-a716-446655440001",
-			"chefuser":   "550e8400-e29b-41d4-a716-446655440002",
-			"adminuser":  "550e8400-e29b-41d4-a716-446655440003",
+			"testuser":  "550e8400-e29b-41d4-a716-446655440001",
+			"chefuser":  "550e8400-e29b-41d4-a716-446655440002",
+			"adminuser": "550e8400-e29b-41d4-a716-446655440003",
 		},
 	}
 
@@ -250,15 +250,15 @@ func IntentClassificationTestCases() []struct {
 
 // ConversationMetrics tracks conversation test metrics
 type ConversationMetrics struct {
-	MessagesSent      int
-	MessagesReceived  int
-	ResponseTimes     []time.Duration
-	ErrorCount        int
-	ConnectionCount   int
-	SuccessfulFlows   int
-	FailedFlows       int
-	IntentAccuracy    float64
-	mu                sync.RWMutex
+	MessagesSent     int
+	MessagesReceived int
+	ResponseTimes    []time.Duration
+	ErrorCount       int
+	ConnectionCount  int
+	SuccessfulFlows  int
+	FailedFlows      int
+	IntentAccuracy   float64
+	mu               sync.RWMutex
 }
 
 // NewConversationMetrics creates new conversation metrics
@@ -349,12 +349,12 @@ func (m *ConversationMetrics) GetMetricsReport() map[string]interface{} {
 	return map[string]interface{}{
 		"messages_sent":         m.MessagesSent,
 		"messages_received":     m.MessagesReceived,
-		"error_count":          m.ErrorCount,
-		"connection_count":     m.ConnectionCount,
-		"successful_flows":     m.SuccessfulFlows,
-		"failed_flows":         m.FailedFlows,
+		"error_count":           m.ErrorCount,
+		"connection_count":      m.ConnectionCount,
+		"successful_flows":      m.SuccessfulFlows,
+		"failed_flows":          m.FailedFlows,
 		"average_response_time": m.GetAverageResponseTime(),
-		"success_rate":         m.GetSuccessRate(),
-		"intent_accuracy":      m.IntentAccuracy,
+		"success_rate":          m.GetSuccessRate(),
+		"intent_accuracy":       m.IntentAccuracy,
 	}
 }

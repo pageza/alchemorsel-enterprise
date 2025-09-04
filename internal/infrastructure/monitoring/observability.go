@@ -13,14 +13,14 @@ type ObservabilityConfig struct {
 	ServiceName    string
 	ServiceVersion string
 	Environment    string
-	
+
 	// Metrics configuration
 	MetricsEnabled bool
 	MetricsPort    int
-	
+
 	// Tracing configuration
 	TracingConfig TracingConfig
-	
+
 	// Logging configuration
 	LoggingConfig LogConfig
 }
@@ -113,10 +113,10 @@ type HealthChecker interface {
 
 // HealthCheckManager manages application health checks
 type HealthCheckManager struct {
-	checks   map[string]HealthChecker
-	logger   *Logger
-	tracing  *TracingProvider
-	metrics  *MetricsCollector
+	checks  map[string]HealthChecker
+	logger  *Logger
+	tracing *TracingProvider
+	metrics *MetricsCollector
 }
 
 // NewHealthCheckManager creates a new health check manager
@@ -141,20 +141,20 @@ func (h *HealthCheckManager) CheckAll(ctx context.Context) map[string]HealthChec
 	defer span.End()
 
 	results := make(map[string]HealthCheck)
-	
+
 	for name, checker := range h.checks {
 		checkCtx, checkSpan := h.tracing.StartSpan(ctx, fmt.Sprintf("health.check.%s", name))
-		
+
 		start := time.Now()
 		result := checker.Check(checkCtx)
 		duration := time.Since(start)
-		
+
 		result.Name = name
 		result.Timestamp = time.Now()
 		result.Duration = duration
-		
+
 		results[name] = result
-		
+
 		// Log result
 		logger := h.logger.WithContext(checkCtx)
 		if result.Status == "healthy" {
@@ -170,15 +170,15 @@ func (h *HealthCheckManager) CheckAll(ctx context.Context) map[string]HealthChec
 				zap.Duration("duration", duration),
 			)
 		}
-		
+
 		// Record metrics
 		if h.metrics != nil {
 			// This would require adding health check metrics to MetricsCollector
 		}
-		
+
 		checkSpan.End()
 	}
-	
+
 	return results
 }
 
@@ -188,18 +188,18 @@ func (h *HealthCheckManager) Check(ctx context.Context, name string) (HealthChec
 	if !exists {
 		return HealthCheck{}, fmt.Errorf("health check '%s' not found", name)
 	}
-	
+
 	ctx, span := h.tracing.StartSpan(ctx, fmt.Sprintf("health.check.%s", name))
 	defer span.End()
-	
+
 	start := time.Now()
 	result := checker.Check(ctx)
 	duration := time.Since(start)
-	
+
 	result.Name = name
 	result.Timestamp = time.Now()
 	result.Duration = duration
-	
+
 	return result, nil
 }
 
@@ -227,7 +227,7 @@ func (d *DatabaseHealthChecker) Check(ctx context.Context) HealthCheck {
 			},
 		}
 	}
-	
+
 	return HealthCheck{
 		Status:  "healthy",
 		Message: "Database connection successful",
@@ -242,7 +242,9 @@ type RedisHealthChecker struct {
 }
 
 // NewRedisHealthChecker creates a new Redis health checker
-func NewRedisHealthChecker(redis interface{ Ping(ctx context.Context) error }) *RedisHealthChecker {
+func NewRedisHealthChecker(redis interface {
+	Ping(ctx context.Context) error
+}) *RedisHealthChecker {
 	return &RedisHealthChecker{redis: redis}
 }
 
@@ -258,7 +260,7 @@ func (r *RedisHealthChecker) Check(ctx context.Context) HealthCheck {
 			},
 		}
 	}
-	
+
 	return HealthCheck{
 		Status:  "healthy",
 		Message: "Redis connection successful",
@@ -267,8 +269,8 @@ func (r *RedisHealthChecker) Check(ctx context.Context) HealthCheck {
 
 // ExternalServiceHealthChecker implements health check for external services
 type ExternalServiceHealthChecker struct {
-	name string
-	url  string
+	name       string
+	url        string
 	httpClient interface {
 		Get(url string) error
 	}
@@ -296,7 +298,7 @@ func (e *ExternalServiceHealthChecker) Check(ctx context.Context) HealthCheck {
 			},
 		}
 	}
-	
+
 	return HealthCheck{
 		Status:  "healthy",
 		Message: fmt.Sprintf("%s service available", e.name),

@@ -19,26 +19,26 @@ import (
 // EnterpriseAIService provides production-ready AI features with comprehensive cost tracking
 type EnterpriseAIService struct {
 	// Core components
-	provider         string
-	client           outbound.AIService
-	ollamaClient     *ollama.Client
-	openaiClient     *openai.Client
-	cacheRepo        outbound.CacheRepository
-	logger           *zap.Logger
+	provider     string
+	client       outbound.AIService
+	ollamaClient *ollama.Client
+	openaiClient *openai.Client
+	cacheRepo    outbound.CacheRepository
+	logger       *zap.Logger
 
 	// Cost tracking components
-	costTracker      *CostTracker
-	usageAnalytics   *UsageAnalytics
-	rateLimiter      *RateLimiter
-	qualityMonitor   *QualityMonitor
-	alertManager     *AlertManager
+	costTracker    *CostTracker
+	usageAnalytics *UsageAnalytics
+	rateLimiter    *RateLimiter
+	qualityMonitor *QualityMonitor
+	alertManager   *AlertManager
 
 	// Configuration
-	config           *EnterpriseConfig
-	
+	config *EnterpriseConfig
+
 	// Thread safety
-	mu               sync.RWMutex
-	requestCounter   int64
+	mu             sync.RWMutex
+	requestCounter int64
 }
 
 // EnterpriseConfig holds enterprise AI service configuration
@@ -47,36 +47,36 @@ type EnterpriseConfig struct {
 	PrimaryProvider   string
 	FallbackProviders []string
 	ModelSettings     map[string]ModelConfig
-	
+
 	// Cost management
-	DailyBudgetCents     int
-	MonthlyBudgetCents   int
-	CostAlertThresholds  []float64
-	
+	DailyBudgetCents    int
+	MonthlyBudgetCents  int
+	CostAlertThresholds []float64
+
 	// Rate limiting
-	RequestsPerMinute    int
-	RequestsPerHour      int
-	RequestsPerDay       int
-	
+	RequestsPerMinute int
+	RequestsPerHour   int
+	RequestsPerDay    int
+
 	// Quality settings
-	MinQualityScore      float64
-	QualityCheckEnabled  bool
-	
+	MinQualityScore     float64
+	QualityCheckEnabled bool
+
 	// Features
-	CacheEnabled         bool
-	CacheTTL             time.Duration
-	MetricsEnabled       bool
-	AlertsEnabled        bool
+	CacheEnabled   bool
+	CacheTTL       time.Duration
+	MetricsEnabled bool
+	AlertsEnabled  bool
 }
 
 // ModelConfig holds configuration for specific AI models
 type ModelConfig struct {
-	MaxTokens        int
-	Temperature      float64
-	TopP             float64
-	CostPerToken     float64 // Cost in cents per token
-	RequestTimeout   time.Duration
-	QualityWeight    float64
+	MaxTokens      int
+	Temperature    float64
+	TopP           float64
+	CostPerToken   float64 // Cost in cents per token
+	RequestTimeout time.Duration
+	QualityWeight  float64
 }
 
 // NewEnterpriseAIService creates a new enterprise AI service
@@ -87,28 +87,28 @@ func NewEnterpriseAIService(
 	logger *zap.Logger,
 ) *EnterpriseAIService {
 	namedLogger := logger.Named("enterprise-ai-service")
-	
+
 	// Create clients for all supported providers
 	ollamaClient := ollama.NewClient(namedLogger)
 	openaiClient := openai.NewClient(namedLogger)
-	
+
 	// Set default config if not provided
 	if config == nil {
 		config = &EnterpriseConfig{
-			PrimaryProvider:      "ollama",
-			FallbackProviders:    []string{"openai"},
-			DailyBudgetCents:     10000,   // $100
-			MonthlyBudgetCents:   300000,  // $3000
-			CostAlertThresholds:  []float64{0.7, 0.9, 1.0},
-			RequestsPerMinute:    60,
-			RequestsPerHour:      3600,
-			RequestsPerDay:       86400,
-			MinQualityScore:      0.7,
-			QualityCheckEnabled:  true,
-			CacheEnabled:         true,
-			CacheTTL:             2 * time.Hour,
-			MetricsEnabled:       true,
-			AlertsEnabled:        true,
+			PrimaryProvider:     "ollama",
+			FallbackProviders:   []string{"openai"},
+			DailyBudgetCents:    10000,  // $100
+			MonthlyBudgetCents:  300000, // $3000
+			CostAlertThresholds: []float64{0.7, 0.9, 1.0},
+			RequestsPerMinute:   60,
+			RequestsPerHour:     3600,
+			RequestsPerDay:      86400,
+			MinQualityScore:     0.7,
+			QualityCheckEnabled: true,
+			CacheEnabled:        true,
+			CacheTTL:            2 * time.Hour,
+			MetricsEnabled:      true,
+			AlertsEnabled:       true,
 			ModelSettings: map[string]ModelConfig{
 				"llama3.2:3b": {
 					MaxTokens:      2048,
@@ -129,12 +129,12 @@ func NewEnterpriseAIService(
 			},
 		}
 	}
-	
+
 	// Determine the active provider
 	if provider == "" {
 		provider = config.PrimaryProvider
 	}
-	
+
 	// Select primary client based on provider
 	var activeClient outbound.AIService
 	switch provider {
@@ -147,7 +147,7 @@ func NewEnterpriseAIService(
 		activeClient = ollamaClient
 		provider = "ollama"
 	}
-	
+
 	service := &EnterpriseAIService{
 		provider:       provider,
 		client:         activeClient,
@@ -158,14 +158,14 @@ func NewEnterpriseAIService(
 		config:         config,
 		requestCounter: 0,
 	}
-	
+
 	// Initialize enterprise components
 	service.costTracker = NewCostTracker(config, namedLogger)
 	service.usageAnalytics = NewUsageAnalytics(cacheRepo, namedLogger)
 	service.rateLimiter = NewRateLimiter(config, cacheRepo, namedLogger)
 	service.qualityMonitor = NewQualityMonitor(config, namedLogger)
 	service.alertManager = NewAlertManager(config, namedLogger)
-	
+
 	namedLogger.Info("Enterprise AI service initialized",
 		zap.String("primary_provider", provider),
 		zap.Strings("fallback_providers", config.FallbackProviders),
@@ -173,7 +173,7 @@ func NewEnterpriseAIService(
 		zap.Bool("cache_enabled", config.CacheEnabled),
 		zap.Bool("quality_monitoring", config.QualityCheckEnabled),
 	)
-	
+
 	return service
 }
 
@@ -183,28 +183,28 @@ func (s *EnterpriseAIService) GenerateRecipe(ctx context.Context, prompt string,
 	requestID := s.requestCounter
 	s.requestCounter++
 	s.mu.Unlock()
-	
+
 	startTime := time.Now()
-	
+
 	s.logger.Info("Starting enterprise recipe generation",
 		zap.Int64("request_id", requestID),
 		zap.String("prompt", prompt),
 		zap.String("provider", s.provider),
 	)
-	
+
 	// Check rate limits
 	userID, _ := s.extractUserIDFromContext(ctx)
 	if err := s.rateLimiter.CheckLimits(ctx, userID); err != nil {
 		s.logger.Warn("Rate limit exceeded", zap.Error(err), zap.String("user_id", userID.String()))
 		return nil, fmt.Errorf("rate limit exceeded: %w", err)
 	}
-	
+
 	// Check budget limits
 	if err := s.costTracker.CheckBudgetLimits(ctx); err != nil {
 		s.logger.Warn("Budget limit exceeded", zap.Error(err))
 		return nil, fmt.Errorf("budget limit exceeded: %w", err)
 	}
-	
+
 	// Try cache first
 	cacheKey := s.buildCacheKey("recipe", prompt, constraints)
 	if s.config.CacheEnabled {
@@ -213,13 +213,13 @@ func (s *EnterpriseAIService) GenerateRecipe(ctx context.Context, prompt string,
 				zap.Int64("request_id", requestID),
 				zap.Duration("response_time", time.Since(startTime)),
 			)
-			
+
 			// Track cache hit
 			s.usageAnalytics.TrackCacheHit(ctx, "recipe_generation")
 			return cached, nil
 		}
 	}
-	
+
 	// Generate recipe with fallback support
 	response, err := s.generateRecipeWithFallback(ctx, prompt, constraints)
 	if err != nil {
@@ -227,7 +227,7 @@ func (s *EnterpriseAIService) GenerateRecipe(ctx context.Context, prompt string,
 		s.usageAnalytics.TrackError(ctx, "recipe_generation", err.Error())
 		return nil, err
 	}
-	
+
 	// Quality assessment
 	qualityScore := s.qualityMonitor.AssessRecipeQuality(response)
 	if s.config.QualityCheckEnabled && qualityScore < s.config.MinQualityScore {
@@ -235,7 +235,7 @@ func (s *EnterpriseAIService) GenerateRecipe(ctx context.Context, prompt string,
 			zap.Float64("quality_score", qualityScore),
 			zap.Float64("min_threshold", s.config.MinQualityScore),
 		)
-		
+
 		// Try to regenerate once with different parameters
 		if retryResponse, retryErr := s.generateRecipeWithFallback(ctx, prompt+" (high quality required)", constraints); retryErr == nil {
 			retryQuality := s.qualityMonitor.AssessRecipeQuality(retryResponse)
@@ -245,24 +245,24 @@ func (s *EnterpriseAIService) GenerateRecipe(ctx context.Context, prompt string,
 			}
 		}
 	}
-	
+
 	// Cache successful response
 	if s.config.CacheEnabled && err == nil {
 		s.cacheResponse(ctx, cacheKey, response)
 	}
-	
+
 	// Track usage and costs
 	duration := time.Since(startTime)
 	s.usageAnalytics.TrackRequest(ctx, "recipe_generation", duration, len(response.Instructions))
-	
+
 	// Calculate and track costs (estimated)
 	estimatedTokens := s.estimateTokenUsage(prompt, response)
 	cost := s.costTracker.CalculateCost(s.provider, "recipe_generation", estimatedTokens)
 	s.costTracker.TrackUsage(ctx, userID, cost, estimatedTokens)
-	
+
 	// Check for cost alerts
 	s.alertManager.CheckCostAlerts(ctx, s.costTracker.GetDailySpend(), s.costTracker.GetMonthlySpend())
-	
+
 	s.logger.Info("Recipe generation completed",
 		zap.Int64("request_id", requestID),
 		zap.Duration("response_time", duration),
@@ -270,23 +270,23 @@ func (s *EnterpriseAIService) GenerateRecipe(ctx context.Context, prompt string,
 		zap.Int("estimated_tokens", estimatedTokens),
 		zap.Float64("estimated_cost_cents", cost),
 	)
-	
+
 	return response, nil
 }
 
 // GenerateIngredientSuggestions provides smart ingredient recommendations
 func (s *EnterpriseAIService) GenerateIngredientSuggestions(ctx context.Context, partial []string, cuisine string, dietary []string) ([]string, error) {
 	startTime := time.Now()
-	
+
 	// Check rate limits
 	userID, _ := s.extractUserIDFromContext(ctx)
 	if err := s.rateLimiter.CheckLimits(ctx, userID); err != nil {
 		return nil, fmt.Errorf("rate limit exceeded: %w", err)
 	}
-	
+
 	// Build enhanced prompt
 	prompt := s.buildIngredientSuggestionPrompt(partial, cuisine, dietary)
-	
+
 	// Try cache first
 	cacheKey := s.buildCacheKey("ingredients", prompt)
 	if s.config.CacheEnabled {
@@ -295,39 +295,39 @@ func (s *EnterpriseAIService) GenerateIngredientSuggestions(ctx context.Context,
 			return cached, nil
 		}
 	}
-	
+
 	// Generate suggestions
 	suggestions, err := s.client.SuggestIngredients(ctx, partial)
 	if err != nil {
 		// Fallback with enhanced logic
 		suggestions = s.generateSmartIngredientFallback(partial, cuisine, dietary)
 	}
-	
+
 	// Cache result
 	if s.config.CacheEnabled {
 		s.cacheStringSlice(ctx, cacheKey, suggestions)
 	}
-	
+
 	// Track usage
 	duration := time.Since(startTime)
 	s.usageAnalytics.TrackRequest(ctx, "ingredient_suggestions", duration, len(suggestions))
-	
+
 	return suggestions, nil
 }
 
 // AnalyzeNutritionalContent provides comprehensive nutritional analysis
 func (s *EnterpriseAIService) AnalyzeNutritionalContent(ctx context.Context, ingredients []string, servings int) (*outbound.NutritionInfo, error) {
 	startTime := time.Now()
-	
+
 	// Check rate limits
 	userID, _ := s.extractUserIDFromContext(ctx)
 	if err := s.rateLimiter.CheckLimits(ctx, userID); err != nil {
 		return nil, fmt.Errorf("rate limit exceeded: %w", err)
 	}
-	
+
 	// Build cache key
 	cacheKey := s.buildCacheKey("nutrition", strings.Join(ingredients, ","), fmt.Sprintf("servings:%d", servings))
-	
+
 	// Try cache first
 	if s.config.CacheEnabled {
 		if cached, err := s.getCachedNutrition(ctx, cacheKey); err == nil {
@@ -335,48 +335,48 @@ func (s *EnterpriseAIService) AnalyzeNutritionalContent(ctx context.Context, ing
 			return cached, nil
 		}
 	}
-	
+
 	// Analyze nutrition
 	nutrition, err := s.client.AnalyzeNutrition(ctx, ingredients)
 	if err != nil {
 		// Enhanced fallback with better nutrition estimation
 		nutrition = s.generateEnhancedNutritionFallback(ingredients, servings)
 	}
-	
+
 	// Adjust for servings
 	if servings > 0 && servings != 1 {
 		s.adjustNutritionForServings(nutrition, servings)
 	}
-	
+
 	// Cache result
 	if s.config.CacheEnabled {
 		s.cacheNutrition(ctx, cacheKey, nutrition)
 	}
-	
+
 	// Track usage
 	duration := time.Since(startTime)
 	s.usageAnalytics.TrackRequest(ctx, "nutrition_analysis", duration, len(ingredients))
-	
+
 	return nutrition, nil
 }
 
 // OptimizeRecipe optimizes an existing recipe for health, cost, or taste
 func (s *EnterpriseAIService) OptimizeRecipe(ctx context.Context, rec *recipe.Recipe, optimizationType string) (*outbound.AIRecipeResponse, error) {
 	startTime := time.Now()
-	
+
 	// Check rate limits and budget
 	userID, _ := s.extractUserIDFromContext(ctx)
 	if err := s.rateLimiter.CheckLimits(ctx, userID); err != nil {
 		return nil, fmt.Errorf("rate limit exceeded: %w", err)
 	}
-	
+
 	if err := s.costTracker.CheckBudgetLimits(ctx); err != nil {
 		return nil, fmt.Errorf("budget limit exceeded: %w", err)
 	}
-	
+
 	// Build optimization prompt
 	prompt := s.buildOptimizationPrompt(rec, optimizationType)
-	
+
 	// Try cache first
 	cacheKey := s.buildCacheKey("optimize", rec.ID().String(), optimizationType)
 	if s.config.CacheEnabled {
@@ -385,58 +385,58 @@ func (s *EnterpriseAIService) OptimizeRecipe(ctx context.Context, rec *recipe.Re
 			return cached, nil
 		}
 	}
-	
+
 	// Generate optimized recipe
 	constraints := outbound.AIConstraints{
-		MaxCalories: 800, // Default reasonable limit
+		MaxCalories: 800,        // Default reasonable limit
 		Dietary:     []string{}, // Will be enhanced based on optimization type
 	}
-	
+
 	response, err := s.generateRecipeWithFallback(ctx, prompt, constraints)
 	if err != nil {
 		s.usageAnalytics.TrackError(ctx, "recipe_optimization", err.Error())
 		return nil, err
 	}
-	
+
 	// Quality assessment for optimization
 	qualityScore := s.qualityMonitor.AssessOptimizationQuality(response, optimizationType)
-	
+
 	// Cache result
 	if s.config.CacheEnabled {
 		s.cacheResponse(ctx, cacheKey, response)
 	}
-	
+
 	// Track usage and costs
 	duration := time.Since(startTime)
 	estimatedTokens := s.estimateTokenUsage(prompt, response)
 	cost := s.costTracker.CalculateCost(s.provider, "recipe_optimization", estimatedTokens)
-	
+
 	s.usageAnalytics.TrackRequest(ctx, "recipe_optimization", duration, len(response.Instructions))
 	s.costTracker.TrackUsage(ctx, userID, cost, estimatedTokens)
-	
+
 	s.logger.Info("Recipe optimization completed",
 		zap.String("recipe_id", rec.ID().String()),
 		zap.String("optimization_type", optimizationType),
 		zap.Duration("response_time", duration),
 		zap.Float64("quality_score", qualityScore),
 	)
-	
+
 	return response, nil
 }
 
 // AdaptRecipeForDiet adapts a recipe for specific dietary restrictions
 func (s *EnterpriseAIService) AdaptRecipeForDiet(ctx context.Context, rec *recipe.Recipe, dietaryRestrictions []string) (*outbound.AIRecipeResponse, error) {
 	startTime := time.Now()
-	
+
 	// Check rate limits
 	userID, _ := s.extractUserIDFromContext(ctx)
 	if err := s.rateLimiter.CheckLimits(ctx, userID); err != nil {
 		return nil, fmt.Errorf("rate limit exceeded: %w", err)
 	}
-	
+
 	// Build dietary adaptation prompt
 	prompt := s.buildDietaryAdaptationPrompt(rec, dietaryRestrictions)
-	
+
 	// Try cache first
 	cacheKey := s.buildCacheKey("dietary_adapt", rec.ID().String(), strings.Join(dietaryRestrictions, ","))
 	if s.config.CacheEnabled {
@@ -445,43 +445,43 @@ func (s *EnterpriseAIService) AdaptRecipeForDiet(ctx context.Context, rec *recip
 			return cached, nil
 		}
 	}
-	
+
 	// Generate adapted recipe
 	constraints := outbound.AIConstraints{
 		Dietary: dietaryRestrictions,
 	}
-	
+
 	response, err := s.generateRecipeWithFallback(ctx, prompt, constraints)
 	if err != nil {
 		s.usageAnalytics.TrackError(ctx, "dietary_adaptation", err.Error())
 		return nil, err
 	}
-	
+
 	// Ensure dietary compliance
 	s.validateDietaryCompliance(response, dietaryRestrictions)
-	
+
 	// Cache result
 	if s.config.CacheEnabled {
 		s.cacheResponse(ctx, cacheKey, response)
 	}
-	
+
 	// Track usage
 	duration := time.Since(startTime)
 	s.usageAnalytics.TrackRequest(ctx, "dietary_adaptation", duration, len(response.Instructions))
-	
+
 	return response, nil
 }
 
 // GenerateMealPlan creates a comprehensive meal plan
 func (s *EnterpriseAIService) GenerateMealPlan(ctx context.Context, days int, dietary []string, budget float64) (*MealPlanResponse, error) {
 	startTime := time.Now()
-	
+
 	// Check rate limits and budget
 	userID, _ := s.extractUserIDFromContext(ctx)
 	if err := s.rateLimiter.CheckLimits(ctx, userID); err != nil {
 		return nil, fmt.Errorf("rate limit exceeded: %w", err)
 	}
-	
+
 	// Try cache first
 	cacheKey := s.buildCacheKey("meal_plan", fmt.Sprintf("days:%d", days), strings.Join(dietary, ","), fmt.Sprintf("budget:%.2f", budget))
 	if s.config.CacheEnabled {
@@ -490,19 +490,19 @@ func (s *EnterpriseAIService) GenerateMealPlan(ctx context.Context, days int, di
 			return cached, nil
 		}
 	}
-	
+
 	// Generate meal plan
 	mealPlan := s.generateMealPlanFallback(days, dietary, budget)
-	
+
 	// Cache result
 	if s.config.CacheEnabled {
 		s.cacheMealPlan(ctx, cacheKey, mealPlan)
 	}
-	
+
 	// Track usage
 	duration := time.Since(startTime)
 	s.usageAnalytics.TrackRequest(ctx, "meal_planning", duration, days)
-	
+
 	return mealPlan, nil
 }
 
@@ -530,15 +530,15 @@ func (s *EnterpriseAIService) GetRateLimitStatus(ctx context.Context, userID uui
 func (s *EnterpriseAIService) UpdateConfiguration(ctx context.Context, newConfig *EnterpriseConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	s.config = newConfig
-	
+
 	// Update component configurations
 	s.costTracker.UpdateConfig(newConfig)
 	s.rateLimiter.UpdateConfig(newConfig)
 	s.qualityMonitor.UpdateConfig(newConfig)
 	s.alertManager.UpdateConfig(newConfig)
-	
+
 	s.logger.Info("Enterprise AI configuration updated")
 	return nil
 }
@@ -546,19 +546,19 @@ func (s *EnterpriseAIService) UpdateConfiguration(ctx context.Context, newConfig
 // Health check for enterprise AI service
 func (s *EnterpriseAIService) HealthCheck(ctx context.Context) (*HealthStatus, error) {
 	status := &HealthStatus{
-		ServiceName:    "enterprise-ai-service",
-		Status:         "healthy",
-		Timestamp:      time.Now(),
-		Components:     make(map[string]ComponentHealth),
+		ServiceName: "enterprise-ai-service",
+		Status:      "healthy",
+		Timestamp:   time.Now(),
+		Components:  make(map[string]ComponentHealth),
 	}
-	
+
 	// Check each component
 	status.Components["cost_tracker"] = s.costTracker.HealthCheck()
 	status.Components["usage_analytics"] = s.usageAnalytics.HealthCheck()
 	status.Components["rate_limiter"] = s.rateLimiter.HealthCheck()
 	status.Components["quality_monitor"] = s.qualityMonitor.HealthCheck()
 	status.Components["alert_manager"] = s.alertManager.HealthCheck()
-	
+
 	// Check AI providers
 	if err := s.checkProviderHealth(ctx); err != nil {
 		status.Status = "degraded"
@@ -572,7 +572,7 @@ func (s *EnterpriseAIService) HealthCheck(ctx context.Context) (*HealthStatus, e
 			Message: "All providers operational",
 		}
 	}
-	
+
 	return status, nil
 }
 

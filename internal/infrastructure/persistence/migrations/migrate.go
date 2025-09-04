@@ -31,7 +31,7 @@ func New(db *sql.DB, logger *zap.Logger) (*Migrator, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create migration source: %w", err)
 	}
-	
+
 	// Create database driver
 	driver, err := postgres.WithInstance(db, &postgres.Config{
 		MigrationsTable: "schema_migrations",
@@ -40,13 +40,13 @@ func New(db *sql.DB, logger *zap.Logger) (*Migrator, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create migration driver: %w", err)
 	}
-	
+
 	// Create migrate instance
 	m, err := migrate.NewWithInstance("iofs", source, "postgres", driver)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create migrate instance: %w", err)
 	}
-	
+
 	return &Migrator{
 		db:      db,
 		migrate: m,
@@ -58,13 +58,13 @@ func New(db *sql.DB, logger *zap.Logger) (*Migrator, error) {
 func (m *Migrator) Up() error {
 	start := time.Now()
 	m.logger.Info("Running database migrations")
-	
+
 	// Get current version
 	currentVersion, _, err := m.migrate.Version()
 	if err != nil && err != migrate.ErrNilVersion {
 		return fmt.Errorf("failed to get current version: %w", err)
 	}
-	
+
 	// Run migrations
 	if err := m.migrate.Up(); err != nil {
 		if err == migrate.ErrNoChange {
@@ -75,27 +75,27 @@ func (m *Migrator) Up() error {
 		}
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
-	
+
 	// Get new version
 	newVersion, _, _ := m.migrate.Version()
-	
+
 	m.logger.Info("Migrations completed successfully",
 		zap.Uint("from_version", currentVersion),
 		zap.Uint("to_version", newVersion),
 		zap.Duration("duration", time.Since(start)),
 	)
-	
+
 	return nil
 }
 
 // Down rolls back one migration
 func (m *Migrator) Down() error {
 	m.logger.Info("Rolling back one migration")
-	
+
 	if err := m.migrate.Steps(-1); err != nil {
 		return fmt.Errorf("failed to rollback migration: %w", err)
 	}
-	
+
 	m.logger.Info("Migration rolled back successfully")
 	return nil
 }
@@ -103,11 +103,11 @@ func (m *Migrator) Down() error {
 // Reset rolls back all migrations
 func (m *Migrator) Reset() error {
 	m.logger.Warn("Resetting all migrations")
-	
+
 	if err := m.migrate.Down(); err != nil {
 		return fmt.Errorf("failed to reset migrations: %w", err)
 	}
-	
+
 	m.logger.Info("All migrations reset successfully")
 	return nil
 }
@@ -126,11 +126,11 @@ func (m *Migrator) Force(version int) error {
 	m.logger.Warn("Forcing migration version",
 		zap.Int("version", version),
 	)
-	
+
 	if err := m.migrate.Force(version); err != nil {
 		return fmt.Errorf("failed to force version: %w", err)
 	}
-	
+
 	m.logger.Info("Migration version forced successfully")
 	return nil
 }
@@ -141,12 +141,12 @@ func (m *Migrator) Steps(n int) error {
 	if n < 0 {
 		action = "down"
 	}
-	
+
 	m.logger.Info("Running migration steps",
 		zap.String("direction", action),
 		zap.Int("steps", n),
 	)
-	
+
 	if err := m.migrate.Steps(n); err != nil {
 		if err == migrate.ErrNoChange {
 			m.logger.Info("No migrations to run")
@@ -154,7 +154,7 @@ func (m *Migrator) Steps(n int) error {
 		}
 		return fmt.Errorf("failed to run migration steps: %w", err)
 	}
-	
+
 	m.logger.Info("Migration steps completed successfully")
 	return nil
 }
@@ -162,15 +162,15 @@ func (m *Migrator) Steps(n int) error {
 // Close closes the migrator
 func (m *Migrator) Close() error {
 	sourceErr, dbErr := m.migrate.Close()
-	
+
 	if sourceErr != nil {
 		return fmt.Errorf("failed to close source: %w", sourceErr)
 	}
-	
+
 	if dbErr != nil {
 		return fmt.Errorf("failed to close database: %w", dbErr)
 	}
-	
+
 	return nil
 }
 
@@ -201,14 +201,14 @@ func (m *Migrator) Status() (*MigrationStatus, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get version: %w", err)
 	}
-	
+
 	status := &MigrationStatus{
 		Version: version,
 		Dirty:   dirty,
 		Applied: []Applied{},
 		Pending: []Pending{},
 	}
-	
+
 	// Query applied migrations
 	rows, err := m.db.Query(`
 		SELECT version, dirty 
@@ -219,22 +219,22 @@ func (m *Migrator) Status() (*MigrationStatus, error) {
 		return nil, fmt.Errorf("failed to query migrations: %w", err)
 	}
 	defer rows.Close()
-	
+
 	for rows.Next() {
 		var v uint
 		var d bool
 		if err := rows.Scan(&v, &d); err != nil {
 			continue
 		}
-		
+
 		status.Applied = append(status.Applied, Applied{
 			Version:   v,
 			AppliedAt: time.Now(), // Would need to store this in the table
 		})
 	}
-	
+
 	// TODO: Determine pending migrations by comparing with embedded files
-	
+
 	return status, nil
 }
 
@@ -243,7 +243,7 @@ func CreateMigration(name string) error {
 	timestamp := time.Now().Format("20060102150405")
 	upFile := fmt.Sprintf("%s_%s.up.sql", timestamp, name)
 	downFile := fmt.Sprintf("%s_%s.down.sql", timestamp, name)
-	
+
 	upContent := fmt.Sprintf(`-- Migration: %s (UP)
 -- Description: Add description here
 -- Author: Generated
@@ -255,7 +255,7 @@ BEGIN;
 
 COMMIT;
 `, name, time.Now().Format(time.RFC3339))
-	
+
 	downContent := fmt.Sprintf(`-- Migration: %s (DOWN)
 -- Description: Rollback for %s
 -- Author: Generated
@@ -267,11 +267,11 @@ BEGIN;
 
 COMMIT;
 `, name, name, time.Now().Format(time.RFC3339))
-	
+
 	// In a real implementation, write these to files
 	fmt.Printf("Created migration files:\n- %s\n- %s\n", upFile, downFile)
 	fmt.Printf("\nUP Migration:\n%s\n", upContent)
 	fmt.Printf("\nDOWN Migration:\n%s\n", downContent)
-	
+
 	return nil
 }

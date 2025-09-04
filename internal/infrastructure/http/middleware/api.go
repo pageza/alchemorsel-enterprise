@@ -17,13 +17,13 @@ func Logger(logger *zap.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			
+
 			// Wrap the response writer to capture status code
 			wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-			
+
 			// Process request
 			next.ServeHTTP(wrapped, r)
-			
+
 			// Log the request
 			logger.Info("API Request",
 				zap.String("method", r.Method),
@@ -47,7 +47,7 @@ func Security() func(next http.Handler) http.Handler {
 			w.Header().Set("X-XSS-Protection", "1; mode=block")
 			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-			
+
 			// Add Content Security Policy for API endpoints
 			csp := strings.Join([]string{
 				"default-src 'self'",
@@ -63,7 +63,7 @@ func Security() func(next http.Handler) http.Handler {
 				"form-action 'self'",
 			}, "; ")
 			w.Header().Set("Content-Security-Policy", csp)
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -78,13 +78,13 @@ func CORS() func(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			w.Header().Set("Access-Control-Max-Age", "86400")
-			
+
 			// Handle preflight requests
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -96,7 +96,7 @@ func JSONOnly() func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Force JSON content type for all API responses
 			w.Header().Set("Content-Type", "application/json")
-			
+
 			// Only accept JSON requests for POST/PUT
 			if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" {
 				contentType := r.Header.Get("Content-Type")
@@ -106,7 +106,7 @@ func JSONOnly() func(next http.Handler) http.Handler {
 					return
 				}
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -123,7 +123,7 @@ func AuthenticateAPI(authService *security.AuthService) func(next http.Handler) 
 				fmt.Fprint(w, `{"error":"Authorization header required"}`)
 				return
 			}
-			
+
 			// Check Bearer token format
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) != 2 || parts[0] != "Bearer" {
@@ -131,9 +131,9 @@ func AuthenticateAPI(authService *security.AuthService) func(next http.Handler) 
 				fmt.Fprint(w, `{"error":"Invalid authorization header format"}`)
 				return
 			}
-			
+
 			token := parts[1]
-			
+
 			// Validate JWT token
 			claims, err := authService.ValidateToken(token, security.AccessToken)
 			if err != nil {
@@ -141,12 +141,12 @@ func AuthenticateAPI(authService *security.AuthService) func(next http.Handler) 
 				fmt.Fprintf(w, `{"error":"Invalid token: %s"}`, err.Error())
 				return
 			}
-			
+
 			// Add user info to request context
 			ctx := r.Context()
 			ctx = addUserToContext(ctx, claims.UserID, claims.Email)
 			r = r.WithContext(ctx)
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -161,7 +161,7 @@ func Performance() func(next http.Handler) http.Handler {
 			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 			w.Header().Set("Pragma", "no-cache")
 			w.Header().Set("Expires", "0")
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -184,7 +184,7 @@ func XSSProtection(xssService *security.XSSProtectionService) func(next http.Han
 			// Set XSS protection headers
 			w.Header().Set("X-XSS-Protection", "1; mode=block")
 			w.Header().Set("X-Content-Type-Options", "nosniff")
-			
+
 			// For POST/PUT requests, validate form data
 			if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" {
 				if err := r.ParseForm(); err == nil {
@@ -199,7 +199,7 @@ func XSSProtection(xssService *security.XSSProtectionService) func(next http.Han
 					}
 				}
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -214,7 +214,7 @@ func CSRFProtection(authService *security.AuthService) func(next http.Handler) h
 				next.ServeHTTP(w, r)
 				return
 			}
-			
+
 			// Check for CSRF token in header or form
 			csrfToken := r.Header.Get("X-CSRF-Token")
 			if csrfToken == "" {
@@ -223,13 +223,13 @@ func CSRFProtection(authService *security.AuthService) func(next http.Handler) h
 					csrfToken = r.FormValue("csrf_token")
 				}
 			}
-			
+
 			if csrfToken == "" {
 				w.WriteHeader(http.StatusForbidden)
 				fmt.Fprint(w, `{"error":"CSRF token required"}`)
 				return
 			}
-			
+
 			// Validate CSRF token
 			claims, err := authService.ValidateToken(csrfToken, security.CSRFToken)
 			if err != nil {
@@ -237,7 +237,7 @@ func CSRFProtection(authService *security.AuthService) func(next http.Handler) h
 				fmt.Fprintf(w, `{"error":"Invalid CSRF token: %s"}`, err.Error())
 				return
 			}
-			
+
 			// Validate session ID (if available)
 			sessionID := r.Header.Get("X-Session-ID")
 			if sessionID == "" {
@@ -246,13 +246,13 @@ func CSRFProtection(authService *security.AuthService) func(next http.Handler) h
 					sessionID = cookie.Value
 				}
 			}
-			
+
 			if sessionID != "" && claims.SessionID != sessionID {
 				w.WriteHeader(http.StatusForbidden)
 				fmt.Fprint(w, `{"error":"CSRF token session mismatch"}`)
 				return
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -282,7 +282,7 @@ func GetUserIDFromContext(ctx context.Context) (string, bool) {
 	return userID, ok
 }
 
-// GetUserEmailFromContext extracts user email from request context  
+// GetUserEmailFromContext extracts user email from request context
 func GetUserEmailFromContext(ctx context.Context) (string, bool) {
 	email, ok := ctx.Value("user_email").(string)
 	return email, ok

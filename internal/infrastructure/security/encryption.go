@@ -12,15 +12,15 @@ import (
 	"io"
 	"time"
 
+	"go.uber.org/zap"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/scrypt"
-	"go.uber.org/zap"
 )
 
 // EncryptionService provides encryption and decryption capabilities
 type EncryptionService struct {
-	logger     *zap.Logger
-	masterKey  []byte
+	logger        *zap.Logger
+	masterKey     []byte
 	keyDerivation KeyDerivationMethod
 }
 
@@ -47,7 +47,7 @@ func NewEncryptionService(logger *zap.Logger, masterKey string) *EncryptionServi
 	// Derive master key using Argon2
 	salt := []byte("alchemorsel-salt-v3") // In production, use random salt per installation
 	derivedKey := argon2.IDKey([]byte(masterKey), salt, 1, 64*1024, 4, 32)
-	
+
 	return &EncryptionService{
 		logger:        logger,
 		masterKey:     derivedKey,
@@ -75,19 +75,19 @@ func (e *EncryptionService) EncryptBytes(plaintext []byte) (*EncryptedData, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cipher: %w", err)
 	}
-	
+
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCM: %w", err)
 	}
-	
+
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, fmt.Errorf("failed to generate nonce: %w", err)
 	}
-	
+
 	ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
-	
+
 	return &EncryptedData{
 		Data:      ciphertext,
 		Nonce:     nonce,
@@ -110,22 +110,22 @@ func (e *EncryptionService) DecryptBytes(encrypted *EncryptedData) ([]byte, erro
 	if encrypted.Algorithm != AlgorithmAES256GCM {
 		return nil, fmt.Errorf("unsupported algorithm: %d", encrypted.Algorithm)
 	}
-	
+
 	block, err := aes.NewCipher(e.masterKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cipher: %w", err)
 	}
-	
+
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCM: %w", err)
 	}
-	
+
 	plaintext, err := gcm.Open(nil, encrypted.Nonce, encrypted.Data, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt: %w", err)
 	}
-	
+
 	return plaintext, nil
 }
 
@@ -135,7 +135,7 @@ func (e *EncryptionService) EncryptStringToBase64(plaintext string) (string, err
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Combine nonce and ciphertext
 	combined := append(encrypted.Nonce, encrypted.Data...)
 	return base64.StdEncoding.EncodeToString(combined), nil
@@ -147,22 +147,22 @@ func (e *EncryptionService) DecryptStringFromBase64(encoded string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("failed to decode base64: %w", err)
 	}
-	
+
 	// AES-GCM nonce size is 12 bytes
 	if len(combined) < 12 {
 		return "", fmt.Errorf("invalid encrypted data length")
 	}
-	
+
 	nonce := combined[:12]
 	ciphertext := combined[12:]
-	
+
 	encrypted := &EncryptedData{
 		Data:      ciphertext,
 		Nonce:     nonce,
 		Algorithm: AlgorithmAES256GCM,
 		KeyID:     "master-v1",
 	}
-	
+
 	return e.DecryptString(encrypted)
 }
 
@@ -178,17 +178,17 @@ func NewPIIEncryptionService(base *EncryptionService) *PIIEncryptionService {
 		EncryptionService: base,
 		fieldEncryption:   make(map[string]bool),
 	}
-	
+
 	// Define PII fields that require encryption
 	piiFields := []string{
 		"email", "phone", "address", "ssn", "credit_card",
 		"date_of_birth", "full_name", "passport", "license",
 	}
-	
+
 	for _, field := range piiFields {
 		service.fieldEncryption[field] = true
 	}
-	
+
 	return service
 }
 
@@ -197,24 +197,24 @@ func (p *PIIEncryptionService) EncryptPIIField(fieldName, value string) (*Encryp
 	if !p.fieldEncryption[fieldName] {
 		p.logger.Warn("Field not marked as PII", zap.String("field", fieldName))
 	}
-	
+
 	encrypted, err := p.EncryptString(value)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Add metadata
 	encrypted.Metadata = map[string]string{
-		"field_type": "pii",
-		"field_name": fieldName,
+		"field_type":   "pii",
+		"field_name":   fieldName,
 		"encrypted_at": fmt.Sprintf("%d", time.Now().Unix()),
 	}
-	
+
 	p.logger.Info("PII field encrypted",
 		zap.String("field", fieldName),
 		zap.String("key_id", encrypted.KeyID),
 	)
-	
+
 	return encrypted, nil
 }
 
@@ -250,16 +250,16 @@ func (k *KeyRotationService) RotateKey() (string, error) {
 	if _, err := rand.Read(newKey); err != nil {
 		return "", fmt.Errorf("failed to generate new key: %w", err)
 	}
-	
+
 	// Create key ID
 	keyID := fmt.Sprintf("key-%d", time.Now().Unix())
-	
+
 	// Store key
 	k.keys[keyID] = newKey
 	k.currentKeyID = keyID
-	
+
 	k.logger.Info("Key rotated", zap.String("new_key_id", keyID))
-	
+
 	return keyID, nil
 }
 
@@ -291,12 +291,12 @@ func (d *DatabaseEncryption) EncryptField(tableName, fieldName, value string) (s
 	if value == "" {
 		return "", nil
 	}
-	
+
 	encrypted, err := d.encryption.EncryptString(value)
 	if err != nil {
 		return "", fmt.Errorf("failed to encrypt field %s.%s: %w", tableName, fieldName, err)
 	}
-	
+
 	// Store as base64 in database
 	combined := append(encrypted.Nonce, encrypted.Data...)
 	return base64.StdEncoding.EncodeToString(combined), nil
@@ -307,7 +307,7 @@ func (d *DatabaseEncryption) DecryptField(tableName, fieldName, encryptedValue s
 	if encryptedValue == "" {
 		return "", nil
 	}
-	
+
 	decrypted, err := d.encryption.DecryptStringFromBase64(encryptedValue)
 	if err != nil {
 		d.logger.Error("Failed to decrypt field",
@@ -317,7 +317,7 @@ func (d *DatabaseEncryption) DecryptField(tableName, fieldName, encryptedValue s
 		)
 		return "", fmt.Errorf("failed to decrypt field %s.%s: %w", tableName, fieldName, err)
 	}
-	
+
 	return decrypted, nil
 }
 
@@ -338,13 +338,13 @@ func (p *PasswordHashingService) HashPassword(password string) (string, error) {
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("failed to generate salt: %w", err)
 	}
-	
+
 	// Hash password with Argon2id
 	hash := argon2.IDKey([]byte(password), salt, 1, 64*1024, 4, 32)
-	
+
 	// Encode salt and hash
 	encoded := base64.StdEncoding.EncodeToString(append(salt, hash...))
-	
+
 	return encoded, nil
 }
 
@@ -355,17 +355,17 @@ func (p *PasswordHashingService) VerifyPassword(password, hashedPassword string)
 	if err != nil {
 		return false, fmt.Errorf("failed to decode hash: %w", err)
 	}
-	
+
 	if len(decoded) != 48 { // 16 bytes salt + 32 bytes hash
 		return false, fmt.Errorf("invalid hash format")
 	}
-	
+
 	salt := decoded[:16]
 	hash := decoded[16:]
-	
+
 	// Hash input password with same salt
 	inputHash := argon2.IDKey([]byte(password), salt, 1, 64*1024, 4, 32)
-	
+
 	// Compare hashes
 	return subtle.ConstantTimeCompare(hash, inputHash) == 1, nil
 }

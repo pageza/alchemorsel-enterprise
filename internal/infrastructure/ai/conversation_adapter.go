@@ -30,12 +30,12 @@ func NewConversationAIAdapter(logger *zap.Logger) *ConversationAIAdapter {
 	if baseURL == "" {
 		baseURL = "http://localhost:11434"
 	}
-	
+
 	model := os.Getenv("ALCHEMORSEL_OLLAMA_MODEL")
 	if model == "" {
 		model = "llama3.2:3b"
 	}
-	
+
 	timeout := 60 * time.Second // Longer timeout for conversation
 	if timeoutStr := os.Getenv("ALCHEMORSEL_OLLAMA_TIMEOUT"); timeoutStr != "" {
 		if parsedTimeout, err := time.ParseDuration(timeoutStr); err == nil {
@@ -62,7 +62,7 @@ func NewConversationAIAdapter(logger *zap.Logger) *ConversationAIAdapter {
 // GenerateChatCompletion generates a chat completion using Ollama
 func (a *ConversationAIAdapter) GenerateChatCompletion(ctx context.Context, messages []conversation.ChatMessage) (string, error) {
 	endpoint := a.baseURL + "/api/chat"
-	
+
 	// Convert conversation messages to Ollama format
 	ollamaMessages := make([]OllamaChatMessage, len(messages))
 	for i, msg := range messages {
@@ -71,7 +71,7 @@ func (a *ConversationAIAdapter) GenerateChatCompletion(ctx context.Context, mess
 			Content: msg.Content,
 		}
 	}
-	
+
 	reqBody := OllamaChatRequest{
 		Model:    a.model,
 		Messages: ollamaMessages,
@@ -79,8 +79,8 @@ func (a *ConversationAIAdapter) GenerateChatCompletion(ctx context.Context, mess
 		Options: map[string]interface{}{
 			"temperature":    0.7,
 			"num_predict":    1500, // Allow longer responses for conversation
-			"stop":          []string{},
-			"num_ctx":       8192,  // Larger context window for conversation history
+			"stop":           []string{},
+			"num_ctx":        8192, // Larger context window for conversation history
 			"repeat_penalty": 1.1,
 		},
 	}
@@ -140,22 +140,22 @@ func (a *ConversationAIAdapter) GenerateChatCompletion(ctx context.Context, mess
 // HealthCheck checks if Ollama service is available
 func (a *ConversationAIAdapter) HealthCheck(ctx context.Context) error {
 	endpoint := a.baseURL + "/api/tags"
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create health check request: %w", err)
 	}
-	
+
 	resp, err := a.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("ollama health check failed: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("ollama health check failed with status %d", resp.StatusCode)
 	}
-	
+
 	a.logger.Debug("Ollama health check passed")
 	return nil
 }
@@ -163,7 +163,7 @@ func (a *ConversationAIAdapter) HealthCheck(ctx context.Context) error {
 // GenerateStreamingResponse generates a streaming response (future enhancement)
 func (a *ConversationAIAdapter) GenerateStreamingResponse(ctx context.Context, messages []conversation.ChatMessage, callback func(chunk string) error) error {
 	endpoint := a.baseURL + "/api/chat"
-	
+
 	// Convert conversation messages to Ollama format
 	ollamaMessages := make([]OllamaChatMessage, len(messages))
 	for i, msg := range messages {
@@ -172,7 +172,7 @@ func (a *ConversationAIAdapter) GenerateStreamingResponse(ctx context.Context, m
 			Content: msg.Content,
 		}
 	}
-	
+
 	reqBody := OllamaChatRequest{
 		Model:    a.model,
 		Messages: ollamaMessages,
@@ -180,7 +180,7 @@ func (a *ConversationAIAdapter) GenerateStreamingResponse(ctx context.Context, m
 		Options: map[string]interface{}{
 			"temperature":    0.7,
 			"num_predict":    1500,
-			"num_ctx":       8192,
+			"num_ctx":        8192,
 			"repeat_penalty": 1.1,
 		},
 	}
@@ -209,20 +209,20 @@ func (a *ConversationAIAdapter) GenerateStreamingResponse(ctx context.Context, m
 
 	// Read streaming response line by line
 	decoder := json.NewDecoder(resp.Body)
-	
+
 	for decoder.More() {
 		var streamResp OllamaChatResponse
 		if err := decoder.Decode(&streamResp); err != nil {
 			return fmt.Errorf("failed to decode streaming response: %w", err)
 		}
-		
+
 		// Send chunk to callback
 		if streamResp.Message.Content != "" {
 			if err := callback(streamResp.Message.Content); err != nil {
 				return fmt.Errorf("streaming callback error: %w", err)
 			}
 		}
-		
+
 		// Check if done
 		if streamResp.Done {
 			break
@@ -246,18 +246,18 @@ type OllamaChatRequest struct {
 }
 
 type OllamaChatResponse struct {
-	Model     string            `json:"model"`
-	Message   OllamaChatMessage `json:"message"`
-	Done      bool              `json:"done"`
-	TotalDuration     int64 `json:"total_duration,omitempty"`
-	LoadDuration      int64 `json:"load_duration,omitempty"`
-	PromptEvalCount   int   `json:"prompt_eval_count,omitempty"`
-	PromptEvalDuration int64 `json:"prompt_eval_duration,omitempty"`
-	EvalCount         int   `json:"eval_count,omitempty"`
-	EvalDuration      int64 `json:"eval_duration,omitempty"`
+	Model              string            `json:"model"`
+	Message            OllamaChatMessage `json:"message"`
+	Done               bool              `json:"done"`
+	TotalDuration      int64             `json:"total_duration,omitempty"`
+	LoadDuration       int64             `json:"load_duration,omitempty"`
+	PromptEvalCount    int               `json:"prompt_eval_count,omitempty"`
+	PromptEvalDuration int64             `json:"prompt_eval_duration,omitempty"`
+	EvalCount          int               `json:"eval_count,omitempty"`
+	EvalDuration       int64             `json:"eval_duration,omitempty"`
 }
 
-// OpenAIAdapter provides OpenAI fallback functionality  
+// OpenAIAdapter provides OpenAI fallback functionality
 type OpenAIAdapter struct {
 	apiKey string
 	client *http.Client
@@ -267,7 +267,7 @@ type OpenAIAdapter struct {
 // NewOpenAIAdapter creates a new OpenAI adapter
 func NewOpenAIAdapter(logger *zap.Logger) *OpenAIAdapter {
 	apiKey := os.Getenv("OPENAI_API_KEY")
-	
+
 	return &OpenAIAdapter{
 		apiKey: apiKey,
 		client: &http.Client{
@@ -282,9 +282,9 @@ func (a *OpenAIAdapter) GenerateChatCompletion(ctx context.Context, messages []c
 	if a.apiKey == "" {
 		return "", fmt.Errorf("OpenAI API key not configured")
 	}
-	
+
 	endpoint := "https://api.openai.com/v1/chat/completions"
-	
+
 	// Convert to OpenAI format
 	openAIMessages := make([]OpenAIChatMessage, len(messages))
 	for i, msg := range messages {
@@ -293,7 +293,7 @@ func (a *OpenAIAdapter) GenerateChatCompletion(ctx context.Context, messages []c
 			Content: msg.Content,
 		}
 	}
-	
+
 	reqBody := OpenAIChatRequest{
 		Model:       "gpt-3.5-turbo",
 		Messages:    openAIMessages,

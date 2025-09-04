@@ -16,29 +16,29 @@ type ErrorCode string
 // Common error codes following RESTful API conventions
 const (
 	// Client errors (4xx)
-	CodeBadRequest          ErrorCode = "BAD_REQUEST"
-	CodeUnauthorized        ErrorCode = "UNAUTHORIZED"
-	CodeForbidden           ErrorCode = "FORBIDDEN"
-	CodeNotFound            ErrorCode = "NOT_FOUND"
-	CodeConflict            ErrorCode = "CONFLICT"
-	CodeValidationFailed    ErrorCode = "VALIDATION_FAILED"
-	CodeTooManyRequests     ErrorCode = "TOO_MANY_REQUESTS"
-	
+	CodeBadRequest       ErrorCode = "BAD_REQUEST"
+	CodeUnauthorized     ErrorCode = "UNAUTHORIZED"
+	CodeForbidden        ErrorCode = "FORBIDDEN"
+	CodeNotFound         ErrorCode = "NOT_FOUND"
+	CodeConflict         ErrorCode = "CONFLICT"
+	CodeValidationFailed ErrorCode = "VALIDATION_FAILED"
+	CodeTooManyRequests  ErrorCode = "TOO_MANY_REQUESTS"
+
 	// Server errors (5xx)
-	CodeInternal            ErrorCode = "INTERNAL_ERROR"
-	CodeServiceUnavailable  ErrorCode = "SERVICE_UNAVAILABLE"
-	CodeDatabaseError       ErrorCode = "DATABASE_ERROR"
+	CodeInternal             ErrorCode = "INTERNAL_ERROR"
+	CodeServiceUnavailable   ErrorCode = "SERVICE_UNAVAILABLE"
+	CodeDatabaseError        ErrorCode = "DATABASE_ERROR"
 	CodeExternalServiceError ErrorCode = "EXTERNAL_SERVICE_ERROR"
-	
+
 	// Business logic errors
-	CodeRecipeNotFound      ErrorCode = "RECIPE_NOT_FOUND"
-	CodeUserNotFound        ErrorCode = "USER_NOT_FOUND"
-	CodeInvalidCredentials  ErrorCode = "INVALID_CREDENTIALS"
-	CodeEmailAlreadyExists  ErrorCode = "EMAIL_ALREADY_EXISTS"
-	CodeUsernameAlreadyExists ErrorCode = "USERNAME_ALREADY_EXISTS"
+	CodeRecipeNotFound          ErrorCode = "RECIPE_NOT_FOUND"
+	CodeUserNotFound            ErrorCode = "USER_NOT_FOUND"
+	CodeInvalidCredentials      ErrorCode = "INVALID_CREDENTIALS"
+	CodeEmailAlreadyExists      ErrorCode = "EMAIL_ALREADY_EXISTS"
+	CodeUsernameAlreadyExists   ErrorCode = "USERNAME_ALREADY_EXISTS"
 	CodeInsufficientPermissions ErrorCode = "INSUFFICIENT_PERMISSIONS"
-	CodeResourceLocked      ErrorCode = "RESOURCE_LOCKED"
-	CodeQuotaExceeded       ErrorCode = "QUOTA_EXCEEDED"
+	CodeResourceLocked          ErrorCode = "RESOURCE_LOCKED"
+	CodeQuotaExceeded           ErrorCode = "QUOTA_EXCEEDED"
 )
 
 // AppError represents an application error with structured information
@@ -260,11 +260,11 @@ func Wrap(err error, message string) *AppError {
 	if err == nil {
 		return nil
 	}
-	
+
 	if appErr, ok := err.(*AppError); ok {
 		return appErr
 	}
-	
+
 	return NewInternalError(message).WithCause(err)
 }
 
@@ -290,7 +290,7 @@ func getStackTrace() string {
 	var pcs [depth]uintptr
 	n := runtime.Callers(3, pcs[:])
 	frames := runtime.CallersFrames(pcs[:n])
-	
+
 	var builder strings.Builder
 	for {
 		frame, more := frames.Next()
@@ -301,7 +301,7 @@ func getStackTrace() string {
 			break
 		}
 	}
-	
+
 	return builder.String()
 }
 
@@ -321,23 +321,23 @@ func (v ValidationErrors) Error() string {
 	if len(v) == 0 {
 		return "validation failed"
 	}
-	
+
 	if len(v) == 1 {
 		return v[0].Message
 	}
-	
+
 	var messages []string
 	for _, err := range v {
 		messages = append(messages, err.Message)
 	}
-	
+
 	return strings.Join(messages, "; ")
 }
 
 // NewValidationErrors creates validation errors from validator errors
 func NewValidationErrors(errors []ValidationError) *AppError {
 	validationErrs := ValidationErrors(errors)
-	
+
 	return NewAppError(
 		CodeValidationFailed,
 		"Validation failed",

@@ -133,7 +133,7 @@ func (a *AuthService) GenerateAccessToken(userID, email string, roles []string, 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(a.jwtSecret)
 	if err != nil {
-		a.logger.Error("Failed to sign token", 
+		a.logger.Error("Failed to sign token",
 			zap.Error(err),
 			zap.String("user_id", userID),
 			zap.String("session_id", sessionID),
@@ -288,10 +288,10 @@ func (a *AuthService) RevokeToken(tokenID string) error {
 		a.logger.Warn("Redis client not available, token revocation not persistent")
 		return nil // Return success for now, but tokens won't actually be revoked
 	}
-	
+
 	ctx := context.Background()
 	key := fmt.Sprintf("revoked_token:%s", tokenID)
-	
+
 	// Set with expiration matching the longest possible token lifetime
 	return a.redisClient.Set(ctx, key, "revoked", a.config.Auth.RefreshExpiration).Err()
 }
@@ -302,10 +302,10 @@ func (a *AuthService) RevokeAllUserTokens(userID string) error {
 		a.logger.Warn("Redis client not available, token revocation not persistent")
 		return nil // Return success for now, but tokens won't actually be revoked
 	}
-	
+
 	ctx := context.Background()
 	pattern := fmt.Sprintf("token:%s:*", userID)
-	
+
 	keys, err := a.redisClient.Keys(ctx, pattern).Result()
 	if err != nil {
 		return fmt.Errorf("failed to find user tokens: %w", err)
@@ -322,7 +322,7 @@ func (a *AuthService) RevokeAllUserTokens(userID string) error {
 func (a *AuthService) CreateSession(userID, ipAddress, userAgent string) (*SessionInfo, error) {
 	sessionID := uuid.New().String()
 	now := time.Now()
-	
+
 	session := &SessionInfo{
 		UserID:    userID,
 		SessionID: sessionID,
@@ -337,7 +337,7 @@ func (a *AuthService) CreateSession(userID, ipAddress, userAgent string) (*Sessi
 	if a.redisClient != nil {
 		ctx := context.Background()
 		sessionKey := fmt.Sprintf("session:%s", sessionID)
-		
+
 		if err := a.redisClient.HSet(ctx, sessionKey, map[string]interface{}{
 			"user_id":    session.UserID,
 			"ip_address": session.IPAddress,
@@ -383,7 +383,7 @@ func (a *AuthService) ValidateSession(sessionID, userID, ipAddress string) (*Ses
 
 	ctx := context.Background()
 	sessionKey := fmt.Sprintf("session:%s", sessionID)
-	
+
 	a.logger.Debug("Looking up session in Redis", zap.String("session_key", sessionKey))
 
 	result, err := a.redisClient.HGetAll(ctx, sessionKey).Result()
@@ -466,10 +466,10 @@ func (a *AuthService) storeTokenInRedis(tokenID, tokenString, userID, sessionID 
 		a.logger.Warn("Redis client not available, token tracking not persistent")
 		return nil // Return success for now, but tokens won't be tracked
 	}
-	
+
 	ctx := context.Background()
 	tokenKey := fmt.Sprintf("token:%s:%s", userID, tokenID)
-	
+
 	return a.redisClient.HSet(ctx, tokenKey, map[string]interface{}{
 		"token":      tokenString,
 		"session_id": sessionID,
@@ -483,10 +483,10 @@ func (a *AuthService) isTokenRevoked(tokenID string) (bool, error) {
 		// Without Redis, we can't track revoked tokens, so assume token is valid
 		return false, nil
 	}
-	
+
 	ctx := context.Background()
 	key := fmt.Sprintf("revoked_token:%s", tokenID)
-	
+
 	exists, err := a.redisClient.Exists(ctx, key).Result()
 	return exists > 0, err
 }

@@ -12,26 +12,26 @@ import (
 
 // GlobalNetworkConfig holds global network optimization configuration
 type GlobalNetworkConfig struct {
-	Regions              []Region
+	Regions               []Region
 	LoadBalancingStrategy LoadBalancingStrategy
-	FailoverPolicy       FailoverPolicy
-	LatencyThresholds    LatencyThresholds
-	CDNConfig            CDNConfiguration
-	DatabaseReplication  DatabaseReplicationConfig
-	EdgeComputing        EdgeComputingConfig
+	FailoverPolicy        FailoverPolicy
+	LatencyThresholds     LatencyThresholds
+	CDNConfig             CDNConfiguration
+	DatabaseReplication   DatabaseReplicationConfig
+	EdgeComputing         EdgeComputingConfig
 }
 
 // Region represents a geographical region with network endpoints
 type Region struct {
-	Name         string
-	Code         string
-	Country      string
-	Continent    string
-	Endpoints    []Endpoint
-	Priority     int
-	IsActive     bool
-	HealthCheck  HealthCheckConfig
-	Capacity     ResourceCapacity
+	Name        string
+	Code        string
+	Country     string
+	Continent   string
+	Endpoints   []Endpoint
+	Priority    int
+	IsActive    bool
+	HealthCheck HealthCheckConfig
+	Capacity    ResourceCapacity
 }
 
 // Endpoint represents a network endpoint in a region
@@ -72,21 +72,21 @@ type GeoLocation struct {
 
 // LoadBalancingStrategy defines how traffic is distributed
 type LoadBalancingStrategy struct {
-	Algorithm    LoadBalancingAlgorithm
+	Algorithm     LoadBalancingAlgorithm
 	StickySession bool
-	HealthChecks bool
-	Weights      map[string]int
+	HealthChecks  bool
+	Weights       map[string]int
 }
 
 type LoadBalancingAlgorithm string
 
 const (
-	RoundRobin        LoadBalancingAlgorithm = "round_robin"
+	RoundRobin         LoadBalancingAlgorithm = "round_robin"
 	WeightedRoundRobin LoadBalancingAlgorithm = "weighted_round_robin"
-	LeastConnections  LoadBalancingAlgorithm = "least_connections"
-	LatencyBased      LoadBalancingAlgorithm = "latency_based"
-	GeographyBased    LoadBalancingAlgorithm = "geography_based"
-	WeightedLatency   LoadBalancingAlgorithm = "weighted_latency"
+	LeastConnections   LoadBalancingAlgorithm = "least_connections"
+	LatencyBased       LoadBalancingAlgorithm = "latency_based"
+	GeographyBased     LoadBalancingAlgorithm = "geography_based"
+	WeightedLatency    LoadBalancingAlgorithm = "weighted_latency"
 )
 
 // FailoverPolicy defines failover behavior
@@ -101,10 +101,10 @@ type FailoverPolicy struct {
 
 // LatencyThresholds define acceptable latency limits
 type LatencyThresholds struct {
-	Excellent time.Duration // < 50ms
-	Good      time.Duration // < 100ms
+	Excellent  time.Duration // < 50ms
+	Good       time.Duration // < 100ms
 	Acceptable time.Duration // < 200ms
-	Poor      time.Duration // < 500ms
+	Poor       time.Duration // < 500ms
 }
 
 // GlobalNetworkOptimizer manages global network routing and optimization
@@ -137,7 +137,7 @@ func (gno *GlobalNetworkOptimizer) OptimizeRouting(ctx context.Context, clientRe
 	// Determine client location
 	clientLocation, err := gno.determineClientLocation(clientRequest.ClientIP)
 	if err != nil {
-		gno.logger.Warn("Failed to determine client location", 
+		gno.logger.Warn("Failed to determine client location",
 			zap.String("ip", clientRequest.ClientIP),
 			zap.Error(err))
 		clientLocation = &GeoLocation{} // Use default/unknown location
@@ -159,8 +159,8 @@ func (gno *GlobalNetworkOptimizer) OptimizeRouting(ctx context.Context, clientRe
 		SelectedRegion: selectedRegion,
 		Alternatives:   rankedRegions[:min(3, len(rankedRegions))], // Top 3 alternatives
 		DecisionTime:   time.Now(),
-		Reasoning:     gno.generateReasoningLog(selectedRegion, rankedRegions),
-		TTL:           5 * time.Minute, // Cache routing decisions
+		Reasoning:      gno.generateReasoningLog(selectedRegion, rankedRegions),
+		TTL:            5 * time.Minute, // Cache routing decisions
 	}
 
 	gno.logger.Debug("Routing decision made",
@@ -183,8 +183,8 @@ func (gno *GlobalNetworkOptimizer) findRegionCandidates(clientLocation *GeoLocat
 		// Check if region has required endpoint type
 		hasRequiredEndpoint := false
 		for _, endpoint := range region.Endpoints {
-			if gno.supportsRequestType(endpoint.Type, requestType) && 
-			   endpoint.HealthStatus == HealthStatusHealthy {
+			if gno.supportsRequestType(endpoint.Type, requestType) &&
+				endpoint.HealthStatus == HealthStatusHealthy {
 				hasRequiredEndpoint = true
 				break
 			}
@@ -196,9 +196,9 @@ func (gno *GlobalNetworkOptimizer) findRegionCandidates(clientLocation *GeoLocat
 
 		// Calculate base score
 		score := RegionScore{
-			Region:      &region,
-			TotalScore:  0,
-			Scores:      make(map[string]float64),
+			Region:     &region,
+			TotalScore: 0,
+			Scores:     make(map[string]float64),
 		}
 
 		candidates = append(candidates, score)
@@ -277,7 +277,7 @@ func (gno *GlobalNetworkOptimizer) calculateDistanceScore(clientLocation *GeoLoc
 // calculateLatencyScore calculates score based on measured latency
 func (gno *GlobalNetworkOptimizer) calculateLatencyScore(region *Region, requestType RequestType) float64 {
 	avgLatency := gno.latencyMonitor.GetAverageLatency(region.Name, string(requestType))
-	
+
 	// Convert latency to score
 	thresholds := gno.config.LatencyThresholds
 	switch {
@@ -297,15 +297,15 @@ func (gno *GlobalNetworkOptimizer) calculateLatencyScore(region *Region, request
 // calculateCapacityScore calculates score based on available capacity
 func (gno *GlobalNetworkOptimizer) calculateCapacityScore(region *Region) float64 {
 	capacity := region.Capacity
-	
+
 	// Calculate utilization percentage
 	cpuUtil := float64(capacity.CPUUsed) / float64(capacity.CPUTotal)
 	memUtil := float64(capacity.MemoryUsed) / float64(capacity.MemoryTotal)
 	netUtil := float64(capacity.NetworkUsed) / float64(capacity.NetworkTotal)
-	
+
 	// Average utilization
 	avgUtil := (cpuUtil + memUtil + netUtil) / 3.0
-	
+
 	// Convert to score (lower utilization = higher score)
 	return (1.0 - avgUtil) * 100.0
 }
@@ -319,7 +319,7 @@ func (gno *GlobalNetworkOptimizer) calculateHealthScore(region *Region) float64 
 
 	healthyCount := 0
 	degradedCount := 0
-	
+
 	for _, endpoint := range region.Endpoints {
 		switch endpoint.HealthStatus {
 		case HealthStatusHealthy:
@@ -332,10 +332,10 @@ func (gno *GlobalNetworkOptimizer) calculateHealthScore(region *Region) float64 
 	// Calculate weighted health score
 	healthyWeight := 1.0
 	degradedWeight := 0.5
-	
+
 	weightedHealthy := float64(healthyCount) * healthyWeight
 	weightedDegraded := float64(degradedCount) * degradedWeight
-	
+
 	return ((weightedHealthy + weightedDegraded) / float64(totalEndpoints)) * 100.0
 }
 
@@ -345,9 +345,9 @@ func (gno *GlobalNetworkOptimizer) calculateCostScore(region *Region, requestTyp
 	// This would typically come from cloud provider pricing APIs
 	baseCost := gno.getRegionBaseCost(region.Name)
 	requestCost := gno.getRequestTypeCost(string(requestType))
-	
+
 	totalCost := baseCost + requestCost
-	
+
 	// Normalize cost to score (lower cost = higher score)
 	maxCost := 1.0 // Adjust based on actual cost ranges
 	return (1.0 - (totalCost / maxCost)) * 100.0
@@ -357,27 +357,27 @@ func (gno *GlobalNetworkOptimizer) calculateCostScore(region *Region, requestTyp
 func (gno *GlobalNetworkOptimizer) calculatePerformanceScore(region *Region, requestType RequestType) float64 {
 	// Get historical performance metrics
 	metrics := gno.metrics.GetRegionPerformance(region.Name, string(requestType))
-	
+
 	// Factors: success rate, average response time, throughput
 	successRate := metrics.SuccessRate
 	avgResponseTime := metrics.AverageResponseTime
 	throughput := metrics.Throughput
-	
+
 	// Convert metrics to scores
 	successScore := successRate * 100.0
-	
+
 	responseTimeScore := 100.0
 	if avgResponseTime > gno.config.LatencyThresholds.Excellent {
-		responseTimeScore = 100.0 * (gno.config.LatencyThresholds.Poor.Seconds() - avgResponseTime.Seconds()) / 
+		responseTimeScore = 100.0 * (gno.config.LatencyThresholds.Poor.Seconds() - avgResponseTime.Seconds()) /
 			gno.config.LatencyThresholds.Poor.Seconds()
 	}
-	
+
 	throughputRaw := throughput / 1000.0 * 100.0
 	throughputScore := throughputRaw
 	if throughputScore > 100.0 {
 		throughputScore = 100.0
 	}
-	
+
 	// Weighted average
 	return (successScore*0.5 + responseTimeScore*0.3 + throughputScore*0.2)
 }
@@ -386,14 +386,14 @@ func (gno *GlobalNetworkOptimizer) calculatePerformanceScore(region *Region, req
 func (gno *GlobalNetworkOptimizer) calculateWeightedScore(scores map[string]float64, requestType RequestType) float64 {
 	// Different weights for different request types
 	weights := gno.getWeightsForRequestType(requestType)
-	
+
 	totalScore := 0.0
 	for metric, score := range scores {
 		if weight, exists := weights[metric]; exists {
 			totalScore += score * weight
 		}
 	}
-	
+
 	return totalScore
 }
 
@@ -410,11 +410,11 @@ func (gno *GlobalNetworkOptimizer) getWeightsForRequestType(requestType RequestT
 		}
 	case RequestTypeStaticContent:
 		return map[string]float64{
-			"distance":    0.35,
-			"capacity":    0.25,
-			"cost":        0.20,
-			"health":      0.15,
-			"latency":     0.05,
+			"distance": 0.35,
+			"capacity": 0.25,
+			"cost":     0.20,
+			"health":   0.15,
+			"latency":  0.05,
 		}
 	case RequestTypeDatabase:
 		return map[string]float64{
@@ -465,7 +465,7 @@ func (gno *GlobalNetworkOptimizer) determineClientLocation(clientIP string) (*Ge
 
 	// Mock implementation - would query GeoIP database
 	return &GeoLocation{
-		Latitude:  37.7749,  // San Francisco
+		Latitude:  37.7749, // San Francisco
 		Longitude: -122.4194,
 		City:      "San Francisco",
 		Country:   "US",
@@ -481,11 +481,11 @@ func (gno *GlobalNetworkOptimizer) calculateDistance(loc1, loc2 *GeoLocation) fl
 	deltaLat := (loc2.Latitude - loc1.Latitude) * (3.14159 / 180)
 	deltaLng := (loc2.Longitude - loc1.Longitude) * (3.14159 / 180)
 
-	a := 0.5 - 0.5*(deltaLat/2) + 
+	a := 0.5 - 0.5*(deltaLat/2) +
 		0.5*lat1*0.5*lat2*
-		(1-(deltaLng/2))
+			(1-(deltaLng/2))
 
-	return earthRadius * 2 * (a + (1-a))
+	return earthRadius * 2 * (a + (1 - a))
 }
 
 func (gno *GlobalNetworkOptimizer) supportsRequestType(endpointType EndpointType, requestType RequestType) bool {
@@ -509,7 +509,7 @@ func (gno *GlobalNetworkOptimizer) isRegionAvailable(region *Region) bool {
 			healthyEndpoints++
 		}
 	}
-	
+
 	// Require at least 50% healthy endpoints
 	return float64(healthyEndpoints)/float64(len(region.Endpoints)) >= 0.5
 }
@@ -518,10 +518,10 @@ func (gno *GlobalNetworkOptimizer) generateReasoningLog(selected *Region, altern
 	if selected == nil {
 		return "No suitable region found"
 	}
-	
+
 	reason := fmt.Sprintf("Selected %s (score: %.2f)", selected.Name, alternatives[0].TotalScore)
 	if len(alternatives) > 1 {
-		reason += fmt.Sprintf(", alternatives: %s (%.2f)", 
+		reason += fmt.Sprintf(", alternatives: %s (%.2f)",
 			alternatives[1].Region.Name, alternatives[1].TotalScore)
 	}
 	return reason
@@ -530,12 +530,12 @@ func (gno *GlobalNetworkOptimizer) generateReasoningLog(selected *Region, altern
 func (gno *GlobalNetworkOptimizer) getRegionBaseCost(regionName string) float64 {
 	// Mock cost data - would come from cloud provider APIs
 	costs := map[string]float64{
-		"us-east-1":    0.10,
-		"us-west-2":    0.12,
-		"eu-west-1":    0.11,
+		"us-east-1":      0.10,
+		"us-west-2":      0.12,
+		"eu-west-1":      0.11,
 		"ap-southeast-1": 0.13,
 	}
-	
+
 	if cost, exists := costs[regionName]; exists {
 		return cost
 	}
@@ -548,7 +548,7 @@ func (gno *GlobalNetworkOptimizer) getRequestTypeCost(requestType string) float6
 		"static_content": 0.0001,
 		"database":       0.01,
 	}
-	
+
 	if cost, exists := costs[requestType]; exists {
 		return cost
 	}
@@ -620,9 +620,9 @@ type CDNConfiguration struct {
 }
 
 type DatabaseReplicationConfig struct {
-	ReadReplicas  []string
-	WriteRegion   string
-	SyncMode      string
+	ReadReplicas []string
+	WriteRegion  string
+	SyncMode     string
 }
 
 type EdgeComputingConfig struct {

@@ -36,30 +36,30 @@ func NewMFAService(logger *zap.Logger, redisClient *redis.Client, issuer string)
 type MFAMethod string
 
 const (
-	MFAMethodTOTP    MFAMethod = "totp"
-	MFAMethodSMS     MFAMethod = "sms"
-	MFAMethodEmail   MFAMethod = "email"
-	MFAMethodBackup  MFAMethod = "backup"
+	MFAMethodTOTP   MFAMethod = "totp"
+	MFAMethodSMS    MFAMethod = "sms"
+	MFAMethodEmail  MFAMethod = "email"
+	MFAMethodBackup MFAMethod = "backup"
 )
 
 // TOTPSetup represents TOTP setup information
 type TOTPSetup struct {
-	Secret    string `json:"secret"`
-	QRCode    string `json:"qr_code"`
+	Secret      string   `json:"secret"`
+	QRCode      string   `json:"qr_code"`
 	BackupCodes []string `json:"backup_codes"`
-	URL       string `json:"url"`
+	URL         string   `json:"url"`
 }
 
 // MFAChallenge represents an MFA challenge
 type MFAChallenge struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	Method    MFAMethod `json:"method"`
-	Code      string    `json:"code,omitempty"`
-	ExpiresAt time.Time `json:"expires_at"`
-	Attempts  int       `json:"attempts"`
-	MaxAttempts int     `json:"max_attempts"`
-	Verified  bool      `json:"verified"`
+	ID          string    `json:"id"`
+	UserID      string    `json:"user_id"`
+	Method      MFAMethod `json:"method"`
+	Code        string    `json:"code,omitempty"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	Attempts    int       `json:"attempts"`
+	MaxAttempts int       `json:"max_attempts"`
+	Verified    bool      `json:"verified"`
 }
 
 // MFAConfig represents user's MFA configuration
@@ -240,7 +240,7 @@ func (m *MFAService) VerifyChallenge(challengeID, code string) (*MFAChallenge, e
 		challenge.Verified = true
 		config.LastUsed = time.Now()
 		m.storeMFAConfig(config)
-		
+
 		m.logger.Info("MFA challenge verified",
 			zap.String("user_id", challenge.UserID),
 			zap.String("method", string(challenge.Method)),
@@ -287,7 +287,7 @@ func (m *MFAService) RequireMFA() gin.HandlerFunc {
 		if !config.Enabled {
 			// MFA not enabled, require setup for sensitive operations
 			c.JSON(http.StatusPreconditionRequired, gin.H{
-				"error": "MFA required for this operation",
+				"error":              "MFA required for this operation",
 				"mfa_setup_required": true,
 			})
 			c.Abort()
@@ -305,9 +305,9 @@ func (m *MFAService) RequireMFA() gin.HandlerFunc {
 		mfaChallengeID := c.GetHeader("X-MFA-Challenge")
 		if mfaChallengeID == "" {
 			c.JSON(http.StatusPreconditionRequired, gin.H{
-				"error": "MFA verification required",
+				"error":                  "MFA verification required",
 				"mfa_challenge_required": true,
-				"available_methods": config.Methods,
+				"available_methods":      config.Methods,
 			})
 			c.Abort()
 			return
@@ -343,19 +343,19 @@ func (m *MFAService) verifyBackupCode(hashedCodes []string, code string) bool {
 // generateBackupCodes generates random backup codes
 func (m *MFAService) generateBackupCodes(count int) ([]string, error) {
 	codes := make([]string, count)
-	
+
 	for i := 0; i < count; i++ {
 		// Generate 8-character alphanumeric code
 		bytes := make([]byte, 5)
 		if _, err := rand.Read(bytes); err != nil {
 			return nil, err
 		}
-		
+
 		// Convert to base32 and take first 8 characters
 		code := base32.StdEncoding.EncodeToString(bytes)[:8]
 		codes[i] = strings.ToUpper(code)
 	}
-	
+
 	return codes, nil
 }
 
@@ -363,7 +363,7 @@ func (m *MFAService) generateBackupCodes(count int) ([]string, error) {
 func (m *MFAService) generateVerificationCode() string {
 	bytes := make([]byte, 3)
 	rand.Read(bytes)
-	
+
 	// Convert to 6-digit number
 	num := int(bytes[0])<<16 + int(bytes[1])<<8 + int(bytes[2])
 	return fmt.Sprintf("%06d", num%1000000)

@@ -8,10 +8,10 @@ import (
 
 // LocalCache provides thread-safe in-memory caching with LRU eviction
 type LocalCache struct {
-	items    map[string]*localCacheItem
-	lruList  *lruList
-	maxSize  int
-	mu       sync.RWMutex
+	items   map[string]*localCacheItem
+	lruList *lruList
+	maxSize int
+	mu      sync.RWMutex
 }
 
 // localCacheItem represents a cached item with TTL and LRU tracking
@@ -224,9 +224,9 @@ func (lc *LocalCache) GetStats() LocalCacheStats {
 	}
 
 	return LocalCacheStats{
-		Size:        len(lc.items),
-		MaxSize:     lc.maxSize,
-		ExpiredItems: expired,
+		Size:             len(lc.items),
+		MaxSize:          lc.maxSize,
+		ExpiredItems:     expired,
 		UtilizationRatio: float64(len(lc.items)) / float64(lc.maxSize),
 	}
 }
@@ -294,7 +294,7 @@ type LocalCacheStats struct {
 // AutoCleanup starts a goroutine that periodically cleans up expired items
 func (lc *LocalCache) AutoCleanup(interval time.Duration) chan struct{} {
 	stopChan := make(chan struct{})
-	
+
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()

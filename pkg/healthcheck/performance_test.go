@@ -16,11 +16,11 @@ import (
 
 // Performance test constants
 const (
-	MaxHealthCheckDuration      = 1 * time.Second    // Max time for a single health check
-	MaxEnterpriseCheckDuration  = 2 * time.Second    // Max time for enterprise check with dependencies
-	MaxConcurrentCheckDuration  = 3 * time.Second    // Max time for concurrent health checks
-	TargetThroughput           = 100                 // Minimum checks per second
-	MaxMemoryAllocationMB      = 10                  // Max memory allocation in MB
+	MaxHealthCheckDuration     = 1 * time.Second // Max time for a single health check
+	MaxEnterpriseCheckDuration = 2 * time.Second // Max time for enterprise check with dependencies
+	MaxConcurrentCheckDuration = 3 * time.Second // Max time for concurrent health checks
+	TargetThroughput           = 100             // Minimum checks per second
+	MaxMemoryAllocationMB      = 10              // Max memory allocation in MB
 )
 
 // TestPerformance_SingleHealthCheck tests performance of a single health check
@@ -39,7 +39,7 @@ func TestPerformance_SingleHealthCheck(t *testing.T) {
 	duration := time.Since(start)
 
 	assert.Equal(t, StatusHealthy, response.Status)
-	assert.Less(t, duration, MaxHealthCheckDuration, 
+	assert.Less(t, duration, MaxHealthCheckDuration,
 		"Single health check took %v, should be less than %v", duration, MaxHealthCheckDuration)
 
 	t.Logf("Single health check completed in %v", duration)
@@ -48,7 +48,7 @@ func TestPerformance_SingleHealthCheck(t *testing.T) {
 // TestPerformance_MultipleHealthChecks tests performance with multiple checkers
 func TestPerformance_MultipleHealthChecks(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
-	
+
 	// Register multiple fast checkers
 	numCheckers := 10
 	for i := 0; i < numCheckers; i++ {
@@ -68,9 +68,9 @@ func TestPerformance_MultipleHealthChecks(t *testing.T) {
 
 	assert.Equal(t, StatusHealthy, response.Status)
 	assert.Len(t, response.Checks, numCheckers)
-	
+
 	// Should complete in roughly the time of the slowest check (concurrent execution)
-	assert.Less(t, duration, 100*time.Millisecond, 
+	assert.Less(t, duration, 100*time.Millisecond,
 		"Multiple health checks took %v, should complete concurrently", duration)
 
 	t.Logf("Multiple health checks (%d) completed in %v", numCheckers, duration)
@@ -79,7 +79,7 @@ func TestPerformance_MultipleHealthChecks(t *testing.T) {
 // TestPerformance_EnterpriseHealthCheck tests enterprise health check performance
 func TestPerformance_EnterpriseHealthCheck(t *testing.T) {
 	ehc := NewEnterpriseHealthCheck("1.0.0", zap.NewNop())
-	
+
 	// Register basic checkers
 	for i := 0; i < 5; i++ {
 		name := fmt.Sprintf("checker_%d", i)
@@ -119,10 +119,10 @@ func TestPerformance_HealthCheckThroughput(t *testing.T) {
 	hc.Register("fast", checker)
 
 	ctx := context.Background()
-	
+
 	// Test duration
 	testDuration := 1 * time.Second
-	
+
 	// Warm up
 	hc.Check(ctx)
 
@@ -151,10 +151,10 @@ func TestPerformance_ConcurrentHealthChecks(t *testing.T) {
 	hc.Register("concurrent", checker)
 
 	ctx := context.Background()
-	
+
 	numGoroutines := 50
 	numChecksPerGoroutine := 10
-	
+
 	// Warm up
 	hc.Check(ctx)
 
@@ -180,7 +180,7 @@ func TestPerformance_ConcurrentHealthChecks(t *testing.T) {
 		"Concurrent health checks took %v, should be less than %v", duration, MaxConcurrentCheckDuration)
 
 	throughput := float64(totalChecks) / duration.Seconds()
-	t.Logf("Concurrent health checks: %d total in %v (%.2f checks/second)", 
+	t.Logf("Concurrent health checks: %d total in %v (%.2f checks/second)",
 		totalChecks, duration, throughput)
 }
 
@@ -188,7 +188,7 @@ func TestPerformance_ConcurrentHealthChecks(t *testing.T) {
 func TestPerformance_CircuitBreakerOverhead(t *testing.T) {
 	// Test without circuit breaker
 	checker := NewMockChecker("test").WithStatus(StatusHealthy).WithDuration(1 * time.Millisecond)
-	
+
 	ctx := context.Background()
 	iterations := 1000
 
@@ -202,7 +202,7 @@ func TestPerformance_CircuitBreakerOverhead(t *testing.T) {
 	// Test with circuit breaker
 	config := TestCircuitBreakerConfig()
 	cb := NewCircuitBreaker("test", config)
-	
+
 	cbChecker := &CircuitBreakerChecker{
 		checker: checker,
 		breaker: cb,
@@ -222,21 +222,21 @@ func TestPerformance_CircuitBreakerOverhead(t *testing.T) {
 	assert.Less(t, overheadPercentage, 50.0,
 		"Circuit breaker overhead is %.2f%%, should be less than 50%%", overheadPercentage)
 
-	t.Logf("Circuit breaker overhead: %v (%.2f%%) for %d operations", 
+	t.Logf("Circuit breaker overhead: %v (%.2f%%) for %d operations",
 		overhead, overheadPercentage, iterations)
 }
 
 // TestPerformance_DependencyGraphTraversal tests dependency graph performance
 func TestPerformance_DependencyGraphTraversal(t *testing.T) {
 	dm := NewDependencyManager(zap.NewNop())
-	
+
 	// Create complex dependency graph
 	numDependencies := 50
-	
+
 	for i := 0; i < numDependencies; i++ {
 		name := fmt.Sprintf("dep_%d", i)
 		checker := NewMockChecker(name).WithStatus(StatusHealthy).WithDuration(1 * time.Millisecond)
-		
+
 		// Create some dependencies to previous nodes
 		var deps []string
 		if i > 0 {
@@ -246,7 +246,7 @@ func TestPerformance_DependencyGraphTraversal(t *testing.T) {
 				deps = append(deps, fmt.Sprintf("dep_%d", i-j-1))
 			}
 		}
-		
+
 		dep := CreateTestDependency(name, DependencyTypeService, false, deps, checker)
 		dm.Register(dep)
 	}
@@ -261,7 +261,7 @@ func TestPerformance_DependencyGraphTraversal(t *testing.T) {
 	duration := time.Since(start)
 
 	assert.Len(t, results, numDependencies)
-	
+
 	// Should complete in reasonable time even with complex graph
 	maxExpectedDuration := time.Duration(numDependencies) * 10 * time.Millisecond
 	assert.Less(t, duration, maxExpectedDuration,
@@ -273,7 +273,7 @@ func TestPerformance_DependencyGraphTraversal(t *testing.T) {
 // TestPerformance_MetricsOverhead tests metrics collection performance overhead
 func TestPerformance_MetricsOverhead(t *testing.T) {
 	checker := NewMockChecker("test").WithStatus(StatusHealthy).WithDuration(1 * time.Millisecond)
-	
+
 	ctx := context.Background()
 	iterations := 1000
 
@@ -302,14 +302,14 @@ func TestPerformance_MetricsOverhead(t *testing.T) {
 	assert.Less(t, overheadPercentage, 30.0,
 		"Metrics overhead is %.2f%%, should be less than 30%%", overheadPercentage)
 
-	t.Logf("Metrics collection overhead: %v (%.2f%%) for %d operations", 
+	t.Logf("Metrics collection overhead: %v (%.2f%%) for %d operations",
 		overhead, overheadPercentage, iterations)
 }
 
 // TestPerformance_HealthCheckWithTimeout tests timeout behavior
 func TestPerformance_HealthCheckWithTimeout(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
-	
+
 	// Register slow checker that takes longer than timeout
 	slowChecker := NewSlowChecker("slow", 2*time.Second)
 	hc.Register("slow", slowChecker)
@@ -338,7 +338,7 @@ func TestPerformance_HealthCheckWithTimeout(t *testing.T) {
 // TestPerformance_MemoryAllocation tests memory allocation during health checks
 func TestPerformance_MemoryAllocation(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
-	
+
 	// Register multiple checkers
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("checker_%d", i)
@@ -347,7 +347,7 @@ func TestPerformance_MemoryAllocation(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	
+
 	// Warm up to avoid initialization allocations
 	for i := 0; i < 10; i++ {
 		hc.Check(ctx)
@@ -388,7 +388,7 @@ func TestPerformance_MemoryAllocation(t *testing.T) {
 func TestPerformance_CacheEffectiveness(t *testing.T) {
 	hc := New("1.0.0", zap.NewNop())
 	hc.SetCacheTTL(100 * time.Millisecond)
-	
+
 	// Register slow checker
 	checker := NewMockChecker("slow").WithStatus(StatusHealthy).WithDuration(50 * time.Millisecond)
 	hc.Register("slow", checker)
@@ -428,9 +428,9 @@ func BenchmarkHealthCheck_SingleChecker(b *testing.B) {
 	hc := New("1.0.0", zap.NewNop())
 	checker := NewMockChecker("test").WithStatus(StatusHealthy)
 	hc.Register("test", checker)
-	
+
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		hc.Check(ctx)
@@ -439,15 +439,15 @@ func BenchmarkHealthCheck_SingleChecker(b *testing.B) {
 
 func BenchmarkHealthCheck_MultipleCheckers(b *testing.B) {
 	hc := New("1.0.0", zap.NewNop())
-	
+
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("checker_%d", i)
 		checker := NewMockChecker(name).WithStatus(StatusHealthy)
 		hc.Register(name, checker)
 	}
-	
+
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		hc.Check(ctx)
@@ -456,15 +456,15 @@ func BenchmarkHealthCheck_MultipleCheckers(b *testing.B) {
 
 func BenchmarkEnterpriseHealthCheck_Standard(b *testing.B) {
 	ehc := NewEnterpriseHealthCheck("1.0.0", zap.NewNop())
-	
+
 	for i := 0; i < 5; i++ {
 		name := fmt.Sprintf("checker_%d", i)
 		checker := NewMockChecker(name).WithStatus(StatusHealthy)
 		ehc.Register(name, checker)
 	}
-	
+
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ehc.CheckWithMode(ctx, ModeStandard)
@@ -473,20 +473,20 @@ func BenchmarkEnterpriseHealthCheck_Standard(b *testing.B) {
 
 func BenchmarkEnterpriseHealthCheck_Deep(b *testing.B) {
 	ehc := NewEnterpriseHealthCheck("1.0.0", zap.NewNop())
-	
+
 	for i := 0; i < 5; i++ {
 		name := fmt.Sprintf("checker_%d", i)
 		checker := NewMockChecker(name).WithStatus(StatusHealthy)
 		ehc.Register(name, checker)
-		
+
 		depName := fmt.Sprintf("dep_%d", i)
 		depChecker := NewMockChecker(depName).WithStatus(StatusHealthy)
 		dep := CreateTestDependency(depName, DependencyTypeService, false, []string{}, depChecker)
 		ehc.RegisterDependency(dep)
 	}
-	
+
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ehc.CheckWithMode(ctx, ModeDeep)
@@ -496,11 +496,11 @@ func BenchmarkEnterpriseHealthCheck_Deep(b *testing.B) {
 func BenchmarkCircuitBreaker_Execute(b *testing.B) {
 	config := TestCircuitBreakerConfig()
 	cb := NewCircuitBreaker("test", config)
-	
+
 	successFunc := func() (interface{}, error) {
 		return "success", nil
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		cb.Execute(successFunc)
@@ -509,16 +509,16 @@ func BenchmarkCircuitBreaker_Execute(b *testing.B) {
 
 func BenchmarkDependencyManager_CheckAll(b *testing.B) {
 	dm := NewDependencyManager(zap.NewNop())
-	
+
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("dep_%d", i)
 		checker := NewMockChecker(name).WithStatus(StatusHealthy)
 		dep := CreateTestDependency(name, DependencyTypeService, false, []string{}, checker)
 		dm.Register(dep)
 	}
-	
+
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		dm.CheckAll(ctx)
@@ -528,7 +528,7 @@ func BenchmarkDependencyManager_CheckAll(b *testing.B) {
 func BenchmarkMetrics_RecordCheck(b *testing.B) {
 	config := TestMetricsConfig()
 	metrics := NewHealthMetricsWithConfig(config)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		metrics.RecordCheck(StatusHealthy, time.Millisecond)

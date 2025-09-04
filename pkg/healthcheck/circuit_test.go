@@ -44,7 +44,7 @@ func TestCircuitBreaker_Execute_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "success", result)
 	assert.Equal(t, StateClosed, cb.GetState())
-	
+
 	stats := cb.GetStats()
 	assert.Equal(t, int64(1), stats.TotalRequests)
 	assert.Equal(t, int64(1), stats.TotalSuccesses)
@@ -66,7 +66,7 @@ func TestCircuitBreaker_Execute_Failure(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Equal(t, StateClosed, cb.GetState()) // Still closed after single failure
-	
+
 	stats := cb.GetStats()
 	assert.Equal(t, int64(1), stats.TotalRequests)
 	assert.Equal(t, int64(0), stats.TotalSuccesses)
@@ -88,7 +88,7 @@ func TestCircuitBreaker_Execute_TripsToOpen(t *testing.T) {
 		result, err := cb.Execute(failureFunc)
 		assert.Error(t, err)
 		assert.Nil(t, result)
-		
+
 		if i < config.FailureThreshold-1 {
 			assert.Equal(t, StateClosed, cb.GetState(), "Should remain closed until threshold")
 		}
@@ -96,7 +96,7 @@ func TestCircuitBreaker_Execute_TripsToOpen(t *testing.T) {
 
 	// Circuit should now be open
 	assert.Equal(t, StateOpen, cb.GetState())
-	
+
 	stats := cb.GetStats()
 	assert.Equal(t, int64(config.FailureThreshold), stats.TotalRequests)
 	assert.Equal(t, int64(0), stats.TotalSuccesses)
@@ -129,7 +129,7 @@ func TestCircuitBreaker_Execute_RejectsWhenOpen(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "circuit breaker 'test' is open")
 	assert.Nil(t, result)
-	
+
 	stats := cb.GetStats()
 	assert.Equal(t, int64(1), stats.TotalRejections)
 }
@@ -189,7 +189,7 @@ func TestCircuitBreaker_Execute_HalfOpenToClosedRecovery(t *testing.T) {
 		result, err := cb.Execute(successFunc)
 		assert.NoError(t, err)
 		assert.Equal(t, "success", result)
-		
+
 		if i < config.SuccessThreshold-1 {
 			assert.Equal(t, StateHalfOpen, cb.GetState(), "Should remain half-open until success threshold")
 		}
@@ -540,7 +540,7 @@ func BenchmarkCircuitBreaker_Execute_Failure(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		cb.Execute(failureFunc)
-		
+
 		// Reset if circuit opens
 		if cb.GetState() == StateOpen {
 			cb.Reset()

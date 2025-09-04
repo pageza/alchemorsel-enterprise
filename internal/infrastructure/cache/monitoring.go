@@ -12,15 +12,15 @@ import (
 
 // CacheMonitor provides comprehensive cache monitoring and metrics collection
 type CacheMonitor struct {
-	cache         *CacheService
-	redis         *RedisClient
-	config        *MonitoringConfig
-	logger        *zap.Logger
-	metrics       *AggregatedMetrics
-	alerts        *AlertManager
-	mu            sync.RWMutex
-	stopChan      chan struct{}
-	isRunning     bool
+	cache     *CacheService
+	redis     *RedisClient
+	config    *MonitoringConfig
+	logger    *zap.Logger
+	metrics   *AggregatedMetrics
+	alerts    *AlertManager
+	mu        sync.RWMutex
+	stopChan  chan struct{}
+	isRunning bool
 }
 
 // MonitoringConfig configures cache monitoring behavior
@@ -29,97 +29,97 @@ type MonitoringConfig struct {
 	MetricsInterval     time.Duration `json:"metrics_interval"`
 	HealthCheckInterval time.Duration `json:"health_check_interval"`
 	AlertCheckInterval  time.Duration `json:"alert_check_interval"`
-	
+
 	// Performance thresholds
-	HitRatioThreshold      float64       `json:"hit_ratio_threshold"`
-	AvgResponseThreshold   time.Duration `json:"avg_response_threshold"`
-	ErrorRateThreshold     float64       `json:"error_rate_threshold"`
-	MemoryUsageThreshold   float64       `json:"memory_usage_threshold"`
-	
+	HitRatioThreshold    float64       `json:"hit_ratio_threshold"`
+	AvgResponseThreshold time.Duration `json:"avg_response_threshold"`
+	ErrorRateThreshold   float64       `json:"error_rate_threshold"`
+	MemoryUsageThreshold float64       `json:"memory_usage_threshold"`
+
 	// Alert settings
-	EnableAlerts           bool          `json:"enable_alerts"`
-	AlertCooldown          time.Duration `json:"alert_cooldown"`
-	MaxAlertHistory        int           `json:"max_alert_history"`
-	
+	EnableAlerts    bool          `json:"enable_alerts"`
+	AlertCooldown   time.Duration `json:"alert_cooldown"`
+	MaxAlertHistory int           `json:"max_alert_history"`
+
 	// Retention settings
-	MetricsRetention       time.Duration `json:"metrics_retention"`
-	DetailedMetrics        bool          `json:"detailed_metrics"`
-	ExportMetrics          bool          `json:"export_metrics"`
-	
+	MetricsRetention time.Duration `json:"metrics_retention"`
+	DetailedMetrics  bool          `json:"detailed_metrics"`
+	ExportMetrics    bool          `json:"export_metrics"`
+
 	// Performance monitoring
-	SlowQueryThreshold     time.Duration `json:"slow_query_threshold"`
-	TrackHotKeys          bool          `json:"track_hot_keys"`
-	TrackKeyPatterns      bool          `json:"track_key_patterns"`
+	SlowQueryThreshold time.Duration `json:"slow_query_threshold"`
+	TrackHotKeys       bool          `json:"track_hot_keys"`
+	TrackKeyPatterns   bool          `json:"track_key_patterns"`
 }
 
 // AggregatedMetrics contains comprehensive cache metrics
 type AggregatedMetrics struct {
 	// Time series metrics
-	Timestamp              time.Time     `json:"timestamp"`
-	
+	Timestamp time.Time `json:"timestamp"`
+
 	// Hit/Miss statistics
-	TotalOperations        int64         `json:"total_operations"`
-	TotalHits              int64         `json:"total_hits"`
-	TotalMisses            int64         `json:"total_misses"`
-	HitRatio               float64       `json:"hit_ratio"`
-	
+	TotalOperations int64   `json:"total_operations"`
+	TotalHits       int64   `json:"total_hits"`
+	TotalMisses     int64   `json:"total_misses"`
+	HitRatio        float64 `json:"hit_ratio"`
+
 	// Performance metrics
-	AvgResponseTime        time.Duration `json:"avg_response_time"`
-	P95ResponseTime        time.Duration `json:"p95_response_time"`
-	P99ResponseTime        time.Duration `json:"p99_response_time"`
-	SlowOperations         int64         `json:"slow_operations"`
-	
+	AvgResponseTime time.Duration `json:"avg_response_time"`
+	P95ResponseTime time.Duration `json:"p95_response_time"`
+	P99ResponseTime time.Duration `json:"p99_response_time"`
+	SlowOperations  int64         `json:"slow_operations"`
+
 	// Error metrics
-	TotalErrors            int64         `json:"total_errors"`
-	ErrorRate              float64       `json:"error_rate"`
-	ConnectionErrors       int64         `json:"connection_errors"`
-	TimeoutErrors          int64         `json:"timeout_errors"`
-	
+	TotalErrors      int64   `json:"total_errors"`
+	ErrorRate        float64 `json:"error_rate"`
+	ConnectionErrors int64   `json:"connection_errors"`
+	TimeoutErrors    int64   `json:"timeout_errors"`
+
 	// Memory and storage
-	MemoryUsage            int64         `json:"memory_usage"`
-	KeyCount               int64         `json:"key_count"`
-	ExpiringKeys           int64         `json:"expiring_keys"`
-	StorageEfficiency      float64       `json:"storage_efficiency"`
-	
+	MemoryUsage       int64   `json:"memory_usage"`
+	KeyCount          int64   `json:"key_count"`
+	ExpiringKeys      int64   `json:"expiring_keys"`
+	StorageEfficiency float64 `json:"storage_efficiency"`
+
 	// Redis-specific metrics
-	RedisInfo              *RedisInfo    `json:"redis_info"`
-	
+	RedisInfo *RedisInfo `json:"redis_info"`
+
 	// Service-specific metrics
-	RecipeCacheStats       *ServiceStats `json:"recipe_cache_stats"`
-	SessionCacheStats      *ServiceStats `json:"session_cache_stats"`
-	AICacheStats           *ServiceStats `json:"ai_cache_stats"`
-	TemplateCacheStats     *ServiceStats `json:"template_cache_stats"`
-	
+	RecipeCacheStats   *ServiceStats `json:"recipe_cache_stats"`
+	SessionCacheStats  *ServiceStats `json:"session_cache_stats"`
+	AICacheStats       *ServiceStats `json:"ai_cache_stats"`
+	TemplateCacheStats *ServiceStats `json:"template_cache_stats"`
+
 	// Hot keys and patterns
-	HotKeys                []HotKey      `json:"hot_keys,omitempty"`
-	KeyPatterns            []KeyPattern  `json:"key_patterns,omitempty"`
+	HotKeys     []HotKey     `json:"hot_keys,omitempty"`
+	KeyPatterns []KeyPattern `json:"key_patterns,omitempty"`
 }
 
 // RedisInfo contains Redis-specific information
 type RedisInfo struct {
-	Version                string        `json:"version"`
-	UptimeSeconds          int64         `json:"uptime_seconds"`
-	ConnectedClients       int64         `json:"connected_clients"`
-	UsedMemory             int64         `json:"used_memory"`
-	UsedMemoryPeak         int64         `json:"used_memory_peak"`
-	MemoryFragmentationRatio float64     `json:"memory_fragmentation_ratio"`
-	TotalCommandsProcessed int64         `json:"total_commands_processed"`
-	KeyspaceHits           int64         `json:"keyspace_hits"`
-	KeyspaceMisses         int64         `json:"keyspace_misses"`
-	EvictedKeys            int64         `json:"evicted_keys"`
-	ExpiredKeys            int64         `json:"expired_keys"`
+	Version                  string  `json:"version"`
+	UptimeSeconds            int64   `json:"uptime_seconds"`
+	ConnectedClients         int64   `json:"connected_clients"`
+	UsedMemory               int64   `json:"used_memory"`
+	UsedMemoryPeak           int64   `json:"used_memory_peak"`
+	MemoryFragmentationRatio float64 `json:"memory_fragmentation_ratio"`
+	TotalCommandsProcessed   int64   `json:"total_commands_processed"`
+	KeyspaceHits             int64   `json:"keyspace_hits"`
+	KeyspaceMisses           int64   `json:"keyspace_misses"`
+	EvictedKeys              int64   `json:"evicted_keys"`
+	ExpiredKeys              int64   `json:"expired_keys"`
 }
 
 // ServiceStats contains service-specific cache statistics
 type ServiceStats struct {
-	ServiceName        string        `json:"service_name"`
-	Hits               int64         `json:"hits"`
-	Misses             int64         `json:"misses"`
-	HitRatio           float64       `json:"hit_ratio"`
-	AvgResponseTime    time.Duration `json:"avg_response_time"`
-	Errors             int64         `json:"errors"`
-	KeyCount           int64         `json:"key_count"`
-	StorageUsed        int64         `json:"storage_used"`
+	ServiceName     string        `json:"service_name"`
+	Hits            int64         `json:"hits"`
+	Misses          int64         `json:"misses"`
+	HitRatio        float64       `json:"hit_ratio"`
+	AvgResponseTime time.Duration `json:"avg_response_time"`
+	Errors          int64         `json:"errors"`
+	KeyCount        int64         `json:"key_count"`
+	StorageUsed     int64         `json:"storage_used"`
 }
 
 // HotKey represents a frequently accessed cache key
@@ -133,35 +133,35 @@ type HotKey struct {
 
 // KeyPattern represents cache key usage patterns
 type KeyPattern struct {
-	Pattern     string    `json:"pattern"`
-	Count       int64     `json:"count"`
-	AvgSize     int64     `json:"avg_size"`
-	HitRatio    float64   `json:"hit_ratio"`
-	LastSeen    time.Time `json:"last_seen"`
+	Pattern  string    `json:"pattern"`
+	Count    int64     `json:"count"`
+	AvgSize  int64     `json:"avg_size"`
+	HitRatio float64   `json:"hit_ratio"`
+	LastSeen time.Time `json:"last_seen"`
 }
 
 // Alert represents a cache monitoring alert
 type Alert struct {
-	ID          string                 `json:"id"`
-	Type        AlertType              `json:"type"`
-	Severity    AlertSeverity          `json:"severity"`
-	Message     string                 `json:"message"`
-	Timestamp   time.Time              `json:"timestamp"`
-	Resolved    bool                   `json:"resolved"`
-	ResolvedAt  *time.Time             `json:"resolved_at,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata"`
+	ID         string                 `json:"id"`
+	Type       AlertType              `json:"type"`
+	Severity   AlertSeverity          `json:"severity"`
+	Message    string                 `json:"message"`
+	Timestamp  time.Time              `json:"timestamp"`
+	Resolved   bool                   `json:"resolved"`
+	ResolvedAt *time.Time             `json:"resolved_at,omitempty"`
+	Metadata   map[string]interface{} `json:"metadata"`
 }
 
 // AlertType represents the type of alert
 type AlertType string
 
 const (
-	AlertTypeHitRatio       AlertType = "hit_ratio"
-	AlertTypeResponseTime   AlertType = "response_time"
-	AlertTypeErrorRate      AlertType = "error_rate"
-	AlertTypeMemoryUsage    AlertType = "memory_usage"
-	AlertTypeConnection     AlertType = "connection"
-	AlertTypeCapacity       AlertType = "capacity"
+	AlertTypeHitRatio     AlertType = "hit_ratio"
+	AlertTypeResponseTime AlertType = "response_time"
+	AlertTypeErrorRate    AlertType = "error_rate"
+	AlertTypeMemoryUsage  AlertType = "memory_usage"
+	AlertTypeConnection   AlertType = "connection"
+	AlertTypeCapacity     AlertType = "capacity"
 )
 
 // AlertSeverity represents alert severity levels
@@ -175,18 +175,18 @@ const (
 
 // AlertManager handles cache monitoring alerts
 type AlertManager struct {
-	alerts     map[string]*Alert
-	history    []*Alert
-	cooldowns  map[AlertType]time.Time
-	config     *MonitoringConfig
-	logger     *zap.Logger
-	mu         sync.RWMutex
+	alerts    map[string]*Alert
+	history   []*Alert
+	cooldowns map[AlertType]time.Time
+	config    *MonitoringConfig
+	logger    *zap.Logger
+	mu        sync.RWMutex
 }
 
 // NewCacheMonitor creates a new cache monitor
 func NewCacheMonitor(cache *CacheService, redis *RedisClient, logger *zap.Logger) *CacheMonitor {
 	config := DefaultMonitoringConfig()
-	
+
 	monitor := &CacheMonitor{
 		cache:    cache,
 		redis:    redis,
@@ -196,7 +196,7 @@ func NewCacheMonitor(cache *CacheService, redis *RedisClient, logger *zap.Logger
 		alerts:   NewAlertManager(config, logger),
 		stopChan: make(chan struct{}),
 	}
-	
+
 	return monitor
 }
 
@@ -204,26 +204,26 @@ func NewCacheMonitor(cache *CacheService, redis *RedisClient, logger *zap.Logger
 func (cm *CacheMonitor) Start() error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	
+
 	if cm.isRunning {
 		return fmt.Errorf("cache monitor is already running")
 	}
-	
+
 	cm.isRunning = true
-	
+
 	// Start monitoring routines
 	go cm.metricsCollectionLoop()
 	go cm.healthCheckLoop()
-	
+
 	if cm.config.EnableAlerts {
 		go cm.alertCheckLoop()
 	}
-	
+
 	cm.logger.Info("Cache monitor started",
 		zap.Duration("metrics_interval", cm.config.MetricsInterval),
 		zap.Duration("health_check_interval", cm.config.HealthCheckInterval),
 		zap.Bool("alerts_enabled", cm.config.EnableAlerts))
-	
+
 	return nil
 }
 
@@ -231,14 +231,14 @@ func (cm *CacheMonitor) Start() error {
 func (cm *CacheMonitor) Stop() error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	
+
 	if !cm.isRunning {
 		return fmt.Errorf("cache monitor is not running")
 	}
-	
+
 	close(cm.stopChan)
 	cm.isRunning = false
-	
+
 	cm.logger.Info("Cache monitor stopped")
 	return nil
 }
@@ -247,7 +247,7 @@ func (cm *CacheMonitor) Stop() error {
 func (cm *CacheMonitor) GetMetrics() *AggregatedMetrics {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	
+
 	// Return a copy to avoid race conditions
 	metrics := *cm.metrics
 	return &metrics
@@ -272,7 +272,7 @@ func (cm *CacheMonitor) ResolveAlert(alertID string) error {
 func (cm *CacheMonitor) GetHealthStatus() *HealthStatus {
 	metrics := cm.GetMetrics()
 	alerts := cm.GetAlerts()
-	
+
 	status := &HealthStatus{
 		Timestamp: time.Now(),
 		Overall:   HealthStatusHealthy,
@@ -288,7 +288,7 @@ func (cm *CacheMonitor) GetHealthStatus() *HealthStatus {
 		},
 		Metrics: metrics,
 	}
-	
+
 	// Check Redis health
 	if redisHealth := cm.redis.GetHealthStatus(); !redisHealth.IsHealthy {
 		status.Overall = HealthStatusUnhealthy
@@ -297,7 +297,7 @@ func (cm *CacheMonitor) GetHealthStatus() *HealthStatus {
 			Message: redisHealth.LastError,
 		}
 	}
-	
+
 	// Check cache performance
 	if metrics.HitRatio < cm.config.HitRatioThreshold {
 		if status.Overall == HealthStatusHealthy {
@@ -308,7 +308,7 @@ func (cm *CacheMonitor) GetHealthStatus() *HealthStatus {
 			Message: fmt.Sprintf("Hit ratio below threshold: %.2f%%", metrics.HitRatio*100),
 		}
 	}
-	
+
 	// Check for critical alerts
 	for _, alert := range alerts {
 		if alert.Severity == AlertSeverityCritical && !alert.Resolved {
@@ -316,7 +316,7 @@ func (cm *CacheMonitor) GetHealthStatus() *HealthStatus {
 			break
 		}
 	}
-	
+
 	return status
 }
 
@@ -325,7 +325,7 @@ func (cm *CacheMonitor) GetHealthStatus() *HealthStatus {
 func (cm *CacheMonitor) metricsCollectionLoop() {
 	ticker := time.NewTicker(cm.config.MetricsInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -339,7 +339,7 @@ func (cm *CacheMonitor) metricsCollectionLoop() {
 func (cm *CacheMonitor) healthCheckLoop() {
 	ticker := time.NewTicker(cm.config.HealthCheckInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -353,7 +353,7 @@ func (cm *CacheMonitor) healthCheckLoop() {
 func (cm *CacheMonitor) alertCheckLoop() {
 	ticker := time.NewTicker(cm.config.AlertCheckInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -367,27 +367,27 @@ func (cm *CacheMonitor) alertCheckLoop() {
 func (cm *CacheMonitor) collectMetrics() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
-	
+
 	// Collect cache service metrics
 	cacheStats := cm.cache.GetStats()
-	
+
 	// Collect Redis metrics
 	redisMetrics := cm.redis.GetMetrics()
-	
+
 	// Collect Redis INFO
 	redisInfo := cm.collectRedisInfo(ctx)
-	
+
 	// Calculate derived metrics
 	hitRatio := float64(0)
 	if total := cacheStats.TotalHits + cacheStats.TotalMisses; total > 0 {
 		hitRatio = float64(cacheStats.TotalHits) / float64(total)
 	}
-	
+
 	errorRate := float64(0)
 	if cacheStats.TotalOperations > 0 {
 		errorRate = float64(cacheStats.TotalErrors) / float64(cacheStats.TotalOperations)
 	}
-	
+
 	// Update aggregated metrics
 	cm.mu.Lock()
 	cm.metrics = &AggregatedMetrics{
@@ -402,7 +402,7 @@ func (cm *CacheMonitor) collectMetrics() {
 		ConnectionErrors: redisMetrics.ConnectionErrors,
 		RedisInfo:        redisInfo,
 	}
-	
+
 	// Collect service-specific metrics if detailed metrics are enabled
 	if cm.config.DetailedMetrics {
 		cm.metrics.RecipeCacheStats = cm.collectServiceStats("recipe")
@@ -410,24 +410,24 @@ func (cm *CacheMonitor) collectMetrics() {
 		cm.metrics.AICacheStats = cm.collectServiceStats("ai")
 		cm.metrics.TemplateCacheStats = cm.collectServiceStats("template")
 	}
-	
+
 	// Collect hot keys if enabled
 	if cm.config.TrackHotKeys {
 		cm.metrics.HotKeys = cm.collectHotKeys(ctx)
 	}
-	
+
 	// Collect key patterns if enabled
 	if cm.config.TrackKeyPatterns {
 		cm.metrics.KeyPatterns = cm.collectKeyPatterns(ctx)
 	}
-	
+
 	cm.mu.Unlock()
-	
+
 	// Export metrics if enabled
 	if cm.config.ExportMetrics {
 		cm.exportMetrics()
 	}
-	
+
 	cm.logger.Debug("Metrics collected",
 		zap.Float64("hit_ratio", hitRatio),
 		zap.Duration("avg_response_time", cacheStats.AvgReadTime),
@@ -437,14 +437,14 @@ func (cm *CacheMonitor) collectMetrics() {
 func (cm *CacheMonitor) collectRedisInfo(ctx context.Context) *RedisInfo {
 	// Parse Redis INFO (simplified parsing)
 	redisInfo := &RedisInfo{}
-	
+
 	// In a real implementation, you would collect and parse Redis INFO string
 	// For now, return basic info from Redis metrics
 	redisMetrics := cm.redis.GetMetrics()
 	redisInfo.TotalCommandsProcessed = redisMetrics.TotalCommands
 	redisInfo.KeyspaceHits = redisMetrics.CacheHits
 	redisInfo.KeyspaceMisses = redisMetrics.CacheMisses
-	
+
 	return redisInfo
 }
 
@@ -478,7 +478,7 @@ func (cm *CacheMonitor) collectKeyPatterns(ctx context.Context) []KeyPattern {
 func (cm *CacheMonitor) performHealthCheck() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	
+
 	// Test Redis connectivity
 	if err := cm.redis.Ping(ctx); err != nil {
 		cm.logger.Error("Redis health check failed", zap.Error(err))
@@ -487,11 +487,11 @@ func (cm *CacheMonitor) performHealthCheck() {
 				"error": err.Error(),
 			})
 	}
-	
+
 	// Test cache operations
 	testKey := "health_check_" + fmt.Sprintf("%d", time.Now().Unix())
 	testData := []byte("health_check_data")
-	
+
 	if err := cm.cache.Set(ctx, testKey, testData, time.Minute); err != nil {
 		cm.logger.Error("Cache write health check failed", zap.Error(err))
 		cm.alerts.CreateAlert(AlertTypeConnection, AlertSeverityWarning,
@@ -499,7 +499,7 @@ func (cm *CacheMonitor) performHealthCheck() {
 				"error": err.Error(),
 			})
 	}
-	
+
 	if _, err := cm.cache.Get(ctx, testKey); err != nil {
 		cm.logger.Error("Cache read health check failed", zap.Error(err))
 		cm.alerts.CreateAlert(AlertTypeConnection, AlertSeverityWarning,
@@ -507,34 +507,34 @@ func (cm *CacheMonitor) performHealthCheck() {
 				"error": err.Error(),
 			})
 	}
-	
+
 	// Clean up test key
 	cm.cache.Delete(ctx, testKey)
 }
 
 func (cm *CacheMonitor) checkAlerts() {
 	metrics := cm.GetMetrics()
-	
+
 	// Check hit ratio
 	if metrics.HitRatio < cm.config.HitRatioThreshold {
 		cm.alerts.CreateAlert(AlertTypeHitRatio, AlertSeverityWarning,
 			fmt.Sprintf("Hit ratio below threshold: %.2f%%", metrics.HitRatio*100),
 			map[string]interface{}{
-				"hit_ratio":  metrics.HitRatio,
+				"hit_ratio": metrics.HitRatio,
 				"threshold": cm.config.HitRatioThreshold,
 			})
 	}
-	
+
 	// Check response time
 	if metrics.AvgResponseTime > cm.config.AvgResponseThreshold {
 		cm.alerts.CreateAlert(AlertTypeResponseTime, AlertSeverityWarning,
 			fmt.Sprintf("Average response time above threshold: %v", metrics.AvgResponseTime),
 			map[string]interface{}{
 				"avg_response_time": metrics.AvgResponseTime.String(),
-				"threshold":        cm.config.AvgResponseThreshold.String(),
+				"threshold":         cm.config.AvgResponseThreshold.String(),
 			})
 	}
-	
+
 	// Check error rate
 	if metrics.ErrorRate > cm.config.ErrorRateThreshold {
 		cm.alerts.CreateAlert(AlertTypeErrorRate, AlertSeverityCritical,
@@ -554,10 +554,10 @@ func (cm *CacheMonitor) exportMetrics() {
 
 // HealthStatus represents overall system health
 type HealthStatus struct {
-	Timestamp  time.Time                    `json:"timestamp"`
-	Overall    HealthStatusType             `json:"overall"`
-	Components map[string]ComponentHealth   `json:"components"`
-	Metrics    *AggregatedMetrics           `json:"metrics"`
+	Timestamp  time.Time                  `json:"timestamp"`
+	Overall    HealthStatusType           `json:"overall"`
+	Components map[string]ComponentHealth `json:"components"`
+	Metrics    *AggregatedMetrics         `json:"metrics"`
 }
 
 // ComponentHealth represents individual component health
@@ -592,12 +592,12 @@ func NewAlertManager(config *MonitoringConfig, logger *zap.Logger) *AlertManager
 func (am *AlertManager) CreateAlert(alertType AlertType, severity AlertSeverity, message string, metadata map[string]interface{}) {
 	am.mu.Lock()
 	defer am.mu.Unlock()
-	
+
 	// Check cooldown
 	if cooldown, exists := am.cooldowns[alertType]; exists && time.Since(cooldown) < am.config.AlertCooldown {
 		return
 	}
-	
+
 	alertID := fmt.Sprintf("%s_%d", alertType, time.Now().Unix())
 	alert := &Alert{
 		ID:        alertID,
@@ -608,16 +608,16 @@ func (am *AlertManager) CreateAlert(alertType AlertType, severity AlertSeverity,
 		Resolved:  false,
 		Metadata:  metadata,
 	}
-	
+
 	am.alerts[alertID] = alert
 	am.history = append(am.history, alert)
 	am.cooldowns[alertType] = time.Now()
-	
+
 	// Trim history if needed
 	if len(am.history) > am.config.MaxAlertHistory {
 		am.history = am.history[1:]
 	}
-	
+
 	am.logger.Warn("Alert created",
 		zap.String("id", alertID),
 		zap.String("type", string(alertType)),
@@ -629,14 +629,14 @@ func (am *AlertManager) CreateAlert(alertType AlertType, severity AlertSeverity,
 func (am *AlertManager) GetActiveAlerts() []*Alert {
 	am.mu.RLock()
 	defer am.mu.RUnlock()
-	
+
 	alerts := make([]*Alert, 0, len(am.alerts))
 	for _, alert := range am.alerts {
 		if !alert.Resolved {
 			alerts = append(alerts, alert)
 		}
 	}
-	
+
 	return alerts
 }
 
@@ -644,7 +644,7 @@ func (am *AlertManager) GetActiveAlerts() []*Alert {
 func (am *AlertManager) GetHistory() []*Alert {
 	am.mu.RLock()
 	defer am.mu.RUnlock()
-	
+
 	// Return a copy of the history
 	history := make([]*Alert, len(am.history))
 	copy(history, am.history)
@@ -655,20 +655,20 @@ func (am *AlertManager) GetHistory() []*Alert {
 func (am *AlertManager) ResolveAlert(alertID string) error {
 	am.mu.Lock()
 	defer am.mu.Unlock()
-	
+
 	alert, exists := am.alerts[alertID]
 	if !exists {
 		return fmt.Errorf("alert not found: %s", alertID)
 	}
-	
+
 	if alert.Resolved {
 		return fmt.Errorf("alert already resolved: %s", alertID)
 	}
-	
+
 	now := time.Now()
 	alert.Resolved = true
 	alert.ResolvedAt = &now
-	
+
 	am.logger.Info("Alert resolved", zap.String("id", alertID))
 	return nil
 }
@@ -679,10 +679,10 @@ func DefaultMonitoringConfig() *MonitoringConfig {
 		MetricsInterval:      time.Minute,
 		HealthCheckInterval:  time.Minute * 5,
 		AlertCheckInterval:   time.Minute * 2,
-		HitRatioThreshold:    0.8,   // 80%
+		HitRatioThreshold:    0.8, // 80%
 		AvgResponseThreshold: time.Millisecond * 100,
-		ErrorRateThreshold:   0.05,  // 5%
-		MemoryUsageThreshold: 0.85,  // 85%
+		ErrorRateThreshold:   0.05, // 5%
+		MemoryUsageThreshold: 0.85, // 85%
 		EnableAlerts:         true,
 		AlertCooldown:        time.Minute * 15,
 		MaxAlertHistory:      100,

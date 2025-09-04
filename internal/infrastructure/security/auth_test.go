@@ -160,7 +160,7 @@ func (suite *AuthServiceTestSuite) TestTokenValidation() {
 		email := "test@example.com"
 		roles := []string{"user"}
 		sessionID := uuid.New().String()
-		
+
 		token, _ := suite.authService.GenerateAccessToken(
 			userID, email, roles, sessionID, "192.168.1.1", "Test Browser",
 		)
@@ -205,12 +205,12 @@ func (suite *AuthServiceTestSuite) TestTokenValidation() {
 		// Arrange - Create service with very short expiration
 		shortConfig := *suite.config
 		shortConfig.Auth.JWTExpiration = 1 * time.Millisecond
-		
+
 		shortAuthService := NewAuthService(&shortConfig, suite.logger, suite.redisClient)
 		userID := uuid.New().String()
-		
+
 		token, _ := shortAuthService.GenerateAccessToken(
-			userID, "test@example.com", []string{"user"}, 
+			userID, "test@example.com", []string{"user"},
 			uuid.New().String(), "192.168.1.1", "Test Browser",
 		)
 
@@ -229,13 +229,13 @@ func (suite *AuthServiceTestSuite) TestTokenValidation() {
 		// Arrange
 		userID := uuid.New().String()
 		token, _ := suite.authService.GenerateAccessToken(
-			userID, "test@example.com", []string{"user"}, 
+			userID, "test@example.com", []string{"user"},
 			uuid.New().String(), "192.168.1.1", "Test Browser",
 		)
 
 		// Get token ID for revocation
 		claims, _ := suite.authService.ValidateToken(token, AccessToken)
-		
+
 		// Revoke the token
 		err := suite.authService.RevokeToken(claims.ID)
 		require.NoError(suite.T(), err)
@@ -264,7 +264,7 @@ func (suite *AuthServiceTestSuite) TestTokenRevocation() {
 
 		// Verify token is marked as revoked in Redis
 		exists, err := suite.redisClient.Exists(
-			context.Background(), 
+			context.Background(),
 			fmt.Sprintf("revoked_token:%s", tokenID),
 		).Result()
 		require.NoError(suite.T(), err)
@@ -274,10 +274,10 @@ func (suite *AuthServiceTestSuite) TestTokenRevocation() {
 	suite.Run("RevokeAllUserTokens_ExistingTokens_ShouldRevokeAll", func() {
 		// Arrange
 		userID := uuid.New().String()
-		
+
 		// Create multiple tokens for the user
 		token1, _ := suite.authService.GenerateAccessToken(
-			userID, "test@example.com", []string{"user"}, 
+			userID, "test@example.com", []string{"user"},
 			uuid.New().String(), "192.168.1.1", "Test Browser",
 		)
 		token2, _ := suite.authService.GenerateRefreshToken(
@@ -311,7 +311,7 @@ func (suite *AuthServiceTestSuite) TestSessionManagement() {
 		// Assert
 		require.NoError(suite.T(), err)
 		require.NotNil(suite.T(), session)
-		
+
 		assert.Equal(suite.T(), userID, session.UserID)
 		assert.Equal(suite.T(), ipAddress, session.IPAddress)
 		assert.Equal(suite.T(), userAgent, session.UserAgent)
@@ -322,7 +322,7 @@ func (suite *AuthServiceTestSuite) TestSessionManagement() {
 
 		// Verify session is stored in Redis
 		exists, err := suite.redisClient.Exists(
-			context.Background(), 
+			context.Background(),
 			fmt.Sprintf("session:%s", session.SessionID),
 		).Result()
 		require.NoError(suite.T(), err)
@@ -333,7 +333,7 @@ func (suite *AuthServiceTestSuite) TestSessionManagement() {
 		// Arrange
 		userID := uuid.New().String()
 		ipAddress := "192.168.1.1"
-		
+
 		session, _ := suite.authService.CreateSession(userID, ipAddress, "Test Browser")
 
 		// Act
@@ -368,7 +368,7 @@ func (suite *AuthServiceTestSuite) TestSessionManagement() {
 		// Arrange
 		userID := uuid.New().String()
 		wrongUserID := uuid.New().String()
-		
+
 		session, _ := suite.authService.CreateSession(userID, "192.168.1.1", "Test Browser")
 
 		// Act
@@ -396,10 +396,10 @@ func (suite *AuthServiceTestSuite) TestPasswordHashing() {
 		require.NoError(suite.T(), err)
 		assert.NotEmpty(suite.T(), hash)
 		suite.assertions.PasswordHash(hash)
-		
+
 		// Verify the hash is different from the original password
 		assert.NotEqual(suite.T(), password, hash)
-		
+
 		// Verify we can verify the password against the hash
 		err = suite.authService.VerifyPassword(hash, password)
 		assert.NoError(suite.T(), err)
@@ -449,17 +449,17 @@ func (suite *AuthServiceTestSuite) TestAuthMiddleware() {
 	suite.Run("AuthMiddleware_ValidToken_ShouldAllowAccess", func() {
 		// Arrange
 		gin.SetMode(gin.TestMode)
-		
+
 		userID := uuid.New().String()
 		email := "test@example.com"
 		roles := []string{"user"}
 		sessionID := uuid.New().String()
 		ipAddress := "192.168.1.1"
-		
+
 		// Create session and token
 		_, err := suite.authService.CreateSession(userID, ipAddress, "Test Browser")
 		require.NoError(suite.T(), err)
-		
+
 		token, err := suite.authService.GenerateAccessToken(
 			userID, email, roles, sessionID, ipAddress, "Test Browser",
 		)
@@ -487,7 +487,7 @@ func (suite *AuthServiceTestSuite) TestAuthMiddleware() {
 	suite.Run("AuthMiddleware_NoToken_ShouldRejectAccess", func() {
 		// Arrange
 		gin.SetMode(gin.TestMode)
-		
+
 		router := gin.New()
 		router.Use(suite.authService.AuthMiddleware())
 		router.GET("/protected", func(c *gin.Context) {
@@ -503,7 +503,7 @@ func (suite *AuthServiceTestSuite) TestAuthMiddleware() {
 
 		// Assert
 		assert.Equal(suite.T(), http.StatusUnauthorized, w.Code)
-		
+
 		var response map[string]interface{}
 		testutils.NewHTTPAssertions(suite.T()).JSONResponse(w.Result(), &response)
 		assert.Contains(suite.T(), response["error"], "Authorization header required")
@@ -512,7 +512,7 @@ func (suite *AuthServiceTestSuite) TestAuthMiddleware() {
 	suite.Run("AuthMiddleware_InvalidTokenFormat_ShouldRejectAccess", func() {
 		// Arrange
 		gin.SetMode(gin.TestMode)
-		
+
 		router := gin.New()
 		router.Use(suite.authService.AuthMiddleware())
 		router.GET("/protected", func(c *gin.Context) {
@@ -534,15 +534,15 @@ func (suite *AuthServiceTestSuite) TestAuthMiddleware() {
 	suite.Run("AuthMiddleware_ExpiredToken_ShouldRejectAccess", func() {
 		// Arrange
 		gin.SetMode(gin.TestMode)
-		
+
 		// Create service with very short expiration
 		shortConfig := *suite.config
 		shortConfig.Auth.JWTExpiration = 1 * time.Millisecond
 		shortAuthService := NewAuthService(&shortConfig, suite.logger, suite.redisClient)
-		
+
 		userID := uuid.New().String()
 		token, _ := shortAuthService.GenerateAccessToken(
-			userID, "test@example.com", []string{"user"}, 
+			userID, "test@example.com", []string{"user"},
 			uuid.New().String(), "192.168.1.1", "Test Browser",
 		)
 
@@ -573,7 +573,7 @@ func (suite *AuthServiceTestSuite) TestCSRFMiddleware() {
 	suite.Run("CSRFMiddleware_ValidToken_ShouldAllowAccess", func() {
 		// Arrange
 		gin.SetMode(gin.TestMode)
-		
+
 		sessionID := uuid.New().String()
 		csrfToken, err := suite.authService.GenerateCSRFToken(sessionID)
 		require.NoError(suite.T(), err)
@@ -603,7 +603,7 @@ func (suite *AuthServiceTestSuite) TestCSRFMiddleware() {
 	suite.Run("CSRFMiddleware_NoToken_ShouldRejectAccess", func() {
 		// Arrange
 		gin.SetMode(gin.TestMode)
-		
+
 		router := gin.New()
 		router.Use(suite.authService.CSRFMiddleware())
 		router.POST("/protected", func(c *gin.Context) {
@@ -624,7 +624,7 @@ func (suite *AuthServiceTestSuite) TestCSRFMiddleware() {
 	suite.Run("CSRFMiddleware_GetRequest_ShouldSkipCheck", func() {
 		// Arrange
 		gin.SetMode(gin.TestMode)
-		
+
 		router := gin.New()
 		router.Use(suite.authService.CSRFMiddleware())
 		router.GET("/protected", func(c *gin.Context) {
@@ -645,7 +645,7 @@ func (suite *AuthServiceTestSuite) TestCSRFMiddleware() {
 	suite.Run("CSRFMiddleware_FormToken_ShouldAllowAccess", func() {
 		// Arrange
 		gin.SetMode(gin.TestMode)
-		
+
 		sessionID := uuid.New().String()
 		csrfToken, err := suite.authService.GenerateCSRFToken(sessionID)
 		require.NoError(suite.T(), err)
@@ -661,7 +661,7 @@ func (suite *AuthServiceTestSuite) TestCSRFMiddleware() {
 		})
 
 		// Create request with CSRF token in form data
-		req := httptest.NewRequest("POST", "/protected", 
+		req := httptest.NewRequest("POST", "/protected",
 			strings.NewReader(fmt.Sprintf("csrf_token=%s", csrfToken)))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
@@ -684,11 +684,11 @@ func BenchmarkTokenGeneration(b *testing.B) {
 			BCryptCost:        4,
 		},
 	}
-	
+
 	logger := zap.NewNop()
 	redisClient := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 1})
 	authService := NewAuthService(config, logger, redisClient)
-	
+
 	userID := uuid.New().String()
 	email := "test@example.com"
 	roles := []string{"user"}
@@ -715,14 +715,14 @@ func BenchmarkTokenValidation(b *testing.B) {
 			BCryptCost:        4,
 		},
 	}
-	
+
 	logger := zap.NewNop()
 	redisClient := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 1})
 	authService := NewAuthService(config, logger, redisClient)
-	
+
 	// Generate a token to validate
 	token, _ := authService.GenerateAccessToken(
-		uuid.New().String(), "test@example.com", []string{"user"}, 
+		uuid.New().String(), "test@example.com", []string{"user"},
 		uuid.New().String(), "192.168.1.1", "Test Browser",
 	)
 
@@ -742,11 +742,11 @@ func BenchmarkPasswordHashing(b *testing.B) {
 			BCryptCost: 10, // Realistic cost
 		},
 	}
-	
+
 	logger := zap.NewNop()
 	redisClient := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 1})
 	authService := NewAuthService(config, logger, redisClient)
-	
+
 	password := "TestPassword123!"
 
 	b.ResetTimer()

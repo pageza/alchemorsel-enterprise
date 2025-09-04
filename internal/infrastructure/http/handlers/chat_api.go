@@ -15,14 +15,14 @@ import (
 // ChatAPIHandlers handles API chat endpoints
 type ChatAPIHandlers struct {
 	conversationService *conversation.Service
-	logger             *zap.Logger
+	logger              *zap.Logger
 }
 
 // NewChatAPIHandlers creates new chat API handlers
 func NewChatAPIHandlers(conversationService *conversation.Service, logger *zap.Logger) *ChatAPIHandlers {
 	return &ChatAPIHandlers{
 		conversationService: conversationService,
-		logger:             logger,
+		logger:              logger,
 	}
 }
 
@@ -37,14 +37,14 @@ func (h *ChatAPIHandlers) ListConversations(w http.ResponseWriter, r *http.Reque
 	// Parse query parameters
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
-	
+
 	limit := 50 // default
 	if limitStr != "" {
 		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 && parsedLimit <= 100 {
 			limit = parsedLimit
 		}
 	}
-	
+
 	offset := 0 // default
 	if offsetStr != "" {
 		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
@@ -77,7 +77,7 @@ func (h *ChatAPIHandlers) CreateConversation(w http.ResponseWriter, r *http.Requ
 	}
 
 	var req struct {
-		Title         string `json:"title"`
+		Title          string `json:"title"`
 		InitialMessage string `json:"initial_message"`
 	}
 

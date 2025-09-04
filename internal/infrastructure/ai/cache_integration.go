@@ -14,10 +14,10 @@ import (
 
 // CachedAIService wraps AI services with intelligent caching
 type CachedAIService struct {
-	client    outbound.AIService
-	aiCache   *cache.AICacheService
-	logger    *zap.Logger
-	enabled   bool
+	client  outbound.AIService
+	aiCache *cache.AICacheService
+	logger  *zap.Logger
+	enabled bool
 }
 
 // NewCachedAIService creates a new cached AI service wrapper
@@ -39,24 +39,24 @@ func (c *CachedAIService) GenerateRecipe(ctx context.Context, prompt string, con
 	// Use cache-first pattern with fallback
 	return c.aiCache.GetRecipeGeneration(ctx, prompt, constraints, func(ctx context.Context, prompt string, constraints outbound.AIConstraints) (*outbound.AIRecipeResponse, error) {
 		start := time.Now()
-		
+
 		response, err := c.client.GenerateRecipe(ctx, prompt, constraints)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		processingTime := time.Since(start)
-		
+
 		// Cache the response asynchronously
 		go func() {
 			cacheCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			
+
 			if cacheErr := c.aiCache.CacheRecipeGeneration(cacheCtx, prompt, constraints, response, processingTime); cacheErr != nil {
 				c.logger.Error("Failed to cache AI recipe response", zap.Error(cacheErr))
 			}
 		}()
-		
+
 		return response, nil
 	})
 }
@@ -69,24 +69,24 @@ func (c *CachedAIService) SuggestIngredients(ctx context.Context, partial []stri
 
 	return c.aiCache.GetIngredientSuggestions(ctx, partial, func(ctx context.Context, partial []string) ([]string, error) {
 		start := time.Now()
-		
+
 		suggestions, err := c.client.SuggestIngredients(ctx, partial)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		processingTime := time.Since(start)
-		
+
 		// Cache the suggestions asynchronously
 		go func() {
 			cacheCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			
+
 			if cacheErr := c.aiCache.CacheIngredientSuggestions(cacheCtx, partial, suggestions, processingTime); cacheErr != nil {
 				c.logger.Error("Failed to cache ingredient suggestions", zap.Error(cacheErr))
 			}
 		}()
-		
+
 		return suggestions, nil
 	})
 }
@@ -99,24 +99,24 @@ func (c *CachedAIService) AnalyzeNutrition(ctx context.Context, ingredients []st
 
 	return c.aiCache.GetNutritionAnalysis(ctx, ingredients, func(ctx context.Context, ingredients []string) (*outbound.NutritionInfo, error) {
 		start := time.Now()
-		
+
 		nutrition, err := c.client.AnalyzeNutrition(ctx, ingredients)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		processingTime := time.Since(start)
-		
+
 		// Cache the nutrition analysis asynchronously
 		go func() {
 			cacheCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			
+
 			if cacheErr := c.aiCache.CacheNutritionAnalysis(cacheCtx, ingredients, nutrition, processingTime); cacheErr != nil {
 				c.logger.Error("Failed to cache nutrition analysis", zap.Error(cacheErr))
 			}
 		}()
-		
+
 		return nutrition, nil
 	})
 }
@@ -144,16 +144,16 @@ func (c *CachedAIService) GetCacheStats(ctx context.Context) (*cache.AICacheStat
 // InvalidateCache invalidates all AI cache entries
 func (c *CachedAIService) InvalidateCache(ctx context.Context) error {
 	models := []string{"recipe_generation", "ingredient_suggestions", "nutrition_analysis"}
-	
+
 	for _, model := range models {
 		if err := c.aiCache.InvalidateAICache(ctx, model); err != nil {
-			c.logger.Error("Failed to invalidate AI cache", 
-				zap.String("model", model), 
+			c.logger.Error("Failed to invalidate AI cache",
+				zap.String("model", model),
 				zap.Error(err))
 			return err
 		}
 	}
-	
+
 	c.logger.Info("AI cache invalidated successfully")
 	return nil
 }
@@ -161,7 +161,7 @@ func (c *CachedAIService) InvalidateCache(ctx context.Context) error {
 // WarmupCache pre-warms the cache with common requests
 func (c *CachedAIService) WarmupCache(ctx context.Context) error {
 	c.logger.Info("Starting AI cache warmup")
-	
+
 	// Common recipe prompts for warmup
 	warmupPrompts := []struct {
 		prompt      string
@@ -189,7 +189,7 @@ func (c *CachedAIService) WarmupCache(ctx context.Context) error {
 			},
 		},
 	}
-	
+
 	// Common ingredient suggestions for warmup
 	warmupIngredients := [][]string{
 		{"chicken", "garlic"},
@@ -197,9 +197,9 @@ func (c *CachedAIService) WarmupCache(ctx context.Context) error {
 		{"vegetables", "olive oil"},
 		{"fish", "lemon"},
 	}
-	
+
 	var successCount int
-	
+
 	// Warmup recipe generation cache
 	for i, warmup := range warmupPrompts {
 		select {
@@ -208,20 +208,20 @@ func (c *CachedAIService) WarmupCache(ctx context.Context) error {
 			return ctx.Err()
 		default:
 		}
-		
+
 		_, err := c.GenerateRecipe(ctx, warmup.prompt, warmup.constraints)
 		if err != nil {
-			c.logger.Warn("Cache warmup failed for recipe", 
-				zap.String("prompt", warmup.prompt), 
+			c.logger.Warn("Cache warmup failed for recipe",
+				zap.String("prompt", warmup.prompt),
 				zap.Error(err))
 		} else {
 			successCount++
 		}
-		
+
 		// Small delay to avoid overwhelming the AI service
 		time.Sleep(1 * time.Second)
 	}
-	
+
 	// Warmup ingredient suggestions cache
 	for i, ingredients := range warmupIngredients {
 		select {
@@ -230,23 +230,23 @@ func (c *CachedAIService) WarmupCache(ctx context.Context) error {
 			return ctx.Err()
 		default:
 		}
-		
+
 		_, err := c.SuggestIngredients(ctx, ingredients)
 		if err != nil {
-			c.logger.Warn("Cache warmup failed for ingredients", 
-				zap.Strings("ingredients", ingredients), 
+			c.logger.Warn("Cache warmup failed for ingredients",
+				zap.Strings("ingredients", ingredients),
 				zap.Error(err))
 		} else {
 			successCount++
 		}
-		
+
 		time.Sleep(500 * time.Millisecond)
 	}
-	
-	c.logger.Info("AI cache warmup completed", 
+
+	c.logger.Info("AI cache warmup completed",
 		zap.Int("successful_requests", successCount),
 		zap.Int("total_requests", len(warmupPrompts)+len(warmupIngredients)))
-	
+
 	return nil
 }
 
@@ -261,7 +261,7 @@ type OllamaOptimizedService struct {
 // NewOllamaOptimizedService creates an optimized service specifically for Ollama
 func NewOllamaOptimizedService(ollamaClient *ollama.Client, cacheService *cache.CacheService, logger *zap.Logger) *OllamaOptimizedService {
 	cachedService := NewCachedAIService(ollamaClient, cacheService, logger)
-	
+
 	return &OllamaOptimizedService{
 		CachedAIService: cachedService,
 		ollamaClient:    ollamaClient,
@@ -279,23 +279,23 @@ func (o *OllamaOptimizedService) PreloadModel(ctx context.Context, modelName str
 			return nil
 		}
 	}
-	
+
 	o.logger.Info("Preloading model", zap.String("model", modelName))
-	
+
 	// Simple test prompt to load model into memory
 	testPrompt := "test"
 	_, err := o.ollamaClient.SuggestIngredients(ctx, []string{testPrompt})
-	
+
 	if err != nil {
-		o.logger.Error("Failed to preload model", 
-			zap.String("model", modelName), 
+		o.logger.Error("Failed to preload model",
+			zap.String("model", modelName),
 			zap.Error(err))
 		return fmt.Errorf("failed to preload model %s: %w", modelName, err)
 	}
-	
+
 	// Update cache
 	o.modelCache[modelName] = time.Now()
-	
+
 	o.logger.Info("Model preloaded successfully", zap.String("model", modelName))
 	return nil
 }
@@ -303,17 +303,17 @@ func (o *OllamaOptimizedService) PreloadModel(ctx context.Context, modelName str
 // OptimizeForOllama applies Ollama-specific optimizations
 func (o *OllamaOptimizedService) OptimizeForOllama(ctx context.Context) error {
 	o.logger.Info("Applying Ollama-specific optimizations")
-	
+
 	// Preload primary model
 	if err := o.PreloadModel(ctx, "llama3.2:3b"); err != nil {
 		o.logger.Warn("Failed to preload primary model", zap.Error(err))
 	}
-	
+
 	// Warmup cache with smaller, faster prompts optimized for Ollama
 	if err := o.WarmupCache(ctx); err != nil {
 		o.logger.Warn("Failed to warmup cache", zap.Error(err))
 	}
-	
+
 	o.logger.Info("Ollama optimizations applied successfully")
 	return nil
 }
@@ -321,14 +321,14 @@ func (o *OllamaOptimizedService) OptimizeForOllama(ctx context.Context) error {
 // GetModelStatus returns the status of loaded models
 func (o *OllamaOptimizedService) GetModelStatus() map[string]interface{} {
 	status := make(map[string]interface{})
-	
+
 	for model, lastPreload := range o.modelCache {
 		status[model] = map[string]interface{}{
-			"last_preload": lastPreload.Format(time.RFC3339),
-			"age_minutes":  time.Since(lastPreload).Minutes(),
+			"last_preload":  lastPreload.Format(time.RFC3339),
+			"age_minutes":   time.Since(lastPreload).Minutes(),
 			"likely_loaded": time.Since(lastPreload) < 10*time.Minute,
 		}
 	}
-	
+
 	return status
 }

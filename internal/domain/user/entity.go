@@ -3,10 +3,10 @@ package user
 
 import (
 	"errors"
-	"strings"
-	"time"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"strings"
+	"time"
 )
 
 // User represents a user in the system
@@ -40,14 +40,14 @@ type UserProfile struct {
 // UserPreferences contains user preferences
 type UserPreferences struct {
 	DietaryRestrictions []DietaryRestriction
-	Allergies          []string
-	PreferredCuisines  []string
+	Allergies           []string
+	PreferredCuisines   []string
 	DislikedIngredients []string
-	MeasurementSystem  MeasurementSystem
-	Language           string
-	Timezone           string
-	EmailNotifications bool
-	PushNotifications  bool
+	MeasurementSystem   MeasurementSystem
+	Language            string
+	Timezone            string
+	EmailNotifications  bool
+	PushNotifications   bool
 }
 
 // UserRole represents the role of a user
@@ -96,21 +96,21 @@ func NewUser(email, name, password string) (*User, error) {
 	if err := validateEmail(email); err != nil {
 		return nil, err
 	}
-	
+
 	if err := validateName(name); err != nil {
 		return nil, err
 	}
-	
+
 	if err := validatePassword(password); err != nil {
 		return nil, err
 	}
-	
+
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, errors.New("failed to hash password")
 	}
-	
+
 	now := time.Now()
 	return &User{
 		id:           uuid.New(),
@@ -196,12 +196,12 @@ func (u *User) UpdatePassword(newPassword string) error {
 	if err := validatePassword(newPassword); err != nil {
 		return err
 	}
-	
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return errors.New("failed to hash password")
 	}
-	
+
 	u.passwordHash = string(hashedPassword)
 	u.updatedAt = time.Now()
 	return nil
@@ -249,7 +249,7 @@ func (u *User) HasDietaryRestriction(restriction DietaryRestriction) bool {
 	if u.preferences == nil {
 		return false
 	}
-	
+
 	for _, r := range u.preferences.DietaryRestrictions {
 		if r == restriction {
 			return true
@@ -263,15 +263,15 @@ func validateEmail(email string) error {
 	if email == "" {
 		return errors.New("email is required")
 	}
-	
+
 	if !strings.Contains(email, "@") {
 		return errors.New("invalid email format")
 	}
-	
+
 	if len(email) > 255 {
 		return errors.New("email too long")
 	}
-	
+
 	return nil
 }
 
@@ -279,15 +279,15 @@ func validateName(name string) error {
 	if name == "" {
 		return errors.New("name is required")
 	}
-	
+
 	if len(name) < 2 {
 		return errors.New("name must be at least 2 characters")
 	}
-	
+
 	if len(name) > 100 {
 		return errors.New("name too long")
 	}
-	
+
 	return nil
 }
 
@@ -295,11 +295,11 @@ func validatePassword(password string) error {
 	if len(password) < 8 {
 		return errors.New("password must be at least 8 characters")
 	}
-	
+
 	if len(password) > 128 {
 		return errors.New("password too long")
 	}
-	
+
 	return nil
 }
 
@@ -314,7 +314,7 @@ func ReconstructUser(id uuid.UUID, email, name, passwordHash string, isActive, i
 		isActive:     isActive,
 		isVerified:   isVerified,
 		role:         role,
-		profile:      &UserProfile{}, // Default empty profile
+		profile:      &UserProfile{},     // Default empty profile
 		preferences:  &UserPreferences{}, // Default empty preferences
 		createdAt:    createdAt,
 		updatedAt:    updatedAt,

@@ -40,27 +40,27 @@ func (h *DatabasePerformanceHandler) RegisterRoutes(r *gin.RouterGroup) {
 		perf.GET("/dashboard/export", h.ExportDashboard)
 		perf.GET("/health", h.GetHealthStatus)
 		perf.GET("/metrics", h.GetMetrics)
-		
+
 		// Query monitoring endpoints
 		perf.GET("/queries/slow", h.GetSlowQueries)
 		perf.GET("/queries/analysis", h.GetQueryAnalysis)
 		perf.GET("/queries/patterns", h.GetQueryPatterns)
-		
+
 		// Index optimization endpoints
 		perf.GET("/indexes/analysis", h.GetIndexAnalysis)
 		perf.GET("/indexes/suggestions", h.GetIndexSuggestions)
 		perf.GET("/indexes/unused", h.GetUnusedIndexes)
 		perf.POST("/indexes/optimize", h.OptimizeIndexes)
-		
+
 		// Cache performance endpoints
 		perf.GET("/cache/stats", h.GetCacheStats)
 		perf.POST("/cache/clear", h.ClearCache)
 		perf.POST("/cache/invalidate", h.InvalidateCache)
-		
+
 		// Performance testing endpoints
 		perf.POST("/test/run", h.RunPerformanceTests)
 		perf.GET("/test/results/:testId", h.GetTestResults)
-		
+
 		// Connection monitoring endpoints
 		perf.GET("/connections", h.GetConnectionMetrics)
 		perf.GET("/connections/health", h.GetConnectionHealth)
@@ -129,7 +129,7 @@ func (h *DatabasePerformanceHandler) GetHealthStatus(c *gin.Context) {
 func (h *DatabasePerformanceHandler) GetMetrics(c *gin.Context) {
 	// This would integrate with Prometheus metrics
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Metrics available at /metrics endpoint (Prometheus format)",
+		"message":       "Metrics available at /metrics endpoint (Prometheus format)",
 		"dashboard_url": "/api/v1/database/performance/dashboard",
 	})
 }
@@ -161,9 +161,9 @@ func (h *DatabasePerformanceHandler) GetSlowQueries(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data": gin.H{
-			"slow_queries": slowQueries,
+			"slow_queries":  slowQueries,
 			"total_queries": data.QueryMetrics.TotalQueries,
-			"slow_ratio": data.QueryMetrics.SlowQueryRatio,
+			"slow_ratio":    data.QueryMetrics.SlowQueryRatio,
 		},
 	})
 }
@@ -210,7 +210,7 @@ func (h *DatabasePerformanceHandler) GetQueryPatterns(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data": gin.H{
-			"patterns": patterns,
+			"patterns":       patterns,
 			"total_patterns": len(data.QueryMetrics.TopSlowPatterns),
 		},
 	})
@@ -230,7 +230,7 @@ func (h *DatabasePerformanceHandler) GetIndexAnalysis(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data": gin.H{
-			"index_health": data.IndexHealth,
+			"index_health":    data.IndexHealth,
 			"recommendations": data.Recommendations,
 		},
 	})
@@ -240,8 +240,8 @@ func (h *DatabasePerformanceHandler) GetIndexAnalysis(c *gin.Context) {
 func (h *DatabasePerformanceHandler) GetIndexSuggestions(c *gin.Context) {
 	// This would call the index optimizer directly
 	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"message": "Index suggestions available in dashboard analysis",
+		"status":   "success",
+		"message":  "Index suggestions available in dashboard analysis",
 		"endpoint": "/api/v1/database/performance/indexes/analysis",
 	})
 }
@@ -250,8 +250,8 @@ func (h *DatabasePerformanceHandler) GetIndexSuggestions(c *gin.Context) {
 func (h *DatabasePerformanceHandler) GetUnusedIndexes(c *gin.Context) {
 	// This would call the index optimizer directly
 	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"message": "Unused indexes available in dashboard analysis",
+		"status":   "success",
+		"message":  "Unused indexes available in dashboard analysis",
 		"endpoint": "/api/v1/database/performance/indexes/analysis",
 	})
 }
@@ -273,13 +273,13 @@ func (h *DatabasePerformanceHandler) OptimizeIndexes(c *gin.Context) {
 	// For safety, this should be restricted to admin users
 	if request.DryRun {
 		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
+			"status":  "success",
 			"message": "Dry run completed - check dashboard for optimization suggestions",
 			"dry_run": true,
 		})
 	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
+			"status":  "success",
 			"message": "Index optimization initiated - monitor dashboard for progress",
 			"dry_run": false,
 		})
@@ -307,8 +307,8 @@ func (h *DatabasePerformanceHandler) GetCacheStats(c *gin.Context) {
 func (h *DatabasePerformanceHandler) ClearCache(c *gin.Context) {
 	// This would call the query cache clear method
 	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"message": "Cache clear initiated",
+		"status":    "success",
+		"message":   "Cache clear initiated",
 		"timestamp": time.Now(),
 	})
 }
@@ -328,10 +328,10 @@ func (h *DatabasePerformanceHandler) InvalidateCache(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"message": "Cache invalidation initiated",
-		"tags": request.Tags,
-		"tables": request.Tables,
+		"status":    "success",
+		"message":   "Cache invalidation initiated",
+		"tags":      request.Tags,
+		"tables":    request.Tables,
 		"timestamp": time.Now(),
 	})
 }
@@ -353,15 +353,15 @@ func (h *DatabasePerformanceHandler) RunPerformanceTests(c *gin.Context) {
 
 	// Start performance tests asynchronously
 	testId := generateTestID()
-	
+
 	go func() {
 		h.logger.Info("Starting performance tests", zap.String("test_id", testId))
-		
+
 		if h.tester != nil {
 			suite, err := h.tester.RunComprehensiveTests(c.Request.Context())
 			if err != nil {
-				h.logger.Error("Performance tests failed", 
-					zap.String("test_id", testId), 
+				h.logger.Error("Performance tests failed",
+					zap.String("test_id", testId),
 					zap.Error(err))
 			} else {
 				h.logger.Info("Performance tests completed",
@@ -372,9 +372,9 @@ func (h *DatabasePerformanceHandler) RunPerformanceTests(c *gin.Context) {
 	}()
 
 	c.JSON(http.StatusAccepted, gin.H{
-		"status": "accepted",
-		"message": "Performance tests initiated",
-		"test_id": testId,
+		"status":           "accepted",
+		"message":          "Performance tests initiated",
+		"test_id":          testId,
 		"check_status_url": "/api/v1/database/performance/test/results/" + testId,
 	})
 }
@@ -382,13 +382,13 @@ func (h *DatabasePerformanceHandler) RunPerformanceTests(c *gin.Context) {
 // GetTestResults returns performance test results
 func (h *DatabasePerformanceHandler) GetTestResults(c *gin.Context) {
 	testId := c.Param("testId")
-	
+
 	// In a real implementation, this would fetch results from a store
 	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
+		"status":  "success",
 		"test_id": testId,
 		"message": "Test results would be available here",
-		"note": "Implementation requires result persistence",
+		"note":    "Implementation requires result persistence",
 	})
 }
 
@@ -435,9 +435,9 @@ func (h *DatabasePerformanceHandler) GetConnectionHealth(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data": gin.H{
-			"healthy": isHealthy,
-			"status": status,
-			"efficiency": efficiency,
+			"healthy":         isHealthy,
+			"status":          status,
+			"efficiency":      efficiency,
 			"recommendations": data.ConnectionMetrics.GetRecommendations(),
 		},
 	})
@@ -453,13 +453,13 @@ func DatabasePerformanceMiddleware(dashboard *postgres.PerformanceDashboard) gin
 	return func(c *gin.Context) {
 		// Record request start time
 		start := time.Now()
-		
+
 		// Process request
 		c.Next()
-		
+
 		// Record request duration and other metrics
 		duration := time.Since(start)
-		
+
 		// Log slow requests
 		if duration > 1*time.Second {
 			dashboard.StartMonitoring(c.Request.Context(), 10*time.Second)

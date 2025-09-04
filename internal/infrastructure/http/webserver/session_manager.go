@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/alexedwards/scs/v2"
-	"github.com/alexedwards/scs/v2/memstore"
-	"github.com/alexedwards/scs/redisstore"
 	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
+	"github.com/alexedwards/scs/redisstore"
+	"github.com/alexedwards/scs/v2"
+	"github.com/alexedwards/scs/v2/memstore"
 	"github.com/gomodule/redigo/redis"
 	"go.uber.org/zap"
 )
@@ -29,7 +29,7 @@ type ConversationMessage struct {
 func (m *ConversationMessage) FormattedTime() string {
 	now := time.Now()
 	diff := now.Sub(m.Timestamp)
-	
+
 	if diff < time.Minute {
 		return "Just now"
 	} else if diff < time.Hour {
@@ -72,15 +72,15 @@ func NewSessionManager(cfg *config.Config, logger *zap.Logger) (*SessionManager,
 	gob.Register(map[string]interface{}{})
 	gob.Register([]map[string]interface{}{})
 	gob.Register(time.Time{})
-	
+
 	// Create SCS session manager first
 	sessionManager := scs.New()
-	
+
 	// Try to establish Redis connection with timeout
 	redisAvailable := false
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	// Create Redis connection pool for SCS (using Redigo)
 	// Note: This creates a separate connection pool from the main Redis client
 	// because SCS redisstore uses the Redigo client, while our cache uses go-redis
@@ -110,7 +110,7 @@ func NewSessionManager(cfg *config.Config, logger *zap.Logger) (*SessionManager,
 		}
 		done <- true
 	}()
-	
+
 	// Wait for connection test or timeout
 	select {
 	case <-done:
@@ -121,7 +121,7 @@ func NewSessionManager(cfg *config.Config, logger *zap.Logger) (*SessionManager,
 			zap.String("redis_host", cfg.Redis.Host),
 			zap.Int("redis_port", cfg.Redis.Port))
 	}
-	
+
 	// Configure session store based on Redis availability
 	if redisAvailable {
 		sessionManager.Store = redisstore.NewWithPrefix(pool, "session:")
@@ -135,13 +135,13 @@ func NewSessionManager(cfg *config.Config, logger *zap.Logger) (*SessionManager,
 	}
 
 	// Configure session settings
-	sessionManager.Lifetime = 24 * time.Hour                    // 24 hour absolute timeout
-	sessionManager.IdleTimeout = 30 * time.Minute               // 30 minute idle timeout
+	sessionManager.Lifetime = 24 * time.Hour      // 24 hour absolute timeout
+	sessionManager.IdleTimeout = 30 * time.Minute // 30 minute idle timeout
 	sessionManager.Cookie.Name = "alchemorsel-session"
 	sessionManager.Cookie.HttpOnly = true
 	sessionManager.Cookie.Path = "/"
-	sessionManager.Cookie.SameSite = http.SameSiteLaxMode        // HTMX compatible
-	sessionManager.Cookie.Secure = false                        // Set to true in production with HTTPS
+	sessionManager.Cookie.SameSite = http.SameSiteLaxMode // HTMX compatible
+	sessionManager.Cookie.Secure = false                  // Set to true in production with HTTPS
 
 	// Configure environment-specific settings
 	if cfg.App.Environment == "production" {
@@ -153,7 +153,7 @@ func NewSessionManager(cfg *config.Config, logger *zap.Logger) (*SessionManager,
 	if !redisAvailable {
 		storeType = "memory"
 	}
-	
+
 	logger.Info("Initialized SCS session manager",
 		zap.String("store", storeType),
 		zap.Duration("lifetime", sessionManager.Lifetime),

@@ -151,7 +151,7 @@ func (c *APIClient) VerifyToken(ctx context.Context, token string) bool {
 
 	// DEVELOPMENT: Accept mock tokens from development API
 	if strings.HasPrefix(token, "mock-jwt-") {
-		c.logger.Debug("Accepting mock token in development mode", 
+		c.logger.Debug("Accepting mock token in development mode",
 			zap.String("token_prefix", token[:15]+"..."))
 		return true
 	}
@@ -282,14 +282,14 @@ func (c *APIClient) CreateRecipe(ctx context.Context, token string, recipe Recip
 
 // ConversationResponse represents conversation data
 type ConversationResponse struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	Title     string    `json:"title"`
-	Intent    string    `json:"intent"`
-	Status    string    `json:"status"`
+	ID        string                 `json:"id"`
+	UserID    string                 `json:"user_id"`
+	Title     string                 `json:"title"`
+	Intent    string                 `json:"intent"`
+	Status    string                 `json:"status"`
 	Metadata  map[string]interface{} `json:"metadata"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time              `json:"created_at"`
+	UpdatedAt time.Time              `json:"updated_at"`
 }
 
 // MessageResponse represents message data
@@ -311,7 +311,7 @@ func (c *APIClient) GetConversationsWithAuth(ctx context.Context, token string, 
 	}
 
 	path := fmt.Sprintf("/api/v3/chat/conversations?limit=%d&offset=%d", limit, offset)
-	
+
 	err := c.getWithAuth(ctx, path, token, &resp)
 	if err != nil {
 		return nil, err

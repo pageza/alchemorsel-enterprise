@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	
+
 	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/alchemorsel/v3/internal/infrastructure/http/handlers"
 	gormRepo "github.com/alchemorsel/v3/internal/infrastructure/persistence/gorm"
@@ -21,10 +21,10 @@ func setupConversationRoutes(r chi.Router, db *gorm.DB) {
 	conversationRepo := gormRepo.NewConversationRepository(db)
 	messageRepo := gormRepo.NewMessageRepository(db)
 	contextRepo := gormRepo.NewContextRepository(db)
-	
+
 	// Initialize AI service (assuming you have this)
 	// aiService := ai.NewService(...)
-	
+
 	// Initialize conversation service
 	conversationService := conversation.NewService(
 		conversationRepo,
@@ -32,50 +32,50 @@ func setupConversationRoutes(r chi.Router, db *gorm.DB) {
 		contextRepo,
 		nil, // aiService - pass your AI service here
 	)
-	
+
 	// Initialize chat handler
 	chatHandler := handlers.NewChatHandler(conversationService)
-	
+
 	// Public routes (no authentication required)
 	r.Route("/", func(r chi.Router) {
 		// Chat page route
 		r.Get("/chat", chatHandler.HandleChatPage)
 	})
-	
+
 	// API routes (require authentication)
 	r.Route("/api", func(r chi.Router) {
 		r.Use(middleware.Logger)
 		r.Use(middleware.Recoverer)
 		// r.Use(AuthenticationMiddleware()) // Add your auth middleware
-		
+
 		r.Route("/chat", func(r chi.Router) {
 			// Core chat functionality
 			r.Post("/message", chatHandler.HandleChatMessage)
 			r.Get("/conversations", chatHandler.HandleConversationList)
 			r.Get("/history", chatHandler.HandleConversationHistory)
-			
+
 			// Conversation management
 			r.Post("/rename", chatHandler.HandleConversationRename)
 			r.Post("/delete", chatHandler.HandleConversationDelete)
-			
+
 			// Statistics
 			r.Get("/stats", chatHandler.HandleConversationStats)
 		})
 	})
-	
+
 	// HTMX routes (for dynamic UI updates)
 	r.Route("/htmx", func(r chi.Router) {
 		r.Use(middleware.Logger)
 		r.Use(middleware.Recoverer)
 		// r.Use(AuthenticationMiddleware()) // Add your auth middleware
-		
+
 		r.Route("/chat", func(r chi.Router) {
 			// HTMX-compatible endpoints
 			r.Post("/message", chatHandler.HandleAIChatHTMX)
 			r.Get("/conversations-list", chatHandler.HandleConversationListHTMX)
 		})
 	})
-	
+
 	// WebSocket route (if you're using WebSockets)
 	r.Route("/ws", func(r chi.Router) {
 		// r.Use(WebSocketAuthMiddleware()) // Add WebSocket auth
@@ -119,25 +119,25 @@ func main() {
 	// Initialize database connection
 	// db := initializeDatabase() // Your DB initialization - implement this function
 	var db *gorm.DB // placeholder
-	
+
 	// Initialize router
 	r := chi.NewRouter()
-	
+
 	// Global middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.RequestID)
-	
+
 	// Add session migration middleware
 	conversationService := initializeConversationService(db)
 	r.Use(SessionMigrationMiddleware(conversationService))
-	
+
 	// Setup conversation routes
 	setupConversationRoutes(r, db)
-	
+
 	// Other routes...
-	
+
 	// Start server
 	log.Println("Server starting on :8080")
 	http.ListenAndServe(":8080", r)
@@ -167,10 +167,10 @@ func initializeConversationService(db *gorm.DB) *conversation.Service {
 	conversationRepo := gormRepo.NewConversationRepository(db)
 	messageRepo := gormRepo.NewMessageRepository(db)
 	contextRepo := gormRepo.NewContextRepository(db)
-	
+
 	// Initialize with your AI service
 	// aiService := ai.NewService(...)
-	
+
 	return conversation.NewService(
 		conversationRepo,
 		messageRepo,

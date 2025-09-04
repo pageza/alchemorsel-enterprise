@@ -70,9 +70,9 @@ func SetupTestDatabaseWithConfig(t *testing.T, cfg DatabaseConfig) *TestDatabase
 				Image:        cfg.Image,
 				ExposedPorts: []string{cfg.Port + "/tcp"},
 				Env: map[string]string{
-					"POSTGRES_DB":       cfg.Database,
-					"POSTGRES_USER":     cfg.Username,
-					"POSTGRES_PASSWORD": cfg.Password,
+					"POSTGRES_DB":               cfg.Database,
+					"POSTGRES_USER":             cfg.Username,
+					"POSTGRES_PASSWORD":         cfg.Password,
 					"POSTGRES_HOST_AUTH_METHOD": "trust",
 				},
 				WaitingFor: wait.ForAll(
@@ -154,7 +154,7 @@ func (td *TestDatabase) RunMigrations() error {
 
 	// Get migration path
 	migrationPath := "file://" + filepath.Join("../../internal/infrastructure/persistence/migrations/sql")
-	
+
 	m, err := migrate.NewWithDatabaseInstance(migrationPath, "postgres", driver)
 	if err != nil {
 		return fmt.Errorf("failed to create migrate instance: %w", err)
@@ -198,7 +198,7 @@ func (td *TestDatabase) SeedTestData() error {
 func (td *TestDatabase) TruncateAllTables() error {
 	tables := []string{
 		"recipe_ratings",
-		"recipe_ingredients", 
+		"recipe_ingredients",
 		"recipe_instructions",
 		"recipes",
 		"user_sessions",
@@ -298,24 +298,24 @@ func NewDatabaseHelper(db *TestDatabase) *DatabaseHelper {
 // CreateTestUser creates a test user and returns the ID
 func (h *DatabaseHelper) CreateTestUser(email, username string) (string, error) {
 	userID := "550e8400-e29b-41d4-a716-" + fmt.Sprintf("%012d", time.Now().UnixNano()%1000000000000)
-	
+
 	_, err := h.db.DB.Exec(`
 		INSERT INTO users (id, email, password_hash, username, created_at, updated_at)
 		VALUES ($1, $2, '$2a$04$hash', $3, NOW(), NOW())
 	`, userID, email, username)
-	
+
 	return userID, err
 }
 
 // CreateTestRecipe creates a test recipe and returns the ID
 func (h *DatabaseHelper) CreateTestRecipe(title, description, authorID string) (string, error) {
 	recipeID := "550e8400-e29b-41d4-a716-" + fmt.Sprintf("%012d", time.Now().UnixNano()%1000000000000)
-	
+
 	_, err := h.db.DB.Exec(`
 		INSERT INTO recipes (id, title, description, author_id, status, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, 'draft', NOW(), NOW())
 	`, recipeID, title, description, authorID)
-	
+
 	return recipeID, err
 }
 

@@ -23,11 +23,11 @@ const (
 type ConversationIntent string
 
 const (
-	IntentRecipeCreation        ConversationIntent = "recipe_creation"
-	IntentCookingHelp          ConversationIntent = "cooking_help"
+	IntentRecipeCreation         ConversationIntent = "recipe_creation"
+	IntentCookingHelp            ConversationIntent = "cooking_help"
 	IntentIngredientSubstitution ConversationIntent = "ingredient_substitution"
-	IntentMealPlanning         ConversationIntent = "meal_planning"
-	IntentGeneralQuestion      ConversationIntent = "general_question"
+	IntentMealPlanning           ConversationIntent = "meal_planning"
+	IntentGeneralQuestion        ConversationIntent = "general_question"
 )
 
 // MessageRole represents the role of a message sender
@@ -42,24 +42,24 @@ const (
 // Conversation represents a chat conversation between a user and AI assistant
 type Conversation struct {
 	// Aggregate root identifier
-	id      string
-	userID  string
-	
+	id     string
+	userID string
+
 	// Conversation metadata
-	title      string
-	intent     *ConversationIntent
-	status     ConversationStatus
-	metadata   map[string]interface{}
-	
+	title    string
+	intent   *ConversationIntent
+	status   ConversationStatus
+	metadata map[string]interface{}
+
 	// Messages in this conversation
-	messages   []Message
-	
+	messages []Message
+
 	// Timestamps
 	createdAt  time.Time
 	updatedAt  time.Time
 	archivedAt *time.Time
 	deletedAt  *time.Time
-	
+
 	// Domain events
 	events []shared.DomainEvent
 }
@@ -71,12 +71,12 @@ type Message struct {
 	role           MessageRole
 	content        string
 	metadata       map[string]interface{}
-	
+
 	// AI-specific fields
 	tokensUsed       int
 	processingTimeMs int
 	modelUsed        string
-	
+
 	createdAt time.Time
 }
 
@@ -92,7 +92,7 @@ type ConversationContext struct {
 // NewConversation creates a new conversation
 func NewConversation(userID string, intent *ConversationIntent) *Conversation {
 	now := time.Now()
-	
+
 	conversation := &Conversation{
 		id:        generateID(),
 		userID:    userID,
@@ -104,18 +104,18 @@ func NewConversation(userID string, intent *ConversationIntent) *Conversation {
 		updatedAt: now,
 		events:    make([]shared.DomainEvent, 0),
 	}
-	
+
 	// Generate default title based on intent
 	conversation.generateDefaultTitle()
-	
+
 	// Record domain event
 	conversation.recordEvent(shared.ConversationCreated{
 		ConversationID: conversation.id,
-		UserID:        userID,
-		Intent:        intent,
-		CreatedAt:     now,
+		UserID:         userID,
+		Intent:         intent,
+		CreatedAt:      now,
 	})
-	
+
 	return conversation
 }
 
@@ -164,11 +164,11 @@ func (c *Conversation) AddMessage(role MessageRole, content string, metadata map
 	if strings.TrimSpace(content) == "" {
 		return nil, NewValidationError("message content cannot be empty")
 	}
-	
+
 	if metadata == nil {
 		metadata = make(map[string]interface{})
 	}
-	
+
 	message := Message{
 		id:             generateID(),
 		conversationID: c.id,
@@ -177,24 +177,24 @@ func (c *Conversation) AddMessage(role MessageRole, content string, metadata map
 		metadata:       metadata,
 		createdAt:      time.Now(),
 	}
-	
+
 	c.messages = append(c.messages, message)
 	c.updatedAt = time.Now()
-	
+
 	// Update title from first user message if needed
 	if role == RoleUser && c.shouldUpdateTitle() {
 		c.generateTitleFromMessage(content)
 	}
-	
+
 	// Record domain event
 	c.recordEvent(shared.MessageAdded{
 		ConversationID: c.id,
 		MessageID:      message.id,
-		Role:          string(role),
-		Content:       content,
-		CreatedAt:     message.createdAt,
+		Role:           string(role),
+		Content:        content,
+		CreatedAt:      message.createdAt,
 	})
-	
+
 	return &message, nil
 }
 
@@ -204,23 +204,23 @@ func (c *Conversation) UpdateTitle(title string) error {
 	if title == "" {
 		return NewValidationError("title cannot be empty")
 	}
-	
+
 	if len(title) > 255 {
 		return NewValidationError("title cannot exceed 255 characters")
 	}
-	
+
 	oldTitle := c.title
 	c.title = title
 	c.updatedAt = time.Now()
-	
+
 	// Record domain event
 	c.recordEvent(shared.ConversationTitleUpdated{
 		ConversationID: c.id,
-		OldTitle:      oldTitle,
-		NewTitle:      title,
-		UpdatedAt:     c.updatedAt,
+		OldTitle:       oldTitle,
+		NewTitle:       title,
+		UpdatedAt:      c.updatedAt,
 	})
-	
+
 	return nil
 }
 
@@ -229,21 +229,21 @@ func (c *Conversation) Archive() error {
 	if c.status == StatusDeleted {
 		return NewDomainError("cannot archive a deleted conversation")
 	}
-	
+
 	if c.status == StatusArchived {
 		return nil // Already archived
 	}
-	
+
 	now := time.Now()
 	c.status = StatusArchived
 	c.archivedAt = &now
 	c.updatedAt = now
-	
+
 	c.recordEvent(shared.ConversationArchived{
 		ConversationID: c.id,
 		ArchivedAt:     now,
 	})
-	
+
 	return nil
 }
 
@@ -252,17 +252,17 @@ func (c *Conversation) Delete() error {
 	if c.status == StatusDeleted {
 		return nil // Already deleted
 	}
-	
+
 	now := time.Now()
 	c.status = StatusDeleted
 	c.deletedAt = &now
 	c.updatedAt = now
-	
+
 	c.recordEvent(shared.ConversationDeleted{
 		ConversationID: c.id,
 		DeletedAt:      now,
 	})
-	
+
 	return nil
 }
 
@@ -310,12 +310,12 @@ func (c *Conversation) shouldUpdateTitle() bool {
 			userMessageCount++
 		}
 	}
-	
-	return userMessageCount == 1 && (c.title == "" || 
-		c.title == "New Recipe Creation" || 
-		c.title == "Cooking Help" || 
-		c.title == "Ingredient Help" || 
-		c.title == "Meal Planning" || 
+
+	return userMessageCount == 1 && (c.title == "" ||
+		c.title == "New Recipe Creation" ||
+		c.title == "Cooking Help" ||
+		c.title == "Ingredient Help" ||
+		c.title == "Meal Planning" ||
 		c.title == "Chat with AI Chef")
 }
 
@@ -327,7 +327,7 @@ func (c *Conversation) generateTitleFromMessage(content string) {
 	} else {
 		c.title = content
 	}
-	
+
 	// Clean up title
 	c.title = strings.Title(strings.ToLower(c.title))
 }

@@ -22,8 +22,8 @@ type OllamaClient struct {
 // NewOllamaClient creates a new Ollama client
 func NewOllamaClient(baseURL, model string) *OllamaClient {
 	return &OllamaClient{
-		baseURL:    baseURL,
-		model:      model,
+		baseURL: baseURL,
+		model:   model,
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second,
 		},
@@ -32,10 +32,10 @@ func NewOllamaClient(baseURL, model string) *OllamaClient {
 
 // OllamaRequest represents a request to Ollama
 type OllamaRequest struct {
-	Model    string                         `json:"model"`
-	Messages []conversation.ChatMessage     `json:"messages"`
-	Stream   bool                          `json:"stream"`
-	Options  map[string]interface{}        `json:"options,omitempty"`
+	Model    string                     `json:"model"`
+	Messages []conversation.ChatMessage `json:"messages"`
+	Stream   bool                       `json:"stream"`
+	Options  map[string]interface{}     `json:"options,omitempty"`
 }
 
 // OllamaResponse represents a response from Ollama
@@ -56,9 +56,9 @@ func (c *OllamaClient) GenerateChatCompletion(ctx context.Context, messages []co
 		Messages: messages,
 		Stream:   false,
 		Options: map[string]interface{}{
-			"temperature":     temperature,
-			"max_tokens":      maxTokens,
-			"top_p":          0.9,
+			"temperature":       temperature,
+			"max_tokens":        maxTokens,
+			"top_p":             0.9,
 			"frequency_penalty": 0.0,
 			"presence_penalty":  0.0,
 		},
@@ -110,9 +110,9 @@ func (c *OllamaClient) GenerateChatCompletion(ctx context.Context, messages []co
 		TokensUsed: len(ollamaResp.Message.Content) / 4, // Rough token estimation
 		ModelUsed:  c.model,
 		Metadata: map[string]interface{}{
-			"provider": "ollama",
+			"provider":    "ollama",
 			"temperature": temperature,
-			"max_tokens": maxTokens,
+			"max_tokens":  maxTokens,
 		},
 	}, nil
 }

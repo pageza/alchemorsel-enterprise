@@ -4,7 +4,7 @@ package redis
 import (
 	"context"
 	"time"
-	
+
 	"github.com/alchemorsel/v3/internal/infrastructure/cache"
 	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"go.uber.org/zap"
@@ -84,7 +84,7 @@ func (r *CacheRepository) MSet(ctx context.Context, items map[string][]byte, ttl
 	return nil
 }
 
-// Increment atomically increments a counter  
+// Increment atomically increments a counter
 func (r *CacheRepository) Increment(ctx context.Context, key string) (int64, error) {
 	result, err := r.cacheService.Increment(ctx, key)
 	if err != nil {

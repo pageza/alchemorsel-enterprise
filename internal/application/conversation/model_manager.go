@@ -53,56 +53,56 @@ type GenerationOptions struct {
 
 // GenerationResult contains the result of AI text generation
 type GenerationResult struct {
-	Content   string
-	Quality   float64
-	Duration  time.Duration
+	Content    string
+	Quality    float64
+	Duration   time.Duration
 	TokensUsed int
-	ModelUsed string
-	Metadata  map[string]interface{}
+	ModelUsed  string
+	Metadata   map[string]interface{}
 }
 
 // ModelLoadBalancer handles distributing requests across models
 type ModelLoadBalancer struct {
-	models    map[string]*ModelInfo
-	mu        sync.RWMutex
-	logger    *zap.Logger
+	models     map[string]*ModelInfo
+	mu         sync.RWMutex
+	logger     *zap.Logger
 	roundRobin int
 }
 
 // ModelHealthChecker monitors model health and performance
 type ModelHealthChecker struct {
-	models     map[string]*ModelInfo
-	mu         sync.RWMutex
-	logger     *zap.Logger
+	models      map[string]*ModelInfo
+	mu          sync.RWMutex
+	logger      *zap.Logger
 	checkTicker *time.Ticker
 }
 
 // ModelManager manages multiple AI models with intelligent selection
 type ModelManager struct {
-	models         map[string]*ModelInfo
-	defaultModel   string
-	fallbackModel  string
-	loadBalancer   *ModelLoadBalancer
-	healthChecker  *ModelHealthChecker
-	config         *config.AIConfig
-	logger         *zap.Logger
-	mu             sync.RWMutex
+	models        map[string]*ModelInfo
+	defaultModel  string
+	fallbackModel string
+	loadBalancer  *ModelLoadBalancer
+	healthChecker *ModelHealthChecker
+	config        *config.AIConfig
+	logger        *zap.Logger
+	mu            sync.RWMutex
 }
 
 // NewModelManager creates a new model manager instance
 func NewModelManager(cfg *config.Config, logger *zap.Logger) *ModelManager {
 	models := make(map[string]*ModelInfo)
-	
+
 	// Initialize predefined models based on configuration
 	models[cfg.AI.ChatModel] = &ModelInfo{
 		Name:           cfg.AI.ChatModel,
 		Type:           ModelTypeChat,
 		QualityScore:   0.85,
-		InferenceSpeed: 15.0, // estimated tokens per second
+		InferenceSpeed: 15.0,               // estimated tokens per second
 		MemoryUsage:    4700 * 1024 * 1024, // ~4.7GB for 8B model
 		HealthStatus:   "unknown",
 	}
-	
+
 	models[cfg.AI.RecipeModel] = &ModelInfo{
 		Name:           cfg.AI.RecipeModel,
 		Type:           ModelTypeRecipe,
@@ -111,7 +111,7 @@ func NewModelManager(cfg *config.Config, logger *zap.Logger) *ModelManager {
 		MemoryUsage:    4700 * 1024 * 1024,
 		HealthStatus:   "unknown",
 	}
-	
+
 	models[cfg.AI.CodeModel] = &ModelInfo{
 		Name:           cfg.AI.CodeModel,
 		Type:           ModelTypeCode,
@@ -120,7 +120,7 @@ func NewModelManager(cfg *config.Config, logger *zap.Logger) *ModelManager {
 		MemoryUsage:    4100 * 1024 * 1024, // ~4.1GB for 7B model
 		HealthStatus:   "unknown",
 	}
-	
+
 	models[cfg.AI.HelpModel] = &ModelInfo{
 		Name:           cfg.AI.HelpModel,
 		Type:           ModelTypeHelp,
@@ -129,17 +129,17 @@ func NewModelManager(cfg *config.Config, logger *zap.Logger) *ModelManager {
 		MemoryUsage:    2300 * 1024 * 1024, // ~2.3GB for 3.8B model
 		HealthStatus:   "unknown",
 	}
-	
+
 	loadBalancer := &ModelLoadBalancer{
 		models: models,
 		logger: logger.Named("load_balancer"),
 	}
-	
+
 	healthChecker := &ModelHealthChecker{
 		models: models,
 		logger: logger.Named("health_checker"),
 	}
-	
+
 	return &ModelManager{
 		models:        models,
 		defaultModel:  cfg.AI.OllamaModel,
@@ -155,7 +155,7 @@ func NewModelManager(cfg *config.Config, logger *zap.Logger) *ModelManager {
 func (mm *ModelManager) SelectOptimalModel(intent ConversationIntent, context ConversationContext) (string, error) {
 	mm.mu.RLock()
 	defer mm.mu.RUnlock()
-	
+
 	// Determine model type based on intent
 	var modelType ModelType
 	switch intent {
@@ -168,7 +168,7 @@ func (mm *ModelManager) SelectOptimalModel(intent ConversationIntent, context Co
 	default:
 		modelType = ModelTypeChat
 	}
-	
+
 	// Find best model for the type
 	return mm.selectModelByType(modelType, context.Complexity)
 }
@@ -176,14 +176,14 @@ func (mm *ModelManager) SelectOptimalModel(intent ConversationIntent, context Co
 // selectModelByType selects the best model for a specific type and complexity
 func (mm *ModelManager) selectModelByType(modelType ModelType, complexity string) (string, error) {
 	var candidates []*ModelInfo
-	
+
 	// Collect candidates of the right type
 	for _, model := range mm.models {
 		if model.Type == modelType && model.HealthStatus != "failed" {
 			candidates = append(candidates, model)
 		}
 	}
-	
+
 	// If no candidates found, fall back to default
 	if len(candidates) == 0 {
 		mm.logger.Warn("No healthy models found for type, using default",
@@ -191,7 +191,7 @@ func (mm *ModelManager) selectModelByType(modelType ModelType, complexity string
 			zap.String("default_model", mm.defaultModel))
 		return mm.defaultModel, nil
 	}
-	
+
 	// Select based on complexity and performance
 	var selectedModel *ModelInfo
 	switch complexity {
@@ -205,16 +205,16 @@ func (mm *ModelManager) selectModelByType(modelType ModelType, complexity string
 		// Balanced selection
 		selectedModel = mm.selectBalanced(candidates)
 	}
-	
+
 	// Update last used time
 	selectedModel.LastUsed = time.Now()
-	
+
 	mm.logger.Debug("Selected model",
 		zap.String("model", selectedModel.Name),
 		zap.String("type", string(modelType)),
 		zap.String("complexity", complexity),
 		zap.Float64("quality_score", selectedModel.QualityScore))
-	
+
 	return selectedModel.Name, nil
 }
 
@@ -223,7 +223,7 @@ func (mm *ModelManager) selectByQuality(candidates []*ModelInfo) *ModelInfo {
 	if len(candidates) == 0 {
 		return nil
 	}
-	
+
 	best := candidates[0]
 	for _, model := range candidates[1:] {
 		if model.QualityScore > best.QualityScore {
@@ -238,7 +238,7 @@ func (mm *ModelManager) selectBySpeed(candidates []*ModelInfo) *ModelInfo {
 	if len(candidates) == 0 {
 		return nil
 	}
-	
+
 	fastest := candidates[0]
 	for _, model := range candidates[1:] {
 		if model.InferenceSpeed > fastest.InferenceSpeed {
@@ -253,10 +253,10 @@ func (mm *ModelManager) selectBalanced(candidates []*ModelInfo) *ModelInfo {
 	if len(candidates) == 0 {
 		return nil
 	}
-	
+
 	best := candidates[0]
 	bestScore := mm.calculateBalanceScore(best)
-	
+
 	for _, model := range candidates[1:] {
 		score := mm.calculateBalanceScore(model)
 		if score > bestScore {
@@ -274,7 +274,7 @@ func (mm *ModelManager) calculateBalanceScore(model *ModelInfo) float64 {
 	if normalizedSpeed > 1.0 {
 		normalizedSpeed = 1.0
 	}
-	
+
 	// Balance quality (70%) and speed (30%)
 	return (model.QualityScore * 0.7) + (normalizedSpeed * 0.3)
 }
@@ -283,12 +283,12 @@ func (mm *ModelManager) calculateBalanceScore(model *ModelInfo) float64 {
 func (mm *ModelManager) GetModelInfo(modelName string) (*ModelInfo, bool) {
 	mm.mu.RLock()
 	defer mm.mu.RUnlock()
-	
+
 	model, exists := mm.models[modelName]
 	if !exists {
 		return nil, false
 	}
-	
+
 	// Return a copy to prevent race conditions
 	info := *model
 	return &info, true
@@ -298,14 +298,14 @@ func (mm *ModelManager) GetModelInfo(modelName string) (*ModelInfo, bool) {
 func (mm *ModelManager) ListModels() []*ModelInfo {
 	mm.mu.RLock()
 	defer mm.mu.RUnlock()
-	
+
 	models := make([]*ModelInfo, 0, len(mm.models))
 	for _, model := range mm.models {
 		// Return copies to prevent race conditions
 		info := *model
 		models = append(models, &info)
 	}
-	
+
 	return models
 }
 
@@ -313,7 +313,7 @@ func (mm *ModelManager) ListModels() []*ModelInfo {
 func (mm *ModelManager) UpdateModelHealth(modelName, status string) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
-	
+
 	if model, exists := mm.models[modelName]; exists {
 		model.HealthStatus = status
 		mm.logger.Debug("Updated model health",
@@ -326,26 +326,26 @@ func (mm *ModelManager) UpdateModelHealth(modelName, status string) {
 func (mm *ModelManager) UpdateModelMetrics(modelName string, duration time.Duration, tokensUsed int, quality float64) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
-	
+
 	model, exists := mm.models[modelName]
 	if !exists {
 		return
 	}
-	
+
 	// Update inference speed (tokens per second)
 	if duration > 0 {
 		tokensPerSecond := float64(tokensUsed) / duration.Seconds()
 		// Use exponential moving average for smoothing
 		model.InferenceSpeed = (model.InferenceSpeed * 0.8) + (tokensPerSecond * 0.2)
 	}
-	
+
 	// Update quality score
 	if quality > 0 {
 		model.QualityScore = (model.QualityScore * 0.9) + (quality * 0.1)
 	}
-	
+
 	model.LastUsed = time.Now()
-	
+
 	mm.logger.Debug("Updated model metrics",
 		zap.String("model", modelName),
 		zap.Duration("duration", duration),
@@ -367,10 +367,10 @@ func (mm *ModelManager) StartHealthChecking(ctx context.Context) {
 // Start begins health checking routine
 func (hc *ModelHealthChecker) Start(ctx context.Context, manager *ModelManager) {
 	hc.checkTicker = time.NewTicker(30 * time.Second)
-	
+
 	go func() {
 		defer hc.checkTicker.Stop()
-		
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -381,7 +381,7 @@ func (hc *ModelHealthChecker) Start(ctx context.Context, manager *ModelManager) 
 			}
 		}
 	}()
-	
+
 	hc.logger.Info("Model health checker started")
 }
 
@@ -393,16 +393,16 @@ func (hc *ModelHealthChecker) performHealthChecks(manager *ModelManager) {
 		models[k] = v
 	}
 	hc.mu.RUnlock()
-	
+
 	for modelName, model := range models {
 		// Simple health check based on last usage and known issues
 		status := "healthy"
-		
+
 		// Mark as stale if not used recently
 		if time.Since(model.LastUsed) > 30*time.Minute {
 			status = "stale"
 		}
-		
+
 		// Update health status in manager
 		manager.UpdateModelHealth(modelName, status)
 	}
@@ -411,10 +411,10 @@ func (hc *ModelHealthChecker) performHealthChecks(manager *ModelManager) {
 // Shutdown gracefully shuts down the model manager
 func (mm *ModelManager) Shutdown(ctx context.Context) error {
 	mm.logger.Info("Shutting down model manager")
-	
+
 	if mm.healthChecker.checkTicker != nil {
 		mm.healthChecker.checkTicker.Stop()
 	}
-	
+
 	return nil
 }

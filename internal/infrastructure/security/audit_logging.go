@@ -31,21 +31,21 @@ func NewAuditLogger(logger *zap.Logger, redisClient *redis.Client, encryption *E
 
 // AuditEvent represents a security audit event
 type AuditEvent struct {
-	ID           string                 `json:"id"`
-	Timestamp    time.Time              `json:"timestamp"`
-	UserID       string                 `json:"user_id,omitempty"`
-	SessionID    string                 `json:"session_id,omitempty"`
-	Action       string                 `json:"action"`
-	Resource     string                 `json:"resource"`
-	ResourceID   string                 `json:"resource_id,omitempty"`
-	Status       AuditStatus            `json:"status"`
-	IPAddress    string                 `json:"ip_address,omitempty"`
-	UserAgent    string                 `json:"user_agent,omitempty"`
-	Details      map[string]interface{} `json:"details,omitempty"`
-	Risk         RiskLevel              `json:"risk_level"`
-	Category     AuditCategory          `json:"category"`
-	Compliance   []ComplianceFramework  `json:"compliance,omitempty"`
-	Geolocation  *Geolocation           `json:"geolocation,omitempty"`
+	ID          string                 `json:"id"`
+	Timestamp   time.Time              `json:"timestamp"`
+	UserID      string                 `json:"user_id,omitempty"`
+	SessionID   string                 `json:"session_id,omitempty"`
+	Action      string                 `json:"action"`
+	Resource    string                 `json:"resource"`
+	ResourceID  string                 `json:"resource_id,omitempty"`
+	Status      AuditStatus            `json:"status"`
+	IPAddress   string                 `json:"ip_address,omitempty"`
+	UserAgent   string                 `json:"user_agent,omitempty"`
+	Details     map[string]interface{} `json:"details,omitempty"`
+	Risk        RiskLevel              `json:"risk_level"`
+	Category    AuditCategory          `json:"category"`
+	Compliance  []ComplianceFramework  `json:"compliance,omitempty"`
+	Geolocation *Geolocation           `json:"geolocation,omitempty"`
 }
 
 // AuditStatus represents the status of an audited action
@@ -87,33 +87,33 @@ const (
 type ComplianceFramework string
 
 const (
-	ComplianceSOC2  ComplianceFramework = "SOC2"
-	ComplianceGDPR  ComplianceFramework = "GDPR"
-	ComplianceCCPA  ComplianceFramework = "CCPA"
-	ComplianceHIPAA ComplianceFramework = "HIPAA"
-	CompliancePCI   ComplianceFramework = "PCI-DSS"
+	ComplianceSOC2     ComplianceFramework = "SOC2"
+	ComplianceGDPR     ComplianceFramework = "GDPR"
+	ComplianceCCPA     ComplianceFramework = "CCPA"
+	ComplianceHIPAA    ComplianceFramework = "HIPAA"
+	CompliancePCI      ComplianceFramework = "PCI-DSS"
 	ComplianceISO27001 ComplianceFramework = "ISO27001"
 )
 
 // Geolocation represents geographical location information
 type Geolocation struct {
-	Country     string  `json:"country,omitempty"`
-	Region      string  `json:"region,omitempty"`
-	City        string  `json:"city,omitempty"`
-	Latitude    float64 `json:"latitude,omitempty"`
-	Longitude   float64 `json:"longitude,omitempty"`
-	Timezone    string  `json:"timezone,omitempty"`
+	Country   string  `json:"country,omitempty"`
+	Region    string  `json:"region,omitempty"`
+	City      string  `json:"city,omitempty"`
+	Latitude  float64 `json:"latitude,omitempty"`
+	Longitude float64 `json:"longitude,omitempty"`
+	Timezone  string  `json:"timezone,omitempty"`
 }
 
 // LogAuthentication logs authentication events
 func (a *AuditLogger) LogAuthentication(userID, action, ipAddress, userAgent string, success bool, details map[string]interface{}) {
 	status := StatusSuccess
 	risk := RiskLow
-	
+
 	if !success {
 		status = StatusFailure
 		risk = RiskMedium
-		
+
 		// Higher risk for certain failure types
 		if action == "login" && details != nil {
 			if attempts, ok := details["failed_attempts"].(int); ok && attempts > 3 {
@@ -121,7 +121,7 @@ func (a *AuditLogger) LogAuthentication(userID, action, ipAddress, userAgent str
 			}
 		}
 	}
-	
+
 	event := AuditEvent{
 		ID:         a.generateEventID(),
 		Timestamp:  time.Now(),
@@ -136,7 +136,7 @@ func (a *AuditLogger) LogAuthentication(userID, action, ipAddress, userAgent str
 		Category:   CategoryAuthentication,
 		Compliance: []ComplianceFramework{ComplianceSOC2, ComplianceISO27001},
 	}
-	
+
 	a.logEvent(event)
 }
 
@@ -144,16 +144,16 @@ func (a *AuditLogger) LogAuthentication(userID, action, ipAddress, userAgent str
 func (a *AuditLogger) LogAuthorization(userID, sessionID, action, resource, resourceID, ipAddress string, allowed bool, roles []string) {
 	status := StatusSuccess
 	risk := RiskLow
-	
+
 	if !allowed {
 		status = StatusBlocked
 		risk = RiskMedium
 	}
-	
+
 	details := map[string]interface{}{
 		"roles": roles,
 	}
-	
+
 	event := AuditEvent{
 		ID:         a.generateEventID(),
 		Timestamp:  time.Now(),
@@ -169,7 +169,7 @@ func (a *AuditLogger) LogAuthorization(userID, sessionID, action, resource, reso
 		Category:   CategoryAuthorization,
 		Compliance: []ComplianceFramework{ComplianceSOC2, ComplianceISO27001},
 	}
-	
+
 	a.logEvent(event)
 }
 
@@ -179,17 +179,17 @@ func (a *AuditLogger) LogDataAccess(userID, sessionID, resource, resourceID, act
 	if sensitive {
 		risk = RiskMedium
 	}
-	
+
 	details := map[string]interface{}{
 		"fields":    fields,
 		"sensitive": sensitive,
 	}
-	
+
 	compliance := []ComplianceFramework{ComplianceSOC2}
 	if sensitive {
 		compliance = append(compliance, ComplianceGDPR, ComplianceCCPA)
 	}
-	
+
 	event := AuditEvent{
 		ID:         a.generateEventID(),
 		Timestamp:  time.Now(),
@@ -205,7 +205,7 @@ func (a *AuditLogger) LogDataAccess(userID, sessionID, resource, resourceID, act
 		Category:   CategoryDataAccess,
 		Compliance: compliance,
 	}
-	
+
 	a.logEvent(event)
 }
 
@@ -214,13 +214,13 @@ func (a *AuditLogger) LogDataModification(userID, sessionID, resource, resourceI
 	// Encrypt sensitive values for audit trail
 	encryptedOld := a.encryptSensitiveFields(oldValues)
 	encryptedNew := a.encryptSensitiveFields(newValues)
-	
+
 	details := map[string]interface{}{
-		"old_values": encryptedOld,
-		"new_values": encryptedNew,
+		"old_values":     encryptedOld,
+		"new_values":     encryptedNew,
 		"changed_fields": a.getChangedFields(oldValues, newValues),
 	}
-	
+
 	event := AuditEvent{
 		ID:         a.generateEventID(),
 		Timestamp:  time.Now(),
@@ -236,7 +236,7 @@ func (a *AuditLogger) LogDataModification(userID, sessionID, resource, resourceI
 		Category:   CategoryDataModify,
 		Compliance: []ComplianceFramework{ComplianceSOC2, ComplianceGDPR, ComplianceCCPA},
 	}
-	
+
 	a.logEvent(event)
 }
 
@@ -256,7 +256,7 @@ func (a *AuditLogger) LogSecurityEvent(userID, action, resource, ipAddress, user
 		Category:   CategorySecurity,
 		Compliance: []ComplianceFramework{ComplianceSOC2, ComplianceISO27001},
 	}
-	
+
 	a.logEvent(event)
 }
 
@@ -266,7 +266,7 @@ func (a *AuditLogger) LogDataProcessing(event AuditEvent) {
 	event.Timestamp = time.Now()
 	event.Category = CategoryPrivacy
 	event.Compliance = []ComplianceFramework{ComplianceGDPR, ComplianceCCPA}
-	
+
 	a.logEvent(event)
 }
 
@@ -274,12 +274,12 @@ func (a *AuditLogger) LogDataProcessing(event AuditEvent) {
 func (a *AuditLogger) LogSystemAccess(userID, action, resource, ipAddress string, success bool, details map[string]interface{}) {
 	status := StatusSuccess
 	risk := RiskHigh // System access is always high risk
-	
+
 	if !success {
 		status = StatusFailure
 		risk = RiskCritical
 	}
-	
+
 	event := AuditEvent{
 		ID:         a.generateEventID(),
 		Timestamp:  time.Now(),
@@ -293,19 +293,19 @@ func (a *AuditLogger) LogSystemAccess(userID, action, resource, ipAddress string
 		Category:   CategorySystemAccess,
 		Compliance: []ComplianceFramework{ComplianceSOC2, ComplianceISO27001},
 	}
-	
+
 	a.logEvent(event)
 }
 
 // LogConfigurationChange logs configuration changes
 func (a *AuditLogger) LogConfigurationChange(userID, component, setting, oldValue, newValue, ipAddress string) {
 	details := map[string]interface{}{
-		"component":  component,
-		"setting":    setting,
-		"old_value":  oldValue,
-		"new_value":  newValue,
+		"component": component,
+		"setting":   setting,
+		"old_value": oldValue,
+		"new_value": newValue,
 	}
-	
+
 	event := AuditEvent{
 		ID:         a.generateEventID(),
 		Timestamp:  time.Now(),
@@ -319,7 +319,7 @@ func (a *AuditLogger) LogConfigurationChange(userID, component, setting, oldValu
 		Category:   CategoryConfiguration,
 		Compliance: []ComplianceFramework{ComplianceSOC2, ComplianceISO27001},
 	}
-	
+
 	a.logEvent(event)
 }
 
@@ -327,38 +327,38 @@ func (a *AuditLogger) LogConfigurationChange(userID, component, setting, oldValu
 func (a *AuditLogger) AuditMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
-		
+
 		// Capture request details
 		userID := c.GetString("user_id")
 		sessionID := c.GetString("session_id")
-		
+
 		// Process request
 		c.Next()
-		
+
 		// Determine if this needs auditing
 		if a.shouldAuditRequest(c) {
 			duration := time.Since(start)
-			
+
 			details := map[string]interface{}{
-				"method":       c.Request.Method,
-				"path":         c.Request.URL.Path,
-				"query":        c.Request.URL.RawQuery,
-				"status_code":  c.Writer.Status(),
-				"duration_ms":  duration.Milliseconds(),
-				"request_size": c.Request.ContentLength,
+				"method":        c.Request.Method,
+				"path":          c.Request.URL.Path,
+				"query":         c.Request.URL.RawQuery,
+				"status_code":   c.Writer.Status(),
+				"duration_ms":   duration.Milliseconds(),
+				"request_size":  c.Request.ContentLength,
 				"response_size": c.Writer.Size(),
 			}
-			
+
 			// Add form data for POST/PUT (excluding sensitive fields)
 			if c.Request.Method == "POST" || c.Request.Method == "PUT" {
 				if form := a.sanitizeFormData(c.Request.Form); len(form) > 0 {
 					details["form_data"] = form
 				}
 			}
-			
+
 			risk := a.determineRequestRisk(c)
 			category := a.determineRequestCategory(c)
-			
+
 			event := AuditEvent{
 				ID:         a.generateEventID(),
 				Timestamp:  start,
@@ -374,7 +374,7 @@ func (a *AuditLogger) AuditMiddleware() gin.HandlerFunc {
 				Category:   category,
 				Compliance: []ComplianceFramework{ComplianceSOC2},
 			}
-			
+
 			a.logEvent(event)
 		}
 	}
@@ -393,11 +393,11 @@ func (a *AuditLogger) logEvent(event AuditEvent) {
 		zap.String("category", string(event.Category)),
 		zap.String("ip_address", event.IPAddress),
 	}
-	
+
 	if event.Details != nil {
 		fields = append(fields, zap.Any("details", event.Details))
 	}
-	
+
 	switch event.Risk {
 	case RiskCritical:
 		a.logger.Error("Critical audit event", fields...)
@@ -408,10 +408,10 @@ func (a *AuditLogger) logEvent(event AuditEvent) {
 	default:
 		a.logger.Debug("Audit event", fields...)
 	}
-	
+
 	// Store in Redis for compliance reporting
 	a.storeAuditEvent(event)
-	
+
 	// Send alerts for high-risk events
 	if event.Risk == RiskHigh || event.Risk == RiskCritical {
 		a.sendSecurityAlert(event)
@@ -421,20 +421,20 @@ func (a *AuditLogger) logEvent(event AuditEvent) {
 // storeAuditEvent stores audit event in Redis
 func (a *AuditLogger) storeAuditEvent(event AuditEvent) {
 	ctx := context.Background()
-	
+
 	// Serialize event
 	data, err := json.Marshal(event)
 	if err != nil {
 		a.logger.Error("Failed to marshal audit event", zap.Error(err))
 		return
 	}
-	
+
 	// Store with multiple keys for different access patterns
-	
+
 	// By event ID
 	key := fmt.Sprintf("audit:event:%s", event.ID)
 	a.redisClient.Set(ctx, key, data, 90*24*time.Hour) // 90 days retention
-	
+
 	// By user ID
 	if event.UserID != "" {
 		userKey := fmt.Sprintf("audit:user:%s", event.UserID)
@@ -444,7 +444,7 @@ func (a *AuditLogger) storeAuditEvent(event AuditEvent) {
 		})
 		a.redisClient.Expire(ctx, userKey, 90*24*time.Hour)
 	}
-	
+
 	// By category
 	categoryKey := fmt.Sprintf("audit:category:%s", event.Category)
 	a.redisClient.ZAdd(ctx, categoryKey, redis.Z{
@@ -452,7 +452,7 @@ func (a *AuditLogger) storeAuditEvent(event AuditEvent) {
 		Member: event.ID,
 	})
 	a.redisClient.Expire(ctx, categoryKey, 90*24*time.Hour)
-	
+
 	// By risk level
 	if event.Risk == RiskHigh || event.Risk == RiskCritical {
 		riskKey := fmt.Sprintf("audit:risk:%s", event.Risk)
@@ -473,7 +473,7 @@ func (a *AuditLogger) generateEventID() string {
 
 func (a *AuditLogger) encryptSensitiveFields(data map[string]interface{}) map[string]interface{} {
 	sensitiveFields := []string{"password", "email", "phone", "address", "ssn", "credit_card"}
-	
+
 	result := make(map[string]interface{})
 	for key, value := range data {
 		// Check if field is sensitive
@@ -484,7 +484,7 @@ func (a *AuditLogger) encryptSensitiveFields(data map[string]interface{}) map[st
 				break
 			}
 		}
-		
+
 		if isSensitive {
 			if str, ok := value.(string); ok && str != "" {
 				encrypted, err := a.encryption.EncryptStringToBase64(str)
@@ -498,27 +498,27 @@ func (a *AuditLogger) encryptSensitiveFields(data map[string]interface{}) map[st
 			result[key] = value
 		}
 	}
-	
+
 	return result
 }
 
 func (a *AuditLogger) getChangedFields(oldValues, newValues map[string]interface{}) []string {
 	var changed []string
-	
+
 	// Check for changed fields
 	for key, newVal := range newValues {
 		if oldVal, exists := oldValues[key]; !exists || oldVal != newVal {
 			changed = append(changed, key)
 		}
 	}
-	
+
 	// Check for removed fields
 	for key := range oldValues {
 		if _, exists := newValues[key]; !exists {
 			changed = append(changed, key)
 		}
 	}
-	
+
 	return changed
 }
 
@@ -530,29 +530,29 @@ func (a *AuditLogger) shouldAuditRequest(c *gin.Context) bool {
 			return false
 		}
 	}
-	
+
 	// Always audit write operations
 	if c.Request.Method != "GET" && c.Request.Method != "HEAD" {
 		return true
 	}
-	
+
 	// Audit authenticated requests
 	if c.GetString("user_id") != "" {
 		return true
 	}
-	
+
 	// Audit failed requests
 	if c.Writer.Status() >= 400 {
 		return true
 	}
-	
+
 	return false
 }
 
 func (a *AuditLogger) sanitizeFormData(form map[string][]string) map[string]interface{} {
 	sensitiveFields := []string{"password", "token", "secret", "key"}
 	result := make(map[string]interface{})
-	
+
 	for key, values := range form {
 		isSensitive := false
 		for _, field := range sensitiveFields {
@@ -561,7 +561,7 @@ func (a *AuditLogger) sanitizeFormData(form map[string][]string) map[string]inte
 				break
 			}
 		}
-		
+
 		if isSensitive {
 			result[key] = "[REDACTED]"
 		} else {
@@ -572,7 +572,7 @@ func (a *AuditLogger) sanitizeFormData(form map[string][]string) map[string]inte
 			}
 		}
 	}
-	
+
 	return result
 }
 
@@ -583,33 +583,33 @@ func (a *AuditLogger) determineRequestRisk(c *gin.Context) RiskLevel {
 		strings.Contains(c.Request.URL.Path, "/system") {
 		return RiskHigh
 	}
-	
+
 	// Medium risk for auth operations
 	if strings.Contains(c.Request.URL.Path, "/auth") ||
 		strings.Contains(c.Request.URL.Path, "/login") ||
 		strings.Contains(c.Request.URL.Path, "/register") {
 		return RiskMedium
 	}
-	
+
 	// Failed requests
 	if c.Writer.Status() >= 400 {
 		return RiskMedium
 	}
-	
+
 	return RiskLow
 }
 
 func (a *AuditLogger) determineRequestCategory(c *gin.Context) AuditCategory {
 	path := c.Request.URL.Path
-	
+
 	if strings.Contains(path, "/auth") || strings.Contains(path, "/login") {
 		return CategoryAuthentication
 	}
-	
+
 	if c.Request.Method != "GET" && c.Request.Method != "HEAD" {
 		return CategoryDataModify
 	}
-	
+
 	return CategoryDataAccess
 }
 
@@ -644,13 +644,13 @@ func (a *AuditLogger) GetAuditEvents(filters AuditFilters) ([]AuditEvent, error)
 
 // AuditFilters represents filters for audit event queries
 type AuditFilters struct {
-	UserID     string        `json:"user_id,omitempty"`
-	Category   AuditCategory `json:"category,omitempty"`
-	Risk       RiskLevel     `json:"risk,omitempty"`
-	StartTime  time.Time     `json:"start_time,omitempty"`
-	EndTime    time.Time     `json:"end_time,omitempty"`
-	IPAddress  string        `json:"ip_address,omitempty"`
-	Action     string        `json:"action,omitempty"`
-	Status     AuditStatus   `json:"status,omitempty"`
-	Limit      int           `json:"limit,omitempty"`
+	UserID    string        `json:"user_id,omitempty"`
+	Category  AuditCategory `json:"category,omitempty"`
+	Risk      RiskLevel     `json:"risk,omitempty"`
+	StartTime time.Time     `json:"start_time,omitempty"`
+	EndTime   time.Time     `json:"end_time,omitempty"`
+	IPAddress string        `json:"ip_address,omitempty"`
+	Action    string        `json:"action,omitempty"`
+	Status    AuditStatus   `json:"status,omitempty"`
+	Limit     int           `json:"limit,omitempty"`
 }

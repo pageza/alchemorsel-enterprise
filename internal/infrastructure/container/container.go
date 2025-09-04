@@ -25,7 +25,7 @@ import (
 	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"github.com/alchemorsel/v3/pkg/healthcheck"
 	"github.com/alchemorsel/v3/pkg/logger"
-	
+
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -39,22 +39,22 @@ var Module = fx.Options(
 	LoggerModule,
 	DatabaseModule,
 	CacheModule,
-	
+
 	// Health check module
 	HealthCheckModule,
-	
+
 	// Repository modules
 	RepositoryModule,
-	
+
 	// Service modules
 	ServiceModule,
-	
+
 	// HTTP modules
 	HTTPModule,
-	
+
 	// Event modules
 	EventModule,
-	
+
 	// Lifecycle hooks
 	LifecycleModule,
 )
@@ -88,7 +88,7 @@ var DatabaseModule = fx.Provide(
 		// Import PostgreSQL connection manager
 		pgPkg := "github.com/alchemorsel/v3/internal/infrastructure/persistence/postgres"
 		_ = pgPkg // Ensure import
-		
+
 		// Create PostgreSQL connection manager with optimized settings
 		connectionManager, err := postgres.NewConnectionManager(cfg, log)
 		if err != nil {
@@ -96,7 +96,7 @@ var DatabaseModule = fx.Provide(
 		}
 
 		db := connectionManager.GetDB()
-		
+
 		// Auto-migrate models if enabled
 		if cfg.Database.AutoMigrate {
 			if err := db.AutoMigrate(
@@ -129,12 +129,12 @@ var DatabaseModule = fx.Provide(
 
 		return db, nil
 	},
-	
+
 	// PostgreSQL Connection Manager
 	func(cfg *config.Config, log *zap.Logger) (*postgres.ConnectionManager, error) {
 		return postgres.NewConnectionManager(cfg, log)
 	},
-	
+
 	// Query Cache with Redis integration
 	func(cfg *config.Config, log *zap.Logger) (*postgres.QueryCache, error) {
 		// Create Redis client for cache
@@ -143,28 +143,28 @@ var DatabaseModule = fx.Provide(
 			Password: cfg.Redis.Password,
 			DB:       cfg.Redis.Database,
 		})
-		
+
 		// Test Redis connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		
+
 		if err := redisClient.Ping(ctx).Err(); err != nil {
 			log.Warn("Redis connection failed, query cache disabled", zap.Error(err))
 			return nil, err
 		}
-		
+
 		cacheConfig := postgres.CacheConfig{
 			Enabled:    true,
 			DefaultTTL: 5 * time.Minute,
 			KeyPrefix:  "alchemorsel:query",
 		}
-		
+
 		return postgres.NewQueryCache(redisClient, log, cacheConfig), nil
 	},
-	
+
 	// Performance Dashboard
 	func(
-		cm *postgres.ConnectionManager, 
+		cm *postgres.ConnectionManager,
 		log *zap.Logger,
 		db *gorm.DB,
 		qc *postgres.QueryCache,
@@ -172,7 +172,7 @@ var DatabaseModule = fx.Provide(
 		qm := cm.GetQueryMonitor()
 		io := cm.GetIndexOptimizer()
 		io.SetDB(db)
-		
+
 		return postgres.NewPerformanceDashboard(cm, qm, io, qc, log)
 	},
 )
@@ -183,7 +183,7 @@ var CacheModule = fx.Provide(
 		log.Info("Using in-memory cache for demo")
 		return memory.NewCacheRepository()
 	},
-	
+
 	// Mock message bus for demo
 	func(log *zap.Logger) outbound.MessageBus {
 		log.Info("Using mock message bus for demo")
@@ -204,7 +204,7 @@ var HealthCheckModule = fx.Provide(
 		}
 		return healthcheck.NewHealthMetrics()
 	},
-	
+
 	// Enterprise health check
 	func(cfg *config.Config, log *zap.Logger, metrics *healthcheck.HealthMetrics) *healthcheck.EnterpriseHealthCheck {
 		if cfg.Monitoring.HealthCheck.EnableEnterprise {
@@ -218,21 +218,21 @@ var HealthCheckModule = fx.Provide(
 		hc.HealthCheck.SetCacheTTL(cfg.Monitoring.HealthCheck.CacheTTL)
 		return hc
 	},
-	
+
 	// System checker (using value group)
 	fx.Annotate(
 		func(cfg *config.Config) healthcheck.Checker {
 			return healthcheck.NewCustomChecker("system", func(ctx context.Context) (healthcheck.Status, string, interface{}) {
 				return healthcheck.StatusHealthy, "System operational", map[string]interface{}{
-					"service": "alchemorsel-v3",
-					"version": cfg.App.Version,
+					"service":     "alchemorsel-v3",
+					"version":     cfg.App.Version,
 					"environment": cfg.App.Environment,
 				}
 			})
 		},
 		fx.ResultTags(`group:"healthcheckers"`),
 	),
-	
+
 	// Database checker (using value group)
 	fx.Annotate(
 		func(db *gorm.DB) healthcheck.Checker {
@@ -241,16 +241,16 @@ var HealthCheckModule = fx.Provide(
 				if err != nil {
 					return healthcheck.StatusUnhealthy, err.Error(), nil
 				}
-				
+
 				if err := sqlDB.PingContext(ctx); err != nil {
 					return healthcheck.StatusUnhealthy, err.Error(), nil
 				}
-				
+
 				stats := sqlDB.Stats()
 				return healthcheck.StatusHealthy, "Database operational", map[string]interface{}{
-					"open_connections": stats.OpenConnections,
-					"in_use": stats.InUse,
-					"idle": stats.Idle,
+					"open_connections":     stats.OpenConnections,
+					"in_use":               stats.InUse,
+					"idle":                 stats.Idle,
 					"max_open_connections": stats.MaxOpenConnections,
 				}
 			})
@@ -274,24 +274,24 @@ var RepositoryModule = fx.Provide(
 		gormRepo.NewRecipeRepository,
 		fx.As(new(outbound.RecipeRepository)),
 	),
-	
+
 	// User repository
 	fx.Annotate(
 		gormRepo.NewUserRepository,
 		fx.As(new(outbound.UserRepository)),
 	),
-	
+
 	// Conversation repositories
 	fx.Annotate(
 		gormRepo.NewConversationRepository,
 		fx.As(new(conversation.ConversationRepository)),
 	),
-	
+
 	fx.Annotate(
 		gormRepo.NewMessageRepository,
 		fx.As(new(conversation.MessageRepository)),
 	),
-	
+
 	fx.Annotate(
 		gormRepo.NewContextRepository,
 		fx.As(new(conversation.ContextRepository)),
@@ -305,7 +305,7 @@ var ServiceModule = fx.Provide(
 		// Use OpenAI client for real AI functionality
 		return openai.NewClient(log)
 	},
-	
+
 	// User service
 	func(
 		userRepo outbound.UserRepository,
@@ -319,18 +319,18 @@ var ServiceModule = fx.Provide(
 		}
 		return user.NewUserService(userRepo, cache, jwtSecret, log)
 	},
-	
+
 	// Recipe service
 	fx.Annotate(
 		recipe.NewRecipeService,
 		fx.As(new(inbound.RecipeService)),
 	),
-	
+
 	// Auth service (without Redis for now)
 	func(cfg *config.Config, log *zap.Logger) *security.AuthService {
 		return security.NewAuthService(cfg, log, nil)
 	},
-	
+
 	// Conversation AI clients
 	fx.Annotate(
 		func(cfg *config.Config, log *zap.Logger) conversation.OllamaClient {
@@ -341,7 +341,7 @@ var ServiceModule = fx.Provide(
 			if ollamaHost == "" {
 				ollamaHost = "http://172.17.0.1:11434"
 			}
-			
+
 			ollamaModel := cfg.GetString("ALCHEMORSEL_AI_CHAT_MODEL")
 			if ollamaModel == "" {
 				ollamaModel = cfg.GetString("ALCHEMORSEL_OLLAMA_CHAT_MODEL")
@@ -349,22 +349,22 @@ var ServiceModule = fx.Provide(
 			if ollamaModel == "" {
 				ollamaModel = "phi3:mini"
 			}
-			
+
 			return ai.NewConversationOllamaAdapter(ollamaHost, ollamaModel)
 		},
 		fx.As(new(conversation.OllamaClient)),
 	),
-	
+
 	fx.Annotate(
 		func(log *zap.Logger) conversation.OpenAIClient {
 			return ai.NewConversationOpenAIAdapter(log)
 		},
 		fx.As(new(conversation.OpenAIClient)),
 	),
-	
+
 	// Conversation AI service
 	conversation.NewAIService,
-	
+
 	// Conversation service
 	conversation.NewService,
 )
@@ -400,24 +400,24 @@ func RegisterLifecycleHooks(
 				zap.String("version", cfg.App.Version),
 				zap.String("environment", cfg.App.Environment),
 			)
-			
+
 			// Start HTTP server
 			go func() {
 				if err := server.Start(); err != nil {
 					log.Fatal("Failed to start HTTP server", zap.Error(err))
 				}
 			}()
-			
+
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
 			log.Info("Shutting down Alchemorsel application")
-			
+
 			// Shutdown HTTP server
 			if err := server.Shutdown(ctx); err != nil {
 				log.Error("Failed to shutdown HTTP server", zap.Error(err))
 			}
-			
+
 			// Close database connections
 			sqlDB, err := db.DB()
 			if err == nil {
@@ -425,10 +425,10 @@ func RegisterLifecycleHooks(
 					log.Error("Failed to close database connection", zap.Error(err))
 				}
 			}
-			
+
 			// Flush logs
 			_ = log.Sync()
-			
+
 			return nil
 		},
 	})
@@ -455,13 +455,13 @@ func (d *EventDispatcher) Dispatch(ctx context.Context, event string, payload []
 		d.log.Debug("No handlers registered for event", zap.String("event", event))
 		return nil
 	}
-	
+
 	for _, handler := range handlers {
 		message := outbound.Message{
 			Type:    event,
 			Payload: payload,
 		}
-		
+
 		if err := handler(ctx, message); err != nil {
 			d.log.Error("Failed to handle event",
 				zap.String("event", event),
@@ -470,7 +470,7 @@ func (d *EventDispatcher) Dispatch(ctx context.Context, event string, payload []
 			// Continue processing other handlers
 		}
 	}
-	
+
 	return nil
 }
 
@@ -531,25 +531,25 @@ func (m *MockMessageBus) Unsubscribe(ctx context.Context, topic string) error {
 var PureAPIModule = fx.Options(
 	// Infrastructure modules (same as full app)
 	ConfigModule,
-	LoggerModule, 
+	LoggerModule,
 	DatabaseModule,
 	CacheModule,
-	
+
 	// Health check module
 	HealthCheckModule,
-	
+
 	// Repository modules
 	RepositoryModule,
-	
-	// Service modules  
+
+	// Service modules
 	ServiceModule,
-	
+
 	// Pure API HTTP module (no templates)
 	PureAPIHTTPModule,
-	
+
 	// Event modules
 	EventModule,
-	
+
 	// Lifecycle hooks for API
 	PureAPILifecycleModule,
 )
@@ -577,14 +577,14 @@ func NewPureAPIServer(
 	healthCheck *healthcheck.EnterpriseHealthCheck,
 ) *PureAPIServer {
 	return &PureAPIServer{
-		config:             cfg,
-		logger:             log,
-		recipeService:      recipeService,
-		userService:        userService,
-		authService:        authService,
-		aiService:          aiService,
+		config:              cfg,
+		logger:              log,
+		recipeService:       recipeService,
+		userService:         userService,
+		authService:         authService,
+		aiService:           aiService,
 		conversationService: conversationService,
-		healthCheck:        healthCheck,
+		healthCheck:         healthCheck,
 	}
 }
 
@@ -602,25 +602,25 @@ func RegisterPureAPILifecycleHooks(
 			if port := os.Getenv("PORT"); port != "" {
 				cfg.Server.Port = parsePort(port)
 			}
-			
+
 			log.Info("Starting Pure API server",
 				zap.Int("port", cfg.Server.Port),
 				zap.String("environment", cfg.App.Environment),
 			)
-			
+
 			fmt.Printf("🚀 Alchemorsel v3 Pure API starting on http://localhost:%d\n", cfg.Server.Port)
-			fmt.Println("🔥 Pure JSON API Backend - No Frontend Templates") 
+			fmt.Println("🔥 Pure JSON API Backend - No Frontend Templates")
 			fmt.Println("📊 Enterprise Architecture with DI Container")
 			fmt.Println("🛡️  Authentication, AI, Recipe Management APIs")
 			fmt.Printf("📖 API Documentation: http://localhost:%d/api/v1/docs\n", cfg.Server.Port)
-			
+
 			// Start server in background
 			go func() {
 				if err := server.Start(); err != nil && err != http.ErrServerClosed {
 					log.Fatal("Pure API server failed to start", zap.Error(err))
 				}
 			}()
-			
+
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
@@ -642,15 +642,15 @@ func parsePort(portStr string) int {
 
 // PureAPIServer represents a pure JSON API HTTP server (no templates)
 type PureAPIServer struct {
-	config             *config.Config
-	logger             *zap.Logger
-	server             *http.Server
-	recipeService      inbound.RecipeService
-	userService        *user.UserService
-	authService        *security.AuthService
-	aiService          outbound.AIService
+	config              *config.Config
+	logger              *zap.Logger
+	server              *http.Server
+	recipeService       inbound.RecipeService
+	userService         *user.UserService
+	authService         *security.AuthService
+	aiService           outbound.AIService
 	conversationService *conversation.Service
-	healthCheck        *healthcheck.EnterpriseHealthCheck
+	healthCheck         *healthcheck.EnterpriseHealthCheck
 }
 
 // Start starts the pure API HTTP server
@@ -666,10 +666,10 @@ func (s *PureAPIServer) Start() error {
 		s.conversationService,
 		s.healthCheck,
 	)
-	
+
 	// Store the server instance for shutdown
 	s.server = apiServer.Server()
-	
+
 	return apiServer.Start()
 }
 
@@ -694,36 +694,36 @@ func InitializeHealthChecks(
 	group HealthCheckerGroup,
 ) {
 	log.Info("Initializing enterprise health checks")
-	
+
 	// Create a map to store checkers by name for dependency registration
 	checkerMap := make(map[string]healthcheck.Checker)
-	
+
 	// Register all checkers from the value group
 	for _, checker := range group.Checkers {
 		// Get the checker name by performing a test check to extract the name
 		testCtx := context.Background()
 		testCheck := checker.Check(testCtx)
 		checkerName := testCheck.Name
-		
+
 		// Store in map for later dependency registration
 		checkerMap[checkerName] = checker
-		
+
 		// Register with or without circuit breaker
 		if cfg.Monitoring.HealthCheck.EnableCircuitBreaker {
 			circuitConfig := healthcheck.CircuitBreakerConfig{
 				FailureThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.FailureThreshold,
 				SuccessThreshold: cfg.Monitoring.HealthCheck.CircuitBreaker.SuccessThreshold,
-				Timeout:         cfg.Monitoring.HealthCheck.CircuitBreaker.Timeout,
-				MaxRequests:     cfg.Monitoring.HealthCheck.CircuitBreaker.MaxRequests,
+				Timeout:          cfg.Monitoring.HealthCheck.CircuitBreaker.Timeout,
+				MaxRequests:      cfg.Monitoring.HealthCheck.CircuitBreaker.MaxRequests,
 			}
 			hc.RegisterWithCircuitBreaker(checkerName, checker, circuitConfig)
 		} else {
 			hc.Register(checkerName, checker)
 		}
-		
+
 		log.Info("Registered health checker", zap.String("name", checkerName))
 	}
-	
+
 	// Register dependencies if enabled
 	if cfg.Monitoring.HealthCheck.EnableDependencies {
 		// Register database dependency if database checker exists
@@ -731,10 +731,10 @@ func InitializeHealthChecks(
 			dbDep := healthcheck.DatabaseDependency("database", true, dbChecker)
 			hc.RegisterDependency(dbDep)
 		}
-		
+
 		log.Info("Registered health check dependencies")
 	}
-	
+
 	log.Info("Enterprise health checks initialized successfully",
 		zap.Int("checkers_count", len(group.Checkers)),
 		zap.Bool("circuit_breaker", cfg.Monitoring.HealthCheck.EnableCircuitBreaker),

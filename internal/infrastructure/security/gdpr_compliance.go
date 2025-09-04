@@ -33,26 +33,26 @@ func NewGDPRService(logger *zap.Logger, redisClient *redis.Client, encryption *E
 type DataCategory string
 
 const (
-	CategoryIdentityData    DataCategory = "identity_data"      // Name, email, phone
-	CategoryBiometricData   DataCategory = "biometric_data"     // Fingerprints, face recognition
-	CategoryLocationData    DataCategory = "location_data"      // GPS, IP location
-	CategoryBehavioralData  DataCategory = "behavioral_data"    // Browsing history, preferences
-	CategoryFinancialData   DataCategory = "financial_data"     // Payment information
-	CategoryHealthData      DataCategory = "health_data"        // Dietary restrictions, allergies
+	CategoryIdentityData      DataCategory = "identity_data"      // Name, email, phone
+	CategoryBiometricData     DataCategory = "biometric_data"     // Fingerprints, face recognition
+	CategoryLocationData      DataCategory = "location_data"      // GPS, IP location
+	CategoryBehavioralData    DataCategory = "behavioral_data"    // Browsing history, preferences
+	CategoryFinancialData     DataCategory = "financial_data"     // Payment information
+	CategoryHealthData        DataCategory = "health_data"        // Dietary restrictions, allergies
 	CategoryCommunicationData DataCategory = "communication_data" // Messages, comments
-	CategoryTechnicalData   DataCategory = "technical_data"     // IP address, device info
-	CategoryUsageData       DataCategory = "usage_data"         // App usage patterns
+	CategoryTechnicalData     DataCategory = "technical_data"     // IP address, device info
+	CategoryUsageData         DataCategory = "usage_data"         // App usage patterns
 )
 
 // LegalBasis represents legal bases for processing under GDPR
 type LegalBasis string
 
 const (
-	BasisConsent           LegalBasis = "consent"
-	BasisContract          LegalBasis = "contract"
-	BasisLegalObligation   LegalBasis = "legal_obligation"
-	BasisVitalInterests    LegalBasis = "vital_interests"
-	BasisPublicTask        LegalBasis = "public_task"
+	BasisConsent            LegalBasis = "consent"
+	BasisContract           LegalBasis = "contract"
+	BasisLegalObligation    LegalBasis = "legal_obligation"
+	BasisVitalInterests     LegalBasis = "vital_interests"
+	BasisPublicTask         LegalBasis = "public_task"
 	BasisLegitimateInterest LegalBasis = "legitimate_interest"
 )
 
@@ -60,30 +60,30 @@ const (
 type ProcessingPurpose string
 
 const (
-	PurposeServiceProvision    ProcessingPurpose = "service_provision"
-	PurposeAccountManagement   ProcessingPurpose = "account_management"
-	PurposePersonalization     ProcessingPurpose = "personalization"
-	PurposeMarketing          ProcessingPurpose = "marketing"
-	PurposeAnalytics          ProcessingPurpose = "analytics"
-	PurposeSecurity           ProcessingPurpose = "security"
-	PurposeCompliance         ProcessingPurpose = "compliance"
-	PurposeSupport            ProcessingPurpose = "customer_support"
+	PurposeServiceProvision  ProcessingPurpose = "service_provision"
+	PurposeAccountManagement ProcessingPurpose = "account_management"
+	PurposePersonalization   ProcessingPurpose = "personalization"
+	PurposeMarketing         ProcessingPurpose = "marketing"
+	PurposeAnalytics         ProcessingPurpose = "analytics"
+	PurposeSecurity          ProcessingPurpose = "security"
+	PurposeCompliance        ProcessingPurpose = "compliance"
+	PurposeSupport           ProcessingPurpose = "customer_support"
 )
 
 // ConsentRecord represents a user's consent
 type ConsentRecord struct {
-	UserID       string              `json:"user_id"`
-	ConsentID    string              `json:"consent_id"`
-	Purposes     []ProcessingPurpose `json:"purposes"`
-	Categories   []DataCategory      `json:"categories"`
-	Granted      bool                `json:"granted"`
-	GrantedAt    time.Time           `json:"granted_at"`
-	WithdrawnAt  *time.Time          `json:"withdrawn_at,omitempty"`
-	IPAddress    string              `json:"ip_address"`
-	UserAgent    string              `json:"user_agent"`
-	ConsentText  string              `json:"consent_text"`
-	Version      string              `json:"version"`
-	Method       string              `json:"method"` // "explicit", "implicit", "pre_ticked"
+	UserID      string              `json:"user_id"`
+	ConsentID   string              `json:"consent_id"`
+	Purposes    []ProcessingPurpose `json:"purposes"`
+	Categories  []DataCategory      `json:"categories"`
+	Granted     bool                `json:"granted"`
+	GrantedAt   time.Time           `json:"granted_at"`
+	WithdrawnAt *time.Time          `json:"withdrawn_at,omitempty"`
+	IPAddress   string              `json:"ip_address"`
+	UserAgent   string              `json:"user_agent"`
+	ConsentText string              `json:"consent_text"`
+	Version     string              `json:"version"`
+	Method      string              `json:"method"` // "explicit", "implicit", "pre_ticked"
 }
 
 // DataProcessingRecord tracks data processing activities
@@ -102,13 +102,13 @@ type DataProcessingRecord struct {
 
 // DataSubjectRequest represents a GDPR data subject request
 type DataSubjectRequest struct {
-	ID          string    `json:"id"`
-	UserID      string    `json:"user_id"`
-	Type        RequestType `json:"type"`
-	Status      RequestStatus `json:"status"`
-	RequestedAt time.Time `json:"requested_at"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	Reason      string    `json:"reason,omitempty"`
+	ID          string                 `json:"id"`
+	UserID      string                 `json:"user_id"`
+	Type        RequestType            `json:"type"`
+	Status      RequestStatus          `json:"status"`
+	RequestedAt time.Time              `json:"requested_at"`
+	CompletedAt *time.Time             `json:"completed_at,omitempty"`
+	Reason      string                 `json:"reason,omitempty"`
 	Details     map[string]interface{} `json:"details,omitempty"`
 }
 
@@ -116,12 +116,12 @@ type DataSubjectRequest struct {
 type RequestType string
 
 const (
-	RequestAccess       RequestType = "access"        // Right to access
+	RequestAccess        RequestType = "access"        // Right to access
 	RequestRectification RequestType = "rectification" // Right to rectify
-	RequestErasure      RequestType = "erasure"       // Right to be forgotten
-	RequestRestriction  RequestType = "restriction"   // Right to restrict processing
-	RequestPortability  RequestType = "portability"   // Right to data portability
-	RequestObjection    RequestType = "objection"     // Right to object
+	RequestErasure       RequestType = "erasure"       // Right to be forgotten
+	RequestRestriction   RequestType = "restriction"   // Right to restrict processing
+	RequestPortability   RequestType = "portability"   // Right to data portability
+	RequestObjection     RequestType = "objection"     // Right to object
 )
 
 // RequestStatus represents status of GDPR requests
@@ -149,17 +149,17 @@ func (g *GDPRService) RecordConsent(userID, ipAddress, userAgent string, purpose
 		Version:     version,
 		Method:      "explicit",
 	}
-	
+
 	// Store consent record
 	if err := g.storeConsentRecord(consent); err != nil {
 		return nil, fmt.Errorf("failed to store consent: %w", err)
 	}
-	
+
 	// Audit log
 	g.auditLogger.LogDataProcessing(AuditEvent{
-		UserID:    userID,
-		Action:    "consent_granted",
-		Resource:  "user_consent",
+		UserID:   userID,
+		Action:   "consent_granted",
+		Resource: "user_consent",
 		Details: map[string]interface{}{
 			"consent_id": consent.ConsentID,
 			"purposes":   purposes,
@@ -168,13 +168,13 @@ func (g *GDPRService) RecordConsent(userID, ipAddress, userAgent string, purpose
 		IPAddress: ipAddress,
 		UserAgent: userAgent,
 	})
-	
+
 	g.logger.Info("Consent recorded",
 		zap.String("user_id", userID),
 		zap.String("consent_id", consent.ConsentID),
 		zap.Any("purposes", purposes),
 	)
-	
+
 	return consent, nil
 }
 
@@ -185,37 +185,37 @@ func (g *GDPRService) WithdrawConsent(userID, consentID, ipAddress, userAgent st
 	if err != nil {
 		return fmt.Errorf("consent not found: %w", err)
 	}
-	
+
 	if !consent.Granted {
 		return fmt.Errorf("consent already withdrawn")
 	}
-	
+
 	// Update consent record
 	now := time.Now()
 	consent.Granted = false
 	consent.WithdrawnAt = &now
-	
+
 	if err := g.storeConsentRecord(consent); err != nil {
 		return fmt.Errorf("failed to update consent: %w", err)
 	}
-	
+
 	// Audit log
 	g.auditLogger.LogDataProcessing(AuditEvent{
-		UserID:    userID,
-		Action:    "consent_withdrawn",
-		Resource:  "user_consent",
+		UserID:   userID,
+		Action:   "consent_withdrawn",
+		Resource: "user_consent",
 		Details: map[string]interface{}{
 			"consent_id": consentID,
 		},
 		IPAddress: ipAddress,
 		UserAgent: userAgent,
 	})
-	
+
 	g.logger.Info("Consent withdrawn",
 		zap.String("user_id", userID),
 		zap.String("consent_id", consentID),
 	)
-	
+
 	return nil
 }
 
@@ -225,12 +225,12 @@ func (g *GDPRService) HasValidConsent(userID string, purpose ProcessingPurpose, 
 	if err != nil {
 		return false, err
 	}
-	
+
 	for _, consent := range consents {
 		if !consent.Granted || consent.WithdrawnAt != nil {
 			continue
 		}
-		
+
 		// Check if purpose is covered
 		purposeFound := false
 		for _, p := range consent.Purposes {
@@ -239,7 +239,7 @@ func (g *GDPRService) HasValidConsent(userID string, purpose ProcessingPurpose, 
 				break
 			}
 		}
-		
+
 		// Check if category is covered
 		categoryFound := false
 		for _, c := range consent.Categories {
@@ -248,12 +248,12 @@ func (g *GDPRService) HasValidConsent(userID string, purpose ProcessingPurpose, 
 				break
 			}
 		}
-		
+
 		if purposeFound && categoryFound {
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
 }
 
@@ -268,11 +268,11 @@ func (g *GDPRService) CreateDataSubjectRequest(userID string, requestType Reques
 		Reason:      reason,
 		Details:     details,
 	}
-	
+
 	if err := g.storeDataSubjectRequest(request); err != nil {
 		return nil, fmt.Errorf("failed to store request: %w", err)
 	}
-	
+
 	// Audit log
 	g.auditLogger.LogDataProcessing(AuditEvent{
 		UserID:   userID,
@@ -284,13 +284,13 @@ func (g *GDPRService) CreateDataSubjectRequest(userID string, requestType Reques
 			"reason":       reason,
 		},
 	})
-	
+
 	g.logger.Info("Data subject request created",
 		zap.String("user_id", userID),
 		zap.String("request_id", request.ID),
 		zap.String("type", string(requestType)),
 	)
-	
+
 	return request, nil
 }
 
@@ -300,15 +300,15 @@ func (g *GDPRService) ProcessDataPortabilityRequest(requestID string) (map[strin
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if request.Type != RequestPortability {
 		return nil, fmt.Errorf("invalid request type for data portability")
 	}
-	
+
 	// Update status
 	request.Status = StatusProcessing
 	g.storeDataSubjectRequest(request)
-	
+
 	// Generate user data export
 	userData := map[string]interface{}{
 		"user_id":      request.UserID,
@@ -319,13 +319,13 @@ func (g *GDPRService) ProcessDataPortabilityRequest(requestID string) (map[strin
 		"social_data":  g.exportUserSocialData(request.UserID),
 		"consent_data": g.exportUserConsents(request.UserID),
 	}
-	
+
 	// Mark as completed
 	now := time.Now()
 	request.Status = StatusCompleted
 	request.CompletedAt = &now
 	g.storeDataSubjectRequest(request)
-	
+
 	// Audit log
 	g.auditLogger.LogDataProcessing(AuditEvent{
 		UserID:   request.UserID,
@@ -336,7 +336,7 @@ func (g *GDPRService) ProcessDataPortabilityRequest(requestID string) (map[strin
 			"data_size":  len(fmt.Sprintf("%v", userData)),
 		},
 	})
-	
+
 	return userData, nil
 }
 
@@ -346,15 +346,15 @@ func (g *GDPRService) ProcessDataErasureRequest(requestID string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if request.Type != RequestErasure {
 		return fmt.Errorf("invalid request type for data erasure")
 	}
-	
+
 	// Update status
 	request.Status = StatusProcessing
 	g.storeDataSubjectRequest(request)
-	
+
 	// Perform data erasure
 	eraseResults := map[string]interface{}{
 		"user_profile": g.eraseUserProfile(request.UserID),
@@ -363,31 +363,31 @@ func (g *GDPRService) ProcessDataErasureRequest(requestID string) error {
 		"consent_data": g.eraseUserConsents(request.UserID),
 		"audit_logs":   g.pseudonymizeAuditLogs(request.UserID),
 	}
-	
+
 	// Mark as completed
 	now := time.Now()
 	request.Status = StatusCompleted
 	request.CompletedAt = &now
 	request.Details = eraseResults
 	g.storeDataSubjectRequest(request)
-	
+
 	// Audit log (with pseudonymized user ID)
 	g.auditLogger.LogDataProcessing(AuditEvent{
 		UserID:   "pseudonymized",
 		Action:   "data_erased",
 		Resource: "user_data",
 		Details: map[string]interface{}{
-			"request_id":     requestID,
-			"original_user":  g.pseudonymizeUserID(request.UserID),
-			"erase_results":  eraseResults,
+			"request_id":    requestID,
+			"original_user": g.pseudonymizeUserID(request.UserID),
+			"erase_results": eraseResults,
 		},
 	})
-	
+
 	g.logger.Info("Data erasure completed",
 		zap.String("request_id", requestID),
 		zap.String("user_id", g.pseudonymizeUserID(request.UserID)),
 	)
-	
+
 	return nil
 }
 
@@ -404,21 +404,21 @@ func (g *GDPRService) RecordDataProcessing(userID string, category DataCategory,
 		DataFields:   fields,
 		Location:     "EU",
 	}
-	
+
 	// Set retention date based on purpose
 	record.RetentionDate = g.calculateRetentionDate(purpose)
-	
+
 	if err := g.storeProcessingRecord(record); err != nil {
 		return fmt.Errorf("failed to store processing record: %w", err)
 	}
-	
+
 	return nil
 }
 
 // calculateRetentionDate calculates data retention date based on purpose
 func (g *GDPRService) calculateRetentionDate(purpose ProcessingPurpose) *time.Time {
 	var retentionPeriod time.Duration
-	
+
 	switch purpose {
 	case PurposeServiceProvision:
 		retentionPeriod = 2 * 365 * 24 * time.Hour // 2 years
@@ -435,7 +435,7 @@ func (g *GDPRService) calculateRetentionDate(purpose ProcessingPurpose) *time.Ti
 	default:
 		retentionPeriod = 1 * 365 * 24 * time.Hour // 1 year default
 	}
-	
+
 	retentionDate := time.Now().Add(retentionPeriod)
 	return &retentionDate
 }
@@ -445,97 +445,97 @@ func (g *GDPRService) calculateRetentionDate(purpose ProcessingPurpose) *time.Ti
 func (g *GDPRService) storeConsentRecord(consent *ConsentRecord) error {
 	ctx := context.Background()
 	key := fmt.Sprintf("consent:%s:%s", consent.UserID, consent.ConsentID)
-	
+
 	data, err := json.Marshal(consent)
 	if err != nil {
 		return err
 	}
-	
+
 	return g.redisClient.Set(ctx, key, data, 0).Err()
 }
 
 func (g *GDPRService) getConsentRecord(userID, consentID string) (*ConsentRecord, error) {
 	ctx := context.Background()
 	key := fmt.Sprintf("consent:%s:%s", userID, consentID)
-	
+
 	data, err := g.redisClient.Get(ctx, key).Result()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var consent ConsentRecord
 	if err := json.Unmarshal([]byte(data), &consent); err != nil {
 		return nil, err
 	}
-	
+
 	return &consent, nil
 }
 
 func (g *GDPRService) getUserConsents(userID string) ([]*ConsentRecord, error) {
 	ctx := context.Background()
 	pattern := fmt.Sprintf("consent:%s:*", userID)
-	
+
 	keys, err := g.redisClient.Keys(ctx, pattern).Result()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var consents []*ConsentRecord
 	for _, key := range keys {
 		data, err := g.redisClient.Get(ctx, key).Result()
 		if err != nil {
 			continue
 		}
-		
+
 		var consent ConsentRecord
 		if err := json.Unmarshal([]byte(data), &consent); err != nil {
 			continue
 		}
-		
+
 		consents = append(consents, &consent)
 	}
-	
+
 	return consents, nil
 }
 
 func (g *GDPRService) storeDataSubjectRequest(request *DataSubjectRequest) error {
 	ctx := context.Background()
 	key := fmt.Sprintf("dsr:%s", request.ID)
-	
+
 	data, err := json.Marshal(request)
 	if err != nil {
 		return err
 	}
-	
+
 	return g.redisClient.Set(ctx, key, data, 0).Err()
 }
 
 func (g *GDPRService) getDataSubjectRequest(requestID string) (*DataSubjectRequest, error) {
 	ctx := context.Background()
 	key := fmt.Sprintf("dsr:%s", requestID)
-	
+
 	data, err := g.redisClient.Get(ctx, key).Result()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var request DataSubjectRequest
 	if err := json.Unmarshal([]byte(data), &request); err != nil {
 		return nil, err
 	}
-	
+
 	return &request, nil
 }
 
 func (g *GDPRService) storeProcessingRecord(record *DataProcessingRecord) error {
 	ctx := context.Background()
 	key := fmt.Sprintf("processing:%s", record.ID)
-	
+
 	data, err := json.Marshal(record)
 	if err != nil {
 		return err
 	}
-	
+
 	return g.redisClient.Set(ctx, key, data, 0).Err()
 }
 

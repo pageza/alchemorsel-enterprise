@@ -28,27 +28,27 @@ func NewMigrationOptimizer(db *gorm.DB, logger *zap.Logger) *MigrationOptimizer 
 
 // OptimizedMigration represents an optimized migration with performance considerations
 type OptimizedMigration struct {
-	Name        string              `json:"name"`
-	SQL         string              `json:"sql"`
-	Performance PerformanceImpact   `json:"performance"`
-	Safety      SafetyAssessment    `json:"safety"`
-	Timing      ExecutionTiming     `json:"timing"`
-	Rollback    string              `json:"rollback"`
+	Name        string            `json:"name"`
+	SQL         string            `json:"sql"`
+	Performance PerformanceImpact `json:"performance"`
+	Safety      SafetyAssessment  `json:"safety"`
+	Timing      ExecutionTiming   `json:"timing"`
+	Rollback    string            `json:"rollback"`
 }
 
 // PerformanceImpact assesses the performance impact of a migration
 type PerformanceImpact struct {
-	Level          string        `json:"level"`          // low, medium, high, critical
-	LockType       string        `json:"lock_type"`      // none, shared, exclusive
-	EstimatedTime  time.Duration `json:"estimated_time"`
-	TableSize      int64         `json:"table_size"`
-	ConcurrentSafe bool          `json:"concurrent_safe"`
-	Recommendations []string     `json:"recommendations"`
+	Level           string        `json:"level"`     // low, medium, high, critical
+	LockType        string        `json:"lock_type"` // none, shared, exclusive
+	EstimatedTime   time.Duration `json:"estimated_time"`
+	TableSize       int64         `json:"table_size"`
+	ConcurrentSafe  bool          `json:"concurrent_safe"`
+	Recommendations []string      `json:"recommendations"`
 }
 
 // SafetyAssessment evaluates migration safety
 type SafetyAssessment struct {
-	RiskLevel       string   `json:"risk_level"`       // low, medium, high
+	RiskLevel       string   `json:"risk_level"` // low, medium, high
 	BreakingChanges bool     `json:"breaking_changes"`
 	DataLoss        bool     `json:"data_loss"`
 	Reversible      bool     `json:"reversible"`
@@ -58,11 +58,11 @@ type SafetyAssessment struct {
 
 // ExecutionTiming provides timing recommendations
 type ExecutionTiming struct {
-	MaintenanceWindow bool          `json:"maintenance_window"`
-	EstimatedDuration time.Duration `json:"estimated_duration"`
-	BestTime          string        `json:"best_time"`
-	Phased           bool          `json:"phased"`
-	Phases           []MigrationPhase `json:"phases,omitempty"`
+	MaintenanceWindow bool             `json:"maintenance_window"`
+	EstimatedDuration time.Duration    `json:"estimated_duration"`
+	BestTime          string           `json:"best_time"`
+	Phased            bool             `json:"phased"`
+	Phases            []MigrationPhase `json:"phases,omitempty"`
 }
 
 // MigrationPhase represents a phase in a multi-phase migration
@@ -78,21 +78,21 @@ type MigrationPhase struct {
 func (mo *MigrationOptimizer) OptimizeAddColumn(tableName, columnName, columnType string, nullable bool) *OptimizedMigration {
 	var sql strings.Builder
 	var rollback strings.Builder
-	
+
 	// Build optimized ADD COLUMN statement
 	sql.WriteString(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", tableName, columnName, columnType))
 	if nullable {
 		sql.WriteString(" DEFAULT NULL")
 	}
 	sql.WriteString(";")
-	
+
 	// Build rollback
 	rollback.WriteString(fmt.Sprintf("ALTER TABLE %s DROP COLUMN IF EXISTS %s;", tableName, columnName))
-	
+
 	// Assess performance impact
 	tableSize := mo.getTableSize(tableName)
 	impact := mo.assessAddColumnImpact(tableSize, nullable)
-	
+
 	// Assess safety
 	safety := SafetyAssessment{
 		RiskLevel:       "low",
@@ -102,20 +102,20 @@ func (mo *MigrationOptimizer) OptimizeAddColumn(tableName, columnName, columnTyp
 		Preconditions:   []string{"Verify column name doesn't conflict"},
 		Warnings:        []string{},
 	}
-	
+
 	if !nullable {
 		safety.RiskLevel = "medium"
 		safety.Warnings = append(safety.Warnings, "Non-nullable column addition may require default value")
 	}
-	
+
 	// Timing recommendations
 	timing := ExecutionTiming{
 		MaintenanceWindow: tableSize > 1000000, // Large tables need maintenance window
 		EstimatedDuration: impact.EstimatedTime,
 		BestTime:          "off-peak hours",
-		Phased:           false,
+		Phased:            false,
 	}
-	
+
 	return &OptimizedMigration{
 		Name:        fmt.Sprintf("add_column_%s_%s", tableName, columnName),
 		SQL:         sql.String(),
@@ -129,9 +129,9 @@ func (mo *MigrationOptimizer) OptimizeAddColumn(tableName, columnName, columnTyp
 // OptimizeAddIndex optimizes index creation
 func (mo *MigrationOptimizer) OptimizeAddIndex(tableName string, columns []string, unique bool) *OptimizedMigration {
 	indexName := fmt.Sprintf("idx_%s_%s", tableName, strings.Join(columns, "_"))
-	
+
 	var sql strings.Builder
-	
+
 	// Use CONCURRENT index creation for better performance
 	sql.WriteString("CREATE ")
 	if unique {
@@ -144,14 +144,14 @@ func (mo *MigrationOptimizer) OptimizeAddIndex(tableName string, columns []strin
 	sql.WriteString(" (")
 	sql.WriteString(strings.Join(columns, ", "))
 	sql.WriteString(");")
-	
+
 	// Rollback
 	rollback := fmt.Sprintf("DROP INDEX CONCURRENTLY IF EXISTS %s;", indexName)
-	
+
 	// Assess performance impact
 	tableSize := mo.getTableSize(tableName)
 	impact := mo.assessIndexCreationImpact(tableSize, len(columns))
-	
+
 	// Safety assessment
 	safety := SafetyAssessment{
 		RiskLevel:       "low",
@@ -161,20 +161,20 @@ func (mo *MigrationOptimizer) OptimizeAddIndex(tableName string, columns []strin
 		Preconditions:   []string{"Verify index name doesn't conflict", "Ensure sufficient disk space"},
 		Warnings:        []string{},
 	}
-	
+
 	if unique {
 		safety.RiskLevel = "medium"
 		safety.Preconditions = append(safety.Preconditions, "Verify data uniqueness constraint")
 	}
-	
+
 	// Timing
 	timing := ExecutionTiming{
 		MaintenanceWindow: false, // CONCURRENT doesn't require maintenance window
 		EstimatedDuration: impact.EstimatedTime,
 		BestTime:          "any time (concurrent safe)",
-		Phased:           false,
+		Phased:            false,
 	}
-	
+
 	return &OptimizedMigration{
 		Name:        fmt.Sprintf("add_index_%s", indexName),
 		SQL:         sql.String(),
@@ -189,11 +189,11 @@ func (mo *MigrationOptimizer) OptimizeAddIndex(tableName string, columns []strin
 func (mo *MigrationOptimizer) OptimizeDropColumn(tableName, columnName string) *OptimizedMigration {
 	// Get column info for rollback
 	columnInfo := mo.getColumnInfo(tableName, columnName)
-	
+
 	// Phase 1: Make column nullable (if not already)
 	// Phase 2: Drop default (if exists)
 	// Phase 3: Drop column
-	
+
 	phases := []MigrationPhase{
 		{
 			Name:        "prepare_column_drop",
@@ -217,7 +217,7 @@ func (mo *MigrationOptimizer) OptimizeDropColumn(tableName, columnName string) *
 			Description: "Drop the column",
 		},
 	}
-	
+
 	// Build full SQL
 	var sql strings.Builder
 	for i, phase := range phases {
@@ -226,18 +226,18 @@ func (mo *MigrationOptimizer) OptimizeDropColumn(tableName, columnName string) *
 			sql.WriteString("\n")
 		}
 	}
-	
+
 	// Build rollback (requires column info)
-	rollback := fmt.Sprintf("-- WARNING: Data will be lost\n-- ALTER TABLE %s ADD COLUMN %s %s;", 
+	rollback := fmt.Sprintf("-- WARNING: Data will be lost\n-- ALTER TABLE %s ADD COLUMN %s %s;",
 		tableName, columnName, columnInfo)
-	
+
 	// Performance assessment
 	tableSize := mo.getTableSize(tableName)
 	impact := PerformanceImpact{
-		Level:         "medium",
-		LockType:      "exclusive",
-		EstimatedTime: 30 * time.Second,
-		TableSize:     tableSize,
+		Level:          "medium",
+		LockType:       "exclusive",
+		EstimatedTime:  30 * time.Second,
+		TableSize:      tableSize,
 		ConcurrentSafe: false,
 		Recommendations: []string{
 			"Execute during maintenance window",
@@ -245,7 +245,7 @@ func (mo *MigrationOptimizer) OptimizeDropColumn(tableName, columnName string) *
 			"Consider soft deletion pattern instead",
 		},
 	}
-	
+
 	// Safety assessment
 	safety := SafetyAssessment{
 		RiskLevel:       "high",
@@ -262,16 +262,16 @@ func (mo *MigrationOptimizer) OptimizeDropColumn(tableName, columnName string) *
 			"Breaking change for applications",
 		},
 	}
-	
+
 	// Timing
 	timing := ExecutionTiming{
 		MaintenanceWindow: true,
 		EstimatedDuration: time.Minute,
 		BestTime:          "maintenance window only",
-		Phased:           true,
-		Phases:           phases,
+		Phased:            true,
+		Phases:            phases,
 	}
-	
+
 	return &OptimizedMigration{
 		Name:        fmt.Sprintf("drop_column_%s_%s", tableName, columnName),
 		SQL:         sql.String(),
@@ -285,27 +285,27 @@ func (mo *MigrationOptimizer) OptimizeDropColumn(tableName, columnName string) *
 // OptimizeChangeColumnType optimizes column type changes
 func (mo *MigrationOptimizer) OptimizeChangeColumnType(tableName, columnName, newType string) *OptimizedMigration {
 	oldType := mo.getColumnType(tableName, columnName)
-	
+
 	// Determine if change is safe/compatible
 	compatible := mo.isTypeChangeCompatible(oldType, newType)
-	
+
 	var sql string
 	var phases []MigrationPhase
 	var impact PerformanceImpact
 	var safety SafetyAssessment
-	
+
 	if compatible {
 		// Simple type change
 		sql = fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE %s;", tableName, columnName, newType)
-		
+
 		impact = PerformanceImpact{
-			Level:         "low",
-			LockType:      "shared",
-			EstimatedTime: 10 * time.Second,
-			ConcurrentSafe: true,
+			Level:           "low",
+			LockType:        "shared",
+			EstimatedTime:   10 * time.Second,
+			ConcurrentSafe:  true,
 			Recommendations: []string{"Safe type conversion"},
 		}
-		
+
 		safety = SafetyAssessment{
 			RiskLevel:       "low",
 			BreakingChanges: false,
@@ -315,7 +315,7 @@ func (mo *MigrationOptimizer) OptimizeChangeColumnType(tableName, columnName, ne
 	} else {
 		// Complex type change requiring data conversion
 		tempColumn := columnName + "_new"
-		
+
 		phases = []MigrationPhase{
 			{
 				Name:        "add_temp_column",
@@ -346,7 +346,7 @@ func (mo *MigrationOptimizer) OptimizeChangeColumnType(tableName, columnName, ne
 				Description: "Rename new column to original name",
 			},
 		}
-		
+
 		// Build full SQL
 		var sqlBuilder strings.Builder
 		for i, phase := range phases {
@@ -356,11 +356,11 @@ func (mo *MigrationOptimizer) OptimizeChangeColumnType(tableName, columnName, ne
 			}
 		}
 		sql = sqlBuilder.String()
-		
+
 		impact = PerformanceImpact{
-			Level:         "high",
-			LockType:      "exclusive",
-			EstimatedTime: 3 * time.Minute,
+			Level:          "high",
+			LockType:       "exclusive",
+			EstimatedTime:  3 * time.Minute,
 			ConcurrentSafe: false,
 			Recommendations: []string{
 				"Execute during maintenance window",
@@ -368,7 +368,7 @@ func (mo *MigrationOptimizer) OptimizeChangeColumnType(tableName, columnName, ne
 				"Consider application compatibility",
 			},
 		}
-		
+
 		safety = SafetyAssessment{
 			RiskLevel:       "high",
 			BreakingChanges: true,
@@ -385,19 +385,19 @@ func (mo *MigrationOptimizer) OptimizeChangeColumnType(tableName, columnName, ne
 			},
 		}
 	}
-	
+
 	// Rollback
 	rollback := fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE %s;", tableName, columnName, oldType)
-	
+
 	// Timing
 	timing := ExecutionTiming{
 		MaintenanceWindow: !compatible,
 		EstimatedDuration: impact.EstimatedTime,
 		BestTime:          "maintenance window if complex",
-		Phased:           len(phases) > 0,
-		Phases:           phases,
+		Phased:            len(phases) > 0,
+		Phases:            phases,
 	}
-	
+
 	return &OptimizedMigration{
 		Name:        fmt.Sprintf("change_column_type_%s_%s", tableName, columnName),
 		SQL:         sql,
@@ -413,7 +413,7 @@ func (mo *MigrationOptimizer) assessAddColumnImpact(tableSize int64, nullable bo
 	var level string
 	var estimatedTime time.Duration
 	var recommendations []string
-	
+
 	if tableSize < 100000 {
 		level = "low"
 		estimatedTime = 5 * time.Second
@@ -425,19 +425,19 @@ func (mo *MigrationOptimizer) assessAddColumnImpact(tableSize int64, nullable bo
 		estimatedTime = 2 * time.Minute
 		recommendations = append(recommendations, "Consider maintenance window for large table")
 	}
-	
+
 	if !nullable {
 		level = "medium"
 		estimatedTime += 10 * time.Second
 		recommendations = append(recommendations, "Non-nullable column requires table scan")
 	}
-	
+
 	return PerformanceImpact{
-		Level:          level,
-		LockType:       "shared",
-		EstimatedTime:  estimatedTime,
-		TableSize:      tableSize,
-		ConcurrentSafe: nullable,
+		Level:           level,
+		LockType:        "shared",
+		EstimatedTime:   estimatedTime,
+		TableSize:       tableSize,
+		ConcurrentSafe:  nullable,
 		Recommendations: recommendations,
 	}
 }
@@ -446,11 +446,11 @@ func (mo *MigrationOptimizer) assessAddColumnImpact(tableSize int64, nullable bo
 func (mo *MigrationOptimizer) assessIndexCreationImpact(tableSize int64, columnCount int) PerformanceImpact {
 	var level string
 	var estimatedTime time.Duration
-	
+
 	baseTime := time.Duration(tableSize/10000) * time.Second // Rough estimate
 	multiplier := time.Duration(columnCount)
 	estimatedTime = baseTime * multiplier
-	
+
 	if tableSize < 100000 {
 		level = "low"
 		estimatedTime = 10 * time.Second
@@ -461,7 +461,7 @@ func (mo *MigrationOptimizer) assessIndexCreationImpact(tableSize int64, columnC
 		level = "high"
 		estimatedTime = 5 * time.Minute
 	}
-	
+
 	return PerformanceImpact{
 		Level:          level,
 		LockType:       "none", // CONCURRENT
@@ -483,13 +483,13 @@ func (mo *MigrationOptimizer) getTableSize(tableName string) int64 {
 			(SELECT reltuples::bigint FROM pg_class WHERE relname = ?), 
 			0
 		) as estimated_rows`
-	
+
 	err := mo.db.Raw(query, tableName).Scan(&size).Error
 	if err != nil {
 		mo.logger.Warn("Failed to get table size", zap.String("table", tableName), zap.Error(err))
 		return 0
 	}
-	
+
 	return size
 }
 
@@ -500,16 +500,16 @@ func (mo *MigrationOptimizer) getColumnInfo(tableName, columnName string) string
 		SELECT data_type 
 		FROM information_schema.columns 
 		WHERE table_name = ? AND column_name = ?`
-	
+
 	err := mo.db.Raw(query, tableName, columnName).Scan(&dataType).Error
 	if err != nil {
-		mo.logger.Warn("Failed to get column info", 
-			zap.String("table", tableName), 
-			zap.String("column", columnName), 
+		mo.logger.Warn("Failed to get column info",
+			zap.String("table", tableName),
+			zap.String("column", columnName),
 			zap.Error(err))
 		return "TEXT" // Default fallback
 	}
-	
+
 	return dataType
 }
 
@@ -529,15 +529,15 @@ func (mo *MigrationOptimizer) isTypeChangeCompatible(oldType, newType string) bo
 		"decimal":   {"numeric"},
 		"timestamp": {"timestamptz"},
 	}
-	
+
 	oldType = strings.ToLower(oldType)
 	newType = strings.ToLower(newType)
-	
+
 	// Exact match
 	if oldType == newType {
 		return true
 	}
-	
+
 	// Check compatible changes
 	if compatible, exists := compatibleChanges[oldType]; exists {
 		for _, compat := range compatible {
@@ -546,7 +546,7 @@ func (mo *MigrationOptimizer) isTypeChangeCompatible(oldType, newType string) bo
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -557,25 +557,25 @@ func (mo *MigrationOptimizer) ValidateMigration(ctx context.Context, migration *
 		mo.logger.Info("Checking precondition", zap.String("condition", precondition))
 		// In a real implementation, these would be actual checks
 	}
-	
+
 	// Validate SQL syntax
 	if err := mo.validateSQL(migration.SQL); err != nil {
 		return fmt.Errorf("invalid SQL syntax: %w", err)
 	}
-	
+
 	// Check for breaking changes
 	if migration.Safety.BreakingChanges {
-		mo.logger.Warn("Migration contains breaking changes", 
+		mo.logger.Warn("Migration contains breaking changes",
 			zap.String("migration", migration.Name))
 	}
-	
+
 	// Check if maintenance window is required
 	if migration.Timing.MaintenanceWindow {
 		mo.logger.Warn("Migration requires maintenance window",
 			zap.String("migration", migration.Name),
 			zap.Duration("estimated_duration", migration.Timing.EstimatedDuration))
 	}
-	
+
 	return nil
 }
 
@@ -589,7 +589,7 @@ func (mo *MigrationOptimizer) validateSQL(sql string) error {
 		"DELETE.*WHERE.*1=1",
 		"UPDATE.*WHERE.*1=1",
 	}
-	
+
 	upperSQL := strings.ToUpper(sql)
 	for _, pattern := range dangerous {
 		matched, err := regexp.MatchString(pattern, upperSQL)
@@ -600,7 +600,7 @@ func (mo *MigrationOptimizer) validateSQL(sql string) error {
 			return fmt.Errorf("potentially dangerous SQL pattern detected: %s", pattern)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -610,13 +610,13 @@ func (mo *MigrationOptimizer) ExecuteMigration(ctx context.Context, migration *O
 	if err := mo.ValidateMigration(ctx, migration); err != nil {
 		return fmt.Errorf("migration validation failed: %w", err)
 	}
-	
+
 	start := time.Now()
 	mo.logger.Info("Executing migration",
 		zap.String("name", migration.Name),
 		zap.String("performance_level", migration.Performance.Level),
 		zap.Bool("phased", migration.Timing.Phased))
-	
+
 	if migration.Timing.Phased && len(migration.Timing.Phases) > 0 {
 		// Execute phased migration
 		for i, phase := range migration.Timing.Phases {
@@ -624,7 +624,7 @@ func (mo *MigrationOptimizer) ExecuteMigration(ctx context.Context, migration *O
 				zap.Int("phase", i+1),
 				zap.String("name", phase.Name),
 				zap.String("description", phase.Description))
-			
+
 			if err := mo.db.WithContext(ctx).Exec(phase.SQL).Error; err != nil {
 				return fmt.Errorf("failed to execute phase %s: %w", phase.Name, err)
 			}
@@ -635,12 +635,12 @@ func (mo *MigrationOptimizer) ExecuteMigration(ctx context.Context, migration *O
 			return fmt.Errorf("failed to execute migration: %w", err)
 		}
 	}
-	
+
 	duration := time.Since(start)
 	mo.logger.Info("Migration completed successfully",
 		zap.String("name", migration.Name),
 		zap.Duration("actual_duration", duration),
 		zap.Duration("estimated_duration", migration.Performance.EstimatedTime))
-	
+
 	return nil
 }

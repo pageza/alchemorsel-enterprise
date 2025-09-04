@@ -16,39 +16,39 @@ import (
 // MetricsCollector handles Prometheus metrics collection
 type MetricsCollector struct {
 	logger *zap.Logger
-	
+
 	// HTTP metrics
-	httpRequestsTotal     *prometheus.CounterVec
-	httpRequestDuration   *prometheus.HistogramVec
-	httpRequestSize       *prometheus.HistogramVec
-	httpResponseSize      *prometheus.HistogramVec
-	
+	httpRequestsTotal   *prometheus.CounterVec
+	httpRequestDuration *prometheus.HistogramVec
+	httpRequestSize     *prometheus.HistogramVec
+	httpResponseSize    *prometheus.HistogramVec
+
 	// Business metrics
-	recipesCreatedTotal    prometheus.Counter
-	recipesViewedTotal     prometheus.Counter
-	usersRegisteredTotal   prometheus.Counter
-	aiRequestsTotal        *prometheus.CounterVec
-	aiRequestDuration     *prometheus.HistogramVec
-	
+	recipesCreatedTotal  prometheus.Counter
+	recipesViewedTotal   prometheus.Counter
+	usersRegisteredTotal prometheus.Counter
+	aiRequestsTotal      *prometheus.CounterVec
+	aiRequestDuration    *prometheus.HistogramVec
+
 	// System metrics
-	dbConnectionsActive    prometheus.Gauge
-	dbConnectionsIdle      prometheus.Gauge
-	dbQueryDuration       *prometheus.HistogramVec
-	cacheHitRatio         *prometheus.GaugeVec
-	cacheOperations       *prometheus.CounterVec
-	
+	dbConnectionsActive prometheus.Gauge
+	dbConnectionsIdle   prometheus.Gauge
+	dbQueryDuration     *prometheus.HistogramVec
+	cacheHitRatio       *prometheus.GaugeVec
+	cacheOperations     *prometheus.CounterVec
+
 	// SLA/SLO metrics
-	uptimeSeconds         prometheus.Counter
-	errorRateTotal        *prometheus.CounterVec
-	latencyP95            prometheus.Histogram
-	latencyP99            prometheus.Histogram
+	uptimeSeconds  prometheus.Counter
+	errorRateTotal *prometheus.CounterVec
+	latencyP95     prometheus.Histogram
+	latencyP99     prometheus.Histogram
 }
 
 // NewMetricsCollector creates a new metrics collector
 func NewMetricsCollector(logger *zap.Logger) *MetricsCollector {
 	return &MetricsCollector{
 		logger: logger,
-		
+
 		// HTTP metrics
 		httpRequestsTotal: promauto.NewCounterVec(
 			prometheus.CounterOpts{
@@ -81,7 +81,7 @@ func NewMetricsCollector(logger *zap.Logger) *MetricsCollector {
 			},
 			[]string{"method", "path", "status_code"},
 		),
-		
+
 		// Business metrics
 		recipesCreatedTotal: promauto.NewCounter(
 			prometheus.CounterOpts{
@@ -116,7 +116,7 @@ func NewMetricsCollector(logger *zap.Logger) *MetricsCollector {
 			},
 			[]string{"provider", "model"},
 		),
-		
+
 		// System metrics
 		dbConnectionsActive: promauto.NewGauge(
 			prometheus.GaugeOpts{
@@ -152,7 +152,7 @@ func NewMetricsCollector(logger *zap.Logger) *MetricsCollector {
 			},
 			[]string{"operation", "cache_type", "status"},
 		),
-		
+
 		// SLA/SLO metrics
 		uptimeSeconds: promauto.NewCounter(
 			prometheus.CounterOpts{
@@ -188,7 +188,7 @@ func NewMetricsCollector(logger *zap.Logger) *MetricsCollector {
 func (m *MetricsCollector) HTTPMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
-		
+
 		// Record request size
 		if c.Request.ContentLength > 0 {
 			m.httpRequestSize.WithLabelValues(
@@ -196,37 +196,37 @@ func (m *MetricsCollector) HTTPMiddleware() gin.HandlerFunc {
 				c.FullPath(),
 			).Observe(float64(c.Request.ContentLength))
 		}
-		
+
 		// Process request
 		c.Next()
-		
+
 		// Record metrics after request processing
 		duration := time.Since(start).Seconds()
 		statusCode := strconv.Itoa(c.Writer.Status())
-		
+
 		m.httpRequestsTotal.WithLabelValues(
 			c.Request.Method,
 			c.FullPath(),
 			statusCode,
 		).Inc()
-		
+
 		m.httpRequestDuration.WithLabelValues(
 			c.Request.Method,
 			c.FullPath(),
 			statusCode,
 		).Observe(duration)
-		
+
 		// Record response size
 		m.httpResponseSize.WithLabelValues(
 			c.Request.Method,
 			c.FullPath(),
 			statusCode,
 		).Observe(float64(c.Writer.Size()))
-		
+
 		// Record latency percentiles
 		m.latencyP95.Observe(duration)
 		m.latencyP99.Observe(duration)
-		
+
 		// Record errors
 		if c.Writer.Status() >= 400 {
 			errorType := "client_error"
@@ -282,7 +282,7 @@ func (m *MetricsCollector) RecordError(service, errorType string) {
 func (m *MetricsCollector) StartUptimeCounter(ctx context.Context) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():

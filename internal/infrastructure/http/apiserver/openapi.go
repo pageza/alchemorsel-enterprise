@@ -50,7 +50,7 @@ func (h *OpenAPIHandler) ServeOpenAPIJSON(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
-	
+
 	// Simple JSON encoding for the response
 	fmt.Fprintf(w, `{
 		"openapi": "3.0.3",
@@ -70,7 +70,7 @@ func (h *OpenAPIHandler) ServeOpenAPIJSON(w http.ResponseWriter, r *http.Request
 // ServeSwaggerUI serves a basic Swagger UI interface
 func (h *OpenAPIHandler) ServeSwaggerUI(w http.ResponseWriter, r *http.Request) {
 	specURL := fmt.Sprintf("%s://%s/api/v1/openapi.yaml", getScheme(r), r.Host)
-	
+
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -181,7 +181,7 @@ func (h *OpenAPIHandler) ServeSwaggerUI(w http.ResponseWriter, r *http.Request) 
 // ServeRedocUI serves a Redoc UI interface (alternative to Swagger UI)
 func (h *OpenAPIHandler) ServeRedocUI(w http.ResponseWriter, r *http.Request) {
 	specURL := fmt.Sprintf("%s://%s/api/v1/openapi.yaml", getScheme(r), r.Host)
-	
+
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head>
@@ -231,15 +231,15 @@ func getScheme(r *http.Request) string {
 	if r.TLS != nil {
 		return "https"
 	}
-	
+
 	// Check forwarded headers for proxy setups
 	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
 		return proto
 	}
-	
+
 	if strings.Contains(r.Host, "localhost") || strings.Contains(r.Host, "127.0.0.1") {
 		return "http"
 	}
-	
+
 	return "http" // Default to http for development
 }

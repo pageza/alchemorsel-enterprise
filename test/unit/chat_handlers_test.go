@@ -24,11 +24,11 @@ import (
 // ChatHandlerTestSuite tests the chat HTTP handlers
 type ChatHandlerTestSuite struct {
 	suite.Suite
-	chatHandler     *handlers.ChatHandler
-	convService     *conversation.Service
-	testSuite       *testutils.ConversationTestSuite
-	testUser        *user.User
-	ctx             context.Context
+	chatHandler *handlers.ChatHandler
+	convService *conversation.Service
+	testSuite   *testutils.ConversationTestSuite
+	testUser    *user.User
+	ctx         context.Context
 }
 
 // SetupSuite initializes the test suite
@@ -37,14 +37,14 @@ func (suite *ChatHandlerTestSuite) SetupSuite() {
 	suite.convService = suite.testSuite.ConversationService
 	suite.chatHandler = handlers.NewChatHandler(suite.convService)
 	suite.ctx = context.Background()
-	
+
 	// Create test user
 	testUser, err := user.NewUser("test@example.com", "Test User", "password")
 	if err != nil {
 		panic(err) // Should not happen in tests
 	}
 	suite.testUser = testUser
-	
+
 }
 
 // SetupTest resets mocks before each test
@@ -156,7 +156,7 @@ func (suite *ChatHandlerTestSuite) TestHandleChatMessage() {
 			method:         "POST",
 			contentType:    "application/json",
 			body:           handlers.HTTPChatRequest{Message: "Test message"},
-			setupMocks:    func() {},
+			setupMocks:     func() {},
 			expectedStatus: http.StatusUnauthorized,
 			expectedResp: map[string]interface{}{
 				"success": false,
@@ -165,11 +165,11 @@ func (suite *ChatHandlerTestSuite) TestHandleChatMessage() {
 			withAuth: false,
 		},
 		{
-			name:        "Empty Message",
-			method:      "POST",
-			contentType: "application/json",
-			body:        handlers.HTTPChatRequest{Message: ""},
-			setupMocks: func() {},
+			name:           "Empty Message",
+			method:         "POST",
+			contentType:    "application/json",
+			body:           handlers.HTTPChatRequest{Message: ""},
+			setupMocks:     func() {},
 			expectedStatus: http.StatusBadRequest,
 			expectedResp: map[string]interface{}{
 				"success": false,
@@ -178,11 +178,11 @@ func (suite *ChatHandlerTestSuite) TestHandleChatMessage() {
 			withAuth: true,
 		},
 		{
-			name:        "Invalid JSON",
-			method:      "POST",
-			contentType: "application/json",
-			body:        `{"invalid": json}`,
-			setupMocks: func() {},
+			name:           "Invalid JSON",
+			method:         "POST",
+			contentType:    "application/json",
+			body:           `{"invalid": json}`,
+			setupMocks:     func() {},
 			expectedStatus: http.StatusBadRequest,
 			expectedResp: map[string]interface{}{
 				"success": false,
@@ -312,7 +312,7 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationList() {
 		},
 		{
 			name:           "Unauthenticated",
-			setupMocks:    func() {},
+			setupMocks:     func() {},
 			expectedStatus: http.StatusUnauthorized,
 			withAuth:       false,
 			expectedCount:  0,
@@ -339,7 +339,7 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationList() {
 				err := json.Unmarshal(w.Body.Bytes(), &response)
 				suite.NoError(err)
 				suite.True(response["success"].(bool))
-				
+
 				conversations := response["conversations"].([]interface{})
 				suite.Len(conversations, tc.expectedCount)
 			}
@@ -392,7 +392,7 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationHistory() {
 		{
 			name:           "Missing Conversation ID",
 			conversationID: "",
-			setupMocks:    func() {},
+			setupMocks:     func() {},
 			expectedStatus: http.StatusBadRequest,
 			withAuth:       true,
 			expectConv:     false,
@@ -400,7 +400,7 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationHistory() {
 		{
 			name:           "Unauthenticated",
 			conversationID: userConv.ID,
-			setupMocks:    func() {},
+			setupMocks:     func() {},
 			expectedStatus: http.StatusUnauthorized,
 			withAuth:       false,
 			expectConv:     false,
@@ -432,10 +432,10 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationHistory() {
 				err := json.Unmarshal(w.Body.Bytes(), &response)
 				suite.NoError(err)
 				suite.True(response["success"].(bool))
-				
+
 				conversation := response["conversation"].(map[string]interface{})
 				suite.Equal(userConv.ID, conversation["id"])
-				
+
 				messages := response["messages"].([]interface{})
 				suite.Len(messages, tc.expectedMessages)
 			}
@@ -481,14 +481,14 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationDelete() {
 		{
 			name:           "Missing Conversation ID",
 			conversationID: "",
-			setupMocks:    func() {},
+			setupMocks:     func() {},
 			expectedStatus: http.StatusBadRequest,
 			withAuth:       true,
 		},
 		{
 			name:           "Unauthenticated",
 			conversationID: userConv.ID,
-			setupMocks:    func() {},
+			setupMocks:     func() {},
 			expectedStatus: http.StatusUnauthorized,
 			withAuth:       false,
 		},
@@ -505,7 +505,7 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationDelete() {
 
 			req := httptest.NewRequest("POST", "/api/conversation/delete", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-			
+
 			if tc.withAuth {
 				ctx := context.WithValue(req.Context(), "user", suite.testUser)
 				req = req.WithContext(ctx)
@@ -561,7 +561,7 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationStats() {
 		},
 		{
 			name:           "Unauthenticated",
-			setupMocks:    func() {},
+			setupMocks:     func() {},
 			expectedStatus: http.StatusUnauthorized,
 			withAuth:       false,
 		},
@@ -587,7 +587,7 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationStats() {
 				err := json.Unmarshal(w.Body.Bytes(), &response)
 				suite.NoError(err)
 				suite.True(response["success"].(bool))
-				
+
 				stats := response["stats"].(map[string]interface{})
 				suite.Contains(stats, "total_conversations")
 				suite.Contains(stats, "active_conversations")
@@ -603,11 +603,11 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationStats() {
 // TestHandleAIChatHTMX tests the HTMX chat handler
 func (suite *ChatHandlerTestSuite) TestHandleAIChatHTMX() {
 	testCases := []struct {
-		name         string
-		message      string
-		conversationID string
-		setupMocks   func()
-		withAuth     bool
+		name             string
+		message          string
+		conversationID   string
+		setupMocks       func()
+		withAuth         bool
 		expectedContains []string
 	}{
 		{
@@ -617,7 +617,7 @@ func (suite *ChatHandlerTestSuite) TestHandleAIChatHTMX() {
 				// Mock conversation creation and processing
 				suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.Anything).Return(nil).Once()
 				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.Anything).Return(nil).Once()
-				
+
 				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentRecipeCreation)
 				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, mock.AnythingOfType("string")).Return(testConv, nil).Once()
 				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, mock.AnythingOfType("string"), 20, 0).Return([]*conversation.Message{}, nil).Once()
@@ -644,10 +644,10 @@ func (suite *ChatHandlerTestSuite) TestHandleAIChatHTMX() {
 			},
 		},
 		{
-			name:    "Unauthenticated HTMX Chat",
-			message: "Hello",
+			name:       "Unauthenticated HTMX Chat",
+			message:    "Hello",
 			setupMocks: func() {},
-			withAuth: false,
+			withAuth:   false,
 			expectedContains: []string{
 				"Hello",
 				"need to be logged in",
@@ -656,10 +656,10 @@ func (suite *ChatHandlerTestSuite) TestHandleAIChatHTMX() {
 			},
 		},
 		{
-			name:    "Empty Message",
-			message: "",
+			name:       "Empty Message",
+			message:    "",
 			setupMocks: func() {},
-			withAuth: true,
+			withAuth:   true,
 			expectedContains: []string{
 				"Message cannot be empty",
 				"❌",
@@ -679,7 +679,7 @@ func (suite *ChatHandlerTestSuite) TestHandleAIChatHTMX() {
 
 			req := httptest.NewRequest("POST", "/chat/htmx", strings.NewReader(form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-			
+
 			if tc.withAuth {
 				ctx := context.WithValue(req.Context(), "user", suite.testUser)
 				req = req.WithContext(ctx)
@@ -700,7 +700,6 @@ func (suite *ChatHandlerTestSuite) TestHandleAIChatHTMX() {
 		})
 	}
 }
-
 
 // TestChatHandlerErrorScenarios tests various error scenarios
 func (suite *ChatHandlerTestSuite) TestChatHandlerErrorScenarios() {
@@ -734,7 +733,7 @@ func (suite *ChatHandlerTestSuite) TestChatHandlerMiddleware() {
 	suite.Run("CORS Headers", func() {
 		req := httptest.NewRequest("OPTIONS", "/api/chat", nil)
 		req.Header.Set("Origin", "https://example.com")
-		
+
 		w := httptest.NewRecorder()
 		suite.chatHandler.HandleChatMessage(w, req)
 
@@ -752,7 +751,7 @@ func TestChatHandlerSuite(t *testing.T) {
 func TestChatHandlerPerformance(t *testing.T) {
 	testSuite := testutils.NewConversationTestSuite()
 	chatHandler := handlers.NewChatHandler(testSuite.ConversationService)
-	
+
 	testUser, err := user.NewUser("test@example.com", "Test User", "password")
 	if err != nil {
 		panic(err) // Should not happen in tests

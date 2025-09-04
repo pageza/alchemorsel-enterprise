@@ -15,10 +15,10 @@ import (
 
 // UserService implements user management use cases
 type UserService struct {
-	userRepo    outbound.UserRepository
-	cache       outbound.CacheRepository
-	jwtSecret   string
-	logger      *zap.Logger
+	userRepo  outbound.UserRepository
+	cache     outbound.CacheRepository
+	jwtSecret string
+	logger    *zap.Logger
 }
 
 // NewUserService creates a new user service
@@ -102,7 +102,7 @@ func (s *UserService) Register(ctx context.Context, cmd RegisterCommand) (*AuthR
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
-	s.logger.Info("User registered successfully", 
+	s.logger.Info("User registered successfully",
 		zap.String("user_id", newUser.ID().String()),
 		zap.String("email", newUser.Email()),
 	)
@@ -148,7 +148,7 @@ func (s *UserService) Login(ctx context.Context, cmd LoginCommand) (*AuthRespons
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
-	s.logger.Info("User logged in successfully", 
+	s.logger.Info("User logged in successfully",
 		zap.String("user_id", userEntity.ID().String()),
 		zap.String("email", userEntity.Email()),
 	)
@@ -267,7 +267,7 @@ func (s *UserService) ValidateToken(tokenString string) (*JWTClaims, error) {
 // generateTokens generates access and refresh tokens
 func (s *UserService) generateTokens(userEntity *user.User) (string, string, error) {
 	now := time.Now()
-	
+
 	// Access token (1 hour)
 	accessClaims := &JWTClaims{
 		UserID: userEntity.ID(),

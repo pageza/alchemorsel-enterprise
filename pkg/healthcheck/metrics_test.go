@@ -65,15 +65,15 @@ func TestDefaultMetricsConfig(t *testing.T) {
 func TestHealthMetrics_RecordCheck(t *testing.T) {
 	// Create a custom registry for testing
 	registry := prometheus.NewRegistry()
-	
+
 	config := MetricsConfig{
 		Namespace: "test",
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
-	
+
 	// Register metrics with test registry
 	registry.MustRegister(
 		metrics.checksTotal,
@@ -88,10 +88,10 @@ func TestHealthMetrics_RecordCheck(t *testing.T) {
 
 	// Verify counter metric
 	assert.Equal(t, float64(1), testutil.ToFloat64(metrics.checksTotal.WithLabelValues("overall", "healthy")))
-	
+
 	// Verify gauge metric
 	assert.Equal(t, float64(2), testutil.ToFloat64(metrics.healthStatus.WithLabelValues("overall"))) // StatusHealthy = 2
-	
+
 	// Verify histogram metric has been recorded
 	histogramValue := testutil.ToFloat64(metrics.checkDuration)
 	assert.Greater(t, histogramValue, float64(0))
@@ -101,7 +101,7 @@ func TestHealthMetrics_RecordCheck_Disabled(t *testing.T) {
 	config := MetricsConfig{
 		Enabled: false,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 
 	// Should not panic when metrics are disabled
@@ -110,13 +110,13 @@ func TestHealthMetrics_RecordCheck_Disabled(t *testing.T) {
 
 func TestHealthMetrics_RecordCheckByName(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	
+
 	config := MetricsConfig{
 		Namespace: "test",
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	registry.MustRegister(metrics.checksTotal, metrics.healthStatus)
 
@@ -130,13 +130,13 @@ func TestHealthMetrics_RecordCheckByName(t *testing.T) {
 
 func TestHealthMetrics_RecordCheckError(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	
+
 	config := MetricsConfig{
 		Namespace: "test",
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	registry.MustRegister(metrics.checkErrors)
 
@@ -149,13 +149,13 @@ func TestHealthMetrics_RecordCheckError(t *testing.T) {
 
 func TestHealthMetrics_RecordDependencyStatus(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	
+
 	config := MetricsConfig{
 		Namespace: "test",
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	registry.MustRegister(metrics.dependencyStatus)
 
@@ -168,13 +168,13 @@ func TestHealthMetrics_RecordDependencyStatus(t *testing.T) {
 
 func TestHealthMetrics_RecordCircuitBreakerState(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	
+
 	config := MetricsConfig{
 		Namespace: "test",
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	registry.MustRegister(metrics.circuitBreakerState)
 
@@ -191,13 +191,13 @@ func TestHealthMetrics_RecordCircuitBreakerState(t *testing.T) {
 
 func TestHealthMetrics_RecordCircuitTrip(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	
+
 	config := MetricsConfig{
 		Namespace: "test",
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	registry.MustRegister(metrics.circuitTrips)
 
@@ -210,13 +210,13 @@ func TestHealthMetrics_RecordCircuitTrip(t *testing.T) {
 
 func TestHealthMetrics_UpdateHealthStatus(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	
+
 	config := MetricsConfig{
 		Namespace: "test",
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	registry.MustRegister(metrics.healthStatus)
 
@@ -229,13 +229,13 @@ func TestHealthMetrics_UpdateHealthStatus(t *testing.T) {
 
 func TestHealthMetrics_UpdateDependencyStatuses(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	
+
 	config := MetricsConfig{
 		Namespace: "test",
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	registry.MustRegister(metrics.dependencyStatus)
 
@@ -264,13 +264,13 @@ func TestHealthMetrics_UpdateDependencyStatuses(t *testing.T) {
 
 func TestHealthMetrics_UpdateCircuitBreakerStates(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	
+
 	config := MetricsConfig{
 		Namespace: "test",
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	registry.MustRegister(metrics.circuitBreakerState)
 
@@ -309,19 +309,19 @@ func TestCircuitStateToFloat(t *testing.T) {
 
 func TestHealthCheckMetricsMiddleware(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	
+
 	config := MetricsConfig{
 		Namespace: "test",
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	registry.MustRegister(metrics.checksTotal, metrics.checkErrors)
 
 	// Create mock checker
 	mockChecker := NewMockChecker("test").WithStatus(StatusHealthy).WithMessage("OK")
-	
+
 	// Wrap with metrics middleware
 	middleware := NewHealthCheckMetricsMiddleware(metrics, mockChecker)
 
@@ -340,19 +340,19 @@ func TestHealthCheckMetricsMiddleware(t *testing.T) {
 
 func TestHealthCheckMetricsMiddleware_WithError(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	
+
 	config := MetricsConfig{
 		Namespace: "test",
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	registry.MustRegister(metrics.checksTotal, metrics.checkErrors)
 
 	// Create failing checker
 	mockChecker := NewMockChecker("test").WithStatus(StatusUnhealthy).WithMessage("Failed")
-	
+
 	// Wrap with metrics middleware
 	middleware := NewHealthCheckMetricsMiddleware(metrics, mockChecker)
 
@@ -374,7 +374,7 @@ func TestWithMetrics(t *testing.T) {
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	mockChecker := NewMockChecker("test").WithStatus(StatusHealthy)
 
@@ -393,13 +393,13 @@ func TestHealthMetrics_GetMetricsHandler(t *testing.T) {
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 
 	registry := metrics.GetMetricsHandler()
 
 	assert.NotNil(t, registry)
-	
+
 	// Gather metrics to verify registry has our metrics
 	metricFamilies, err := registry.Gather()
 	require.NoError(t, err)
@@ -435,7 +435,7 @@ func TestHealthMetrics_ConcurrentAccess(t *testing.T) {
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 
 	// Run concurrent metric recording
@@ -465,7 +465,7 @@ func TestHealthMetrics_ConcurrentAccess(t *testing.T) {
 	// Verify metrics were recorded (should not panic or race)
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(metrics.checksTotal)
-	
+
 	// Should have recorded checks
 	checkCount := testutil.ToFloat64(metrics.checksTotal.WithLabelValues("overall", "healthy"))
 	assert.Equal(t, float64(numGoroutines), checkCount)
@@ -477,7 +477,7 @@ func TestMetricsCollector(t *testing.T) {
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	collector := NewMetricsCollector(nil, metrics)
 
@@ -497,13 +497,13 @@ func TestMetricsCollector(t *testing.T) {
 func TestHealthMetrics_IntegrationWithPrometheus(t *testing.T) {
 	// Create a custom registry to avoid conflicts with other tests
 	registry := prometheus.NewRegistry()
-	
+
 	config := MetricsConfig{
 		Namespace: "integration_test",
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 
 	// Register metrics
@@ -562,7 +562,7 @@ func BenchmarkHealthMetrics_RecordCheck(b *testing.B) {
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 
 	b.ResetTimer()
@@ -577,7 +577,7 @@ func BenchmarkHealthMetrics_RecordCheckByName(b *testing.B) {
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 
 	b.ResetTimer()
@@ -592,7 +592,7 @@ func BenchmarkHealthMetrics_RecordDependencyStatus(b *testing.B) {
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 
 	b.ResetTimer()
@@ -607,7 +607,7 @@ func BenchmarkHealthCheckMetricsMiddleware_Check(b *testing.B) {
 		Subsystem: "health",
 		Enabled:   true,
 	}
-	
+
 	metrics := NewHealthMetricsWithConfig(config)
 	mockChecker := NewMockChecker("test").WithStatus(StatusHealthy)
 	middleware := NewHealthCheckMetricsMiddleware(metrics, mockChecker)

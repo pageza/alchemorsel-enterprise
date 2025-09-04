@@ -10,15 +10,15 @@ import (
 // UserToModel converts a domain user to a GORM model
 func UserToModel(u *user.User) *UserModel {
 	model := &UserModel{
-		ID:           u.ID(),
-		Email:        u.Email(),
-		Name:         u.Name(),
-		IsActive:     u.IsActive(),
-		IsVerified:   u.IsVerified(),
-		Role:         string(u.Role()),
-		CreatedAt:    u.CreatedAt(),
-		UpdatedAt:    u.UpdatedAt(),
-		LastLoginAt:  u.LastLoginAt(),
+		ID:          u.ID(),
+		Email:       u.Email(),
+		Name:        u.Name(),
+		IsActive:    u.IsActive(),
+		IsVerified:  u.IsVerified(),
+		Role:        string(u.Role()),
+		CreatedAt:   u.CreatedAt(),
+		UpdatedAt:   u.UpdatedAt(),
+		LastLoginAt: u.LastLoginAt(),
 	}
 
 	// Map profile if it exists
@@ -128,7 +128,7 @@ func ModelToRecipe(model *RecipeModel) (*recipe.Recipe, error) {
 
 	// For a proper implementation, we would need to either:
 	// 1. Add setters to the domain entity, or
-	// 2. Use reflection to set private fields, or  
+	// 2. Use reflection to set private fields, or
 	// 3. Create a constructor that accepts all fields
 	//
 	// For now, this simplified approach creates a basic recipe
@@ -136,7 +136,7 @@ func ModelToRecipe(model *RecipeModel) (*recipe.Recipe, error) {
 	// we lose the social metrics (likes, views, ratings, etc.)
 	//
 	// TODO: Implement proper field mapping when domain entity allows it
-	
+
 	return r, nil
 }
 
@@ -190,11 +190,11 @@ func convertInstructionsToJSON(instructions []recipe.Instruction) []map[string]i
 		}
 
 		result[i] = map[string]interface{}{
-			"step_number":  inst.StepNumber,
-			"description":  inst.Description,
-			"duration":     inst.Duration.Minutes(),
-			"temperature":  temp,
-			"images":       inst.Images,
+			"step_number": inst.StepNumber,
+			"description": inst.Description,
+			"duration":    inst.Duration.Minutes(),
+			"temperature": temp,
+			"images":      inst.Images,
 		}
 	}
 	return result
@@ -204,7 +204,7 @@ func convertNutritionToJSON(nutrition *recipe.NutritionInfo) map[string]interfac
 	if nutrition == nil {
 		return nil
 	}
-	
+
 	return map[string]interface{}{
 		"calories":      nutrition.Calories,
 		"protein":       nutrition.Protein,

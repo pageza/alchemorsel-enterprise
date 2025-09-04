@@ -14,25 +14,25 @@ import (
 
 // UsageAnalytics tracks and analyzes AI service usage patterns
 type UsageAnalytics struct {
-	cacheRepo       outbound.CacheRepository
-	logger          *zap.Logger
-	
+	cacheRepo outbound.CacheRepository
+	logger    *zap.Logger
+
 	// Real-time metrics
-	currentMetrics  *RealTimeMetrics
-	
+	currentMetrics *RealTimeMetrics
+
 	// Historical tracking
-	hourlyStats     map[string]*HourlyStats
-	dailyStats      map[string]*DailyStats
-	featureStats    map[string]*FeatureStats
-	userStats       map[uuid.UUID]*UserStats
-	
+	hourlyStats  map[string]*HourlyStats
+	dailyStats   map[string]*DailyStats
+	featureStats map[string]*FeatureStats
+	userStats    map[uuid.UUID]*UserStats
+
 	// Performance tracking
 	latencyHistogram map[string][]time.Duration
 	errorCounts      map[string]int64
 	cacheStats       *CacheStats
-	
+
 	// Thread safety
-	mu              sync.RWMutex
+	mu sync.RWMutex
 }
 
 // RealTimeMetrics holds current performance metrics
@@ -51,59 +51,59 @@ type RealTimeMetrics struct {
 
 // HourlyStats tracks statistics per hour
 type HourlyStats struct {
-	Hour            time.Time
-	RequestCount    int64
-	ErrorCount      int64
-	CacheHits       int64
-	CacheMisses     int64
-	TotalLatency    time.Duration
-	AverageLatency  time.Duration
-	MinLatency      time.Duration
-	MaxLatency      time.Duration
-	UniqueUsers     map[uuid.UUID]bool
-	FeatureUsage    map[string]int64
+	Hour           time.Time
+	RequestCount   int64
+	ErrorCount     int64
+	CacheHits      int64
+	CacheMisses    int64
+	TotalLatency   time.Duration
+	AverageLatency time.Duration
+	MinLatency     time.Duration
+	MaxLatency     time.Duration
+	UniqueUsers    map[uuid.UUID]bool
+	FeatureUsage   map[string]int64
 }
 
 // DailyStats tracks statistics per day
 type DailyStats struct {
-	Date            time.Time
-	RequestCount    int64
-	ErrorCount      int64
-	CacheHits       int64
-	CacheMisses     int64
-	TotalLatency    time.Duration
-	AverageLatency  time.Duration
-	UniqueUsers     int
-	TopFeatures     map[string]int64
-	PeakHour        int
-	PeakRequests    int64
+	Date           time.Time
+	RequestCount   int64
+	ErrorCount     int64
+	CacheHits      int64
+	CacheMisses    int64
+	TotalLatency   time.Duration
+	AverageLatency time.Duration
+	UniqueUsers    int
+	TopFeatures    map[string]int64
+	PeakHour       int
+	PeakRequests   int64
 }
 
 // FeatureStats tracks usage of specific features
 type FeatureStats struct {
-	FeatureName     string
-	RequestCount    int64
-	ErrorCount      int64
-	TotalLatency    time.Duration
-	AverageLatency  time.Duration
-	SuccessRate     float64
-	PopularityRank  int
-	QualityScore    float64
-	UserCount       int
-	LastUsed        time.Time
+	FeatureName    string
+	RequestCount   int64
+	ErrorCount     int64
+	TotalLatency   time.Duration
+	AverageLatency time.Duration
+	SuccessRate    float64
+	PopularityRank int
+	QualityScore   float64
+	UserCount      int
+	LastUsed       time.Time
 }
 
 // UserStats tracks individual user behavior
 type UserStats struct {
-	UserID          uuid.UUID
-	TotalRequests   int64
-	TotalErrors     int64
-	AverageLatency  time.Duration
+	UserID           uuid.UUID
+	TotalRequests    int64
+	TotalErrors      int64
+	AverageLatency   time.Duration
 	FavoriteFeatures map[string]int64
-	LastActivity    time.Time
-	FirstSeen       time.Time
-	SessionCount    int64
-	AverageSession  time.Duration
+	LastActivity     time.Time
+	FirstSeen        time.Time
+	SessionCount     int64
+	AverageSession   time.Duration
 }
 
 // CacheStats tracks caching performance
@@ -120,15 +120,15 @@ type CacheStats struct {
 
 // PerformanceMetrics represents system performance data
 type PerformanceMetrics struct {
-	Timestamp       time.Time
+	Timestamp         time.Time
 	RequestsPerMinute int64
-	AverageLatency  time.Duration
-	P50Latency      time.Duration
-	P95Latency      time.Duration
-	P99Latency      time.Duration
-	ErrorRate       float64
-	CacheHitRate    float64
-	ThroughputMBps  float64
+	AverageLatency    time.Duration
+	P50Latency        time.Duration
+	P95Latency        time.Duration
+	P99Latency        time.Duration
+	ErrorRate         float64
+	CacheHitRate      float64
+	ThroughputMBps    float64
 }
 
 // TrendAnalysis provides trend analysis data
@@ -156,7 +156,7 @@ type AnomalyDetection struct {
 // NewUsageAnalytics creates a new usage analytics tracker
 func NewUsageAnalytics(cacheRepo outbound.CacheRepository, logger *zap.Logger) *UsageAnalytics {
 	namedLogger := logger.Named("usage-analytics")
-	
+
 	return &UsageAnalytics{
 		cacheRepo:        cacheRepo,
 		logger:           namedLogger,
@@ -175,28 +175,28 @@ func NewUsageAnalytics(cacheRepo outbound.CacheRepository, logger *zap.Logger) *
 func (ua *UsageAnalytics) TrackRequest(ctx context.Context, feature string, latency time.Duration, resultSize int) {
 	ua.mu.Lock()
 	defer ua.mu.Unlock()
-	
+
 	now := time.Now()
 	userID := ua.extractUserIDFromContext(ctx)
-	
+
 	// Update real-time metrics
 	ua.updateRealTimeMetrics(latency, false)
-	
+
 	// Update hourly stats
 	ua.updateHourlyStats(now, feature, userID, latency, false)
-	
+
 	// Update daily stats
 	ua.updateDailyStats(now, feature, userID, latency, false)
-	
+
 	// Update feature stats
 	ua.updateFeatureStats(feature, latency, false, resultSize)
-	
+
 	// Update user stats
 	ua.updateUserStats(userID, feature, latency, false)
-	
+
 	// Store latency for histogram
 	ua.addLatencySample(feature, latency)
-	
+
 	ua.logger.Debug("Request tracked",
 		zap.String("feature", feature),
 		zap.Duration("latency", latency),
@@ -209,29 +209,29 @@ func (ua *UsageAnalytics) TrackRequest(ctx context.Context, feature string, late
 func (ua *UsageAnalytics) TrackError(ctx context.Context, feature string, errorMessage string) {
 	ua.mu.Lock()
 	defer ua.mu.Unlock()
-	
+
 	now := time.Now()
 	userID := ua.extractUserIDFromContext(ctx)
-	
+
 	// Update real-time metrics
 	ua.updateRealTimeMetrics(0, true)
-	
+
 	// Update hourly stats
 	ua.updateHourlyStats(now, feature, userID, 0, true)
-	
+
 	// Update daily stats
 	ua.updateDailyStats(now, feature, userID, 0, true)
-	
+
 	// Update feature stats
 	ua.updateFeatureStats(feature, 0, true, 0)
-	
+
 	// Update user stats
 	ua.updateUserStats(userID, feature, 0, true)
-	
+
 	// Track error counts
 	ua.errorCounts[feature]++
 	ua.errorCounts["total"]++
-	
+
 	ua.logger.Warn("Error tracked",
 		zap.String("feature", feature),
 		zap.String("error", errorMessage),
@@ -243,17 +243,17 @@ func (ua *UsageAnalytics) TrackError(ctx context.Context, feature string, errorM
 func (ua *UsageAnalytics) TrackCacheHit(ctx context.Context, feature string) {
 	ua.mu.Lock()
 	defer ua.mu.Unlock()
-	
+
 	ua.cacheStats.TotalHits++
 	ua.currentMetrics.TotalCacheHits++
-	
+
 	// Update cache hit rate
 	total := ua.cacheStats.TotalHits + ua.cacheStats.TotalMisses
 	if total > 0 {
 		ua.cacheStats.HitRate = float64(ua.cacheStats.TotalHits) / float64(total)
 		ua.currentMetrics.CacheHitRate = ua.cacheStats.HitRate
 	}
-	
+
 	ua.logger.Debug("Cache hit tracked", zap.String("feature", feature))
 }
 
@@ -261,17 +261,17 @@ func (ua *UsageAnalytics) TrackCacheHit(ctx context.Context, feature string) {
 func (ua *UsageAnalytics) TrackCacheMiss(ctx context.Context, feature string) {
 	ua.mu.Lock()
 	defer ua.mu.Unlock()
-	
+
 	ua.cacheStats.TotalMisses++
 	ua.currentMetrics.TotalCacheMisses++
-	
+
 	// Update cache hit rate
 	total := ua.cacheStats.TotalHits + ua.cacheStats.TotalMisses
 	if total > 0 {
 		ua.cacheStats.HitRate = float64(ua.cacheStats.TotalHits) / float64(total)
 		ua.currentMetrics.CacheHitRate = ua.cacheStats.HitRate
 	}
-	
+
 	ua.logger.Debug("Cache miss tracked", zap.String("feature", feature))
 }
 
@@ -279,7 +279,7 @@ func (ua *UsageAnalytics) TrackCacheMiss(ctx context.Context, feature string) {
 func (ua *UsageAnalytics) GetRealTimeMetrics() *RealTimeMetrics {
 	ua.mu.RLock()
 	defer ua.mu.RUnlock()
-	
+
 	// Create a copy to avoid race conditions
 	metrics := *ua.currentMetrics
 	return &metrics
@@ -289,24 +289,24 @@ func (ua *UsageAnalytics) GetRealTimeMetrics() *RealTimeMetrics {
 func (ua *UsageAnalytics) GetPerformanceMetrics(period string) *PerformanceMetrics {
 	ua.mu.RLock()
 	defer ua.mu.RUnlock()
-	
+
 	// Calculate latency percentiles
 	allLatencies := []time.Duration{}
 	for _, latencies := range ua.latencyHistogram {
 		allLatencies = append(allLatencies, latencies...)
 	}
-	
+
 	sort.Slice(allLatencies, func(i, j int) bool {
 		return allLatencies[i] < allLatencies[j]
 	})
-	
+
 	var p50, p95, p99 time.Duration
 	if len(allLatencies) > 0 {
 		p50 = allLatencies[len(allLatencies)*50/100]
 		p95 = allLatencies[len(allLatencies)*95/100]
 		p99 = allLatencies[len(allLatencies)*99/100]
 	}
-	
+
 	// Calculate requests per minute
 	requestsPerMinute := ua.currentMetrics.TotalRequests
 	if period == "hour" {
@@ -314,7 +314,7 @@ func (ua *UsageAnalytics) GetPerformanceMetrics(period string) *PerformanceMetri
 	} else if period == "day" {
 		requestsPerMinute /= (24 * 60)
 	}
-	
+
 	return &PerformanceMetrics{
 		Timestamp:         time.Now(),
 		RequestsPerMinute: requestsPerMinute,
@@ -332,24 +332,24 @@ func (ua *UsageAnalytics) GetPerformanceMetrics(period string) *PerformanceMetri
 func (ua *UsageAnalytics) GenerateReport(ctx context.Context, period string) (*UsageReport, error) {
 	ua.mu.RLock()
 	defer ua.mu.RUnlock()
-	
+
 	report := &UsageReport{
-		Period:           period,
-		TotalRequests:    ua.currentMetrics.TotalRequests,
-		RequestsByType:   make(map[string]int64),
-		AverageLatency:   ua.currentMetrics.AverageLatency,
-		CacheHitRate:     ua.currentMetrics.CacheHitRate,
-		ErrorRate:        ua.currentMetrics.ErrorRate,
-		TopUsers:         []UserUsage{},
-		HourlyBreakdown:  []HourlyUsage{},
-		GeneratedAt:      time.Now(),
+		Period:          period,
+		TotalRequests:   ua.currentMetrics.TotalRequests,
+		RequestsByType:  make(map[string]int64),
+		AverageLatency:  ua.currentMetrics.AverageLatency,
+		CacheHitRate:    ua.currentMetrics.CacheHitRate,
+		ErrorRate:       ua.currentMetrics.ErrorRate,
+		TopUsers:        []UserUsage{},
+		HourlyBreakdown: []HourlyUsage{},
+		GeneratedAt:     time.Now(),
 	}
-	
+
 	// Feature usage breakdown
 	for feature, stats := range ua.featureStats {
 		report.RequestsByType[feature] = stats.RequestCount
 	}
-	
+
 	// Top users
 	var users []UserUsage
 	for userID, stats := range ua.userStats {
@@ -359,18 +359,18 @@ func (ua *UsageAnalytics) GenerateReport(ctx context.Context, period string) (*U
 			AverageLatency: stats.AverageLatency,
 		})
 	}
-	
+
 	// Sort users by request count
 	sort.Slice(users, func(i, j int) bool {
 		return users[i].RequestCount > users[j].RequestCount
 	})
-	
+
 	// Take top 10 users
 	if len(users) > 10 {
 		users = users[:10]
 	}
 	report.TopUsers = users
-	
+
 	// Hourly breakdown
 	for hourKey, stats := range ua.hourlyStats {
 		if hour, err := time.Parse("2006-01-02-15", hourKey); err == nil {
@@ -382,12 +382,12 @@ func (ua *UsageAnalytics) GenerateReport(ctx context.Context, period string) (*U
 			})
 		}
 	}
-	
+
 	// Sort hourly breakdown by hour
 	sort.Slice(report.HourlyBreakdown, func(i, j int) bool {
 		return report.HourlyBreakdown[i].Hour < report.HourlyBreakdown[j].Hour
 	})
-	
+
 	return report, nil
 }
 
@@ -395,7 +395,7 @@ func (ua *UsageAnalytics) GenerateReport(ctx context.Context, period string) (*U
 func (ua *UsageAnalytics) GetTrendAnalysis(period string) *TrendAnalysis {
 	ua.mu.RLock()
 	defer ua.mu.RUnlock()
-	
+
 	analysis := &TrendAnalysis{
 		Period:          period,
 		TrendDirection:  "stable",
@@ -405,23 +405,23 @@ func (ua *UsageAnalytics) GetTrendAnalysis(period string) *TrendAnalysis {
 		Anomalies:       []AnomalyDetection{},
 		Recommendations: []string{},
 	}
-	
+
 	// Simplified trend analysis
 	// In production, this would use more sophisticated algorithms
-	
+
 	// Calculate growth rate based on daily stats
 	var dailyRequests []int64
 	for _, stats := range ua.dailyStats {
 		dailyRequests = append(dailyRequests, stats.RequestCount)
 	}
-	
+
 	if len(dailyRequests) >= 2 {
 		recent := dailyRequests[len(dailyRequests)-1]
 		previous := dailyRequests[len(dailyRequests)-2]
-		
+
 		if previous > 0 {
 			analysis.GrowthRate = float64(recent-previous) / float64(previous) * 100
-			
+
 			if analysis.GrowthRate > 5 {
 				analysis.TrendDirection = "increasing"
 			} else if analysis.GrowthRate < -5 {
@@ -429,23 +429,23 @@ func (ua *UsageAnalytics) GetTrendAnalysis(period string) *TrendAnalysis {
 			}
 		}
 	}
-	
+
 	// Generate recommendations
 	if analysis.GrowthRate > 20 {
-		analysis.Recommendations = append(analysis.Recommendations, 
+		analysis.Recommendations = append(analysis.Recommendations,
 			"Consider scaling infrastructure due to high growth rate")
 	}
-	
+
 	if ua.currentMetrics.ErrorRate > 0.05 {
 		analysis.Recommendations = append(analysis.Recommendations,
 			"Error rate is high, investigate and improve error handling")
 	}
-	
+
 	if ua.currentMetrics.CacheHitRate < 0.7 {
 		analysis.Recommendations = append(analysis.Recommendations,
 			"Cache hit rate is low, consider optimizing caching strategy")
 	}
-	
+
 	// Detect anomalies
 	if ua.currentMetrics.AverageLatency > 5*time.Second {
 		analysis.Anomalies = append(analysis.Anomalies, AnomalyDetection{
@@ -458,7 +458,7 @@ func (ua *UsageAnalytics) GetTrendAnalysis(period string) *TrendAnalysis {
 			Description: "Average latency is significantly higher than expected",
 		})
 	}
-	
+
 	return analysis
 }
 
@@ -466,14 +466,14 @@ func (ua *UsageAnalytics) GetTrendAnalysis(period string) *TrendAnalysis {
 func (ua *UsageAnalytics) GetFeaturePopularity() map[string]*FeatureStats {
 	ua.mu.RLock()
 	defer ua.mu.RUnlock()
-	
+
 	// Create a copy to avoid race conditions
 	result := make(map[string]*FeatureStats)
 	for feature, stats := range ua.featureStats {
 		statsCopy := *stats
 		result[feature] = &statsCopy
 	}
-	
+
 	return result
 }
 
@@ -481,22 +481,22 @@ func (ua *UsageAnalytics) GetFeaturePopularity() map[string]*FeatureStats {
 func (ua *UsageAnalytics) GetUserBehaviorInsights() map[string]interface{} {
 	ua.mu.RLock()
 	defer ua.mu.RUnlock()
-	
+
 	insights := make(map[string]interface{})
-	
+
 	// Calculate average session duration
 	totalSessionTime := time.Duration(0)
 	sessionCount := int64(0)
-	
+
 	for _, user := range ua.userStats {
 		totalSessionTime += user.AverageSession
 		sessionCount += user.SessionCount
 	}
-	
+
 	if sessionCount > 0 {
 		insights["average_session_duration"] = totalSessionTime / time.Duration(sessionCount)
 	}
-	
+
 	// Most active users
 	activeUsers := 0
 	for _, user := range ua.userStats {
@@ -505,7 +505,7 @@ func (ua *UsageAnalytics) GetUserBehaviorInsights() map[string]interface{} {
 		}
 	}
 	insights["active_users_24h"] = activeUsers
-	
+
 	// Feature preferences
 	featurePopularity := make(map[string]int64)
 	for _, user := range ua.userStats {
@@ -514,7 +514,7 @@ func (ua *UsageAnalytics) GetUserBehaviorInsights() map[string]interface{} {
 		}
 	}
 	insights["feature_popularity"] = featurePopularity
-	
+
 	return insights
 }
 
@@ -522,32 +522,32 @@ func (ua *UsageAnalytics) GetUserBehaviorInsights() map[string]interface{} {
 func (ua *UsageAnalytics) HealthCheck() ComponentHealth {
 	ua.mu.RLock()
 	defer ua.mu.RUnlock()
-	
+
 	status := ComponentHealth{
 		Status:    "healthy",
 		Message:   "Usage analytics operational",
 		LastCheck: time.Now(),
 		Metrics: map[string]interface{}{
-			"total_requests":    ua.currentMetrics.TotalRequests,
-			"error_rate":        ua.currentMetrics.ErrorRate,
-			"cache_hit_rate":    ua.currentMetrics.CacheHitRate,
-			"average_latency":   ua.currentMetrics.AverageLatency.String(),
-			"tracked_users":     len(ua.userStats),
-			"tracked_features":  len(ua.featureStats),
+			"total_requests":   ua.currentMetrics.TotalRequests,
+			"error_rate":       ua.currentMetrics.ErrorRate,
+			"cache_hit_rate":   ua.currentMetrics.CacheHitRate,
+			"average_latency":  ua.currentMetrics.AverageLatency.String(),
+			"tracked_users":    len(ua.userStats),
+			"tracked_features": len(ua.featureStats),
 		},
 	}
-	
+
 	// Check for concerning metrics
 	if ua.currentMetrics.ErrorRate > 0.1 {
 		status.Status = "warning"
 		status.Message = "High error rate detected"
 	}
-	
+
 	if ua.currentMetrics.AverageLatency > 10*time.Second {
 		status.Status = "warning"
 		status.Message = "High average latency detected"
 	}
-	
+
 	return status
 }
 
@@ -564,23 +564,23 @@ func (ua *UsageAnalytics) extractUserIDFromContext(ctx context.Context) uuid.UUI
 			}
 		}
 	}
-	
+
 	// Return a default UUID for anonymous users
 	return uuid.New()
 }
 
 func (ua *UsageAnalytics) updateRealTimeMetrics(latency time.Duration, isError bool) {
 	ua.currentMetrics.TotalRequests++
-	
+
 	if isError {
 		ua.currentMetrics.TotalErrors++
 	}
-	
+
 	// Update error rate
 	if ua.currentMetrics.TotalRequests > 0 {
 		ua.currentMetrics.ErrorRate = float64(ua.currentMetrics.TotalErrors) / float64(ua.currentMetrics.TotalRequests)
 	}
-	
+
 	// Update average latency (simple moving average)
 	if latency > 0 {
 		if ua.currentMetrics.AverageLatency == 0 {
@@ -592,13 +592,13 @@ func (ua *UsageAnalytics) updateRealTimeMetrics(latency time.Duration, isError b
 			)
 		}
 	}
-	
+
 	ua.currentMetrics.LastUpdated = time.Now()
 }
 
 func (ua *UsageAnalytics) updateHourlyStats(now time.Time, feature string, userID uuid.UUID, latency time.Duration, isError bool) {
 	hourKey := now.Format("2006-01-02-15")
-	
+
 	if ua.hourlyStats[hourKey] == nil {
 		ua.hourlyStats[hourKey] = &HourlyStats{
 			Hour:         now.Truncate(time.Hour),
@@ -606,21 +606,21 @@ func (ua *UsageAnalytics) updateHourlyStats(now time.Time, feature string, userI
 			FeatureUsage: make(map[string]int64),
 		}
 	}
-	
+
 	stats := ua.hourlyStats[hourKey]
 	stats.RequestCount++
-	
+
 	if isError {
 		stats.ErrorCount++
 	}
-	
+
 	stats.UniqueUsers[userID] = true
 	stats.FeatureUsage[feature]++
-	
+
 	if latency > 0 {
 		stats.TotalLatency += latency
 		stats.AverageLatency = stats.TotalLatency / time.Duration(stats.RequestCount)
-		
+
 		if stats.MinLatency == 0 || latency < stats.MinLatency {
 			stats.MinLatency = latency
 		}
@@ -632,23 +632,23 @@ func (ua *UsageAnalytics) updateHourlyStats(now time.Time, feature string, userI
 
 func (ua *UsageAnalytics) updateDailyStats(now time.Time, feature string, userID uuid.UUID, latency time.Duration, isError bool) {
 	dayKey := now.Format("2006-01-02")
-	
+
 	if ua.dailyStats[dayKey] == nil {
 		ua.dailyStats[dayKey] = &DailyStats{
-			Date:         now.Truncate(24 * time.Hour),
-			TopFeatures:  make(map[string]int64),
+			Date:        now.Truncate(24 * time.Hour),
+			TopFeatures: make(map[string]int64),
 		}
 	}
-	
+
 	stats := ua.dailyStats[dayKey]
 	stats.RequestCount++
-	
+
 	if isError {
 		stats.ErrorCount++
 	}
-	
+
 	stats.TopFeatures[feature]++
-	
+
 	if latency > 0 {
 		stats.TotalLatency += latency
 		stats.AverageLatency = stats.TotalLatency / time.Duration(stats.RequestCount)
@@ -662,20 +662,20 @@ func (ua *UsageAnalytics) updateFeatureStats(feature string, latency time.Durati
 			LastUsed:    time.Now(),
 		}
 	}
-	
+
 	stats := ua.featureStats[feature]
 	stats.RequestCount++
 	stats.LastUsed = time.Now()
-	
+
 	if isError {
 		stats.ErrorCount++
 	}
-	
+
 	// Update success rate
 	if stats.RequestCount > 0 {
 		stats.SuccessRate = 1.0 - (float64(stats.ErrorCount) / float64(stats.RequestCount))
 	}
-	
+
 	// Update average latency
 	if latency > 0 {
 		stats.TotalLatency += latency
@@ -692,16 +692,16 @@ func (ua *UsageAnalytics) updateUserStats(userID uuid.UUID, feature string, late
 			LastActivity:     time.Now(),
 		}
 	}
-	
+
 	stats := ua.userStats[userID]
 	stats.TotalRequests++
 	stats.LastActivity = time.Now()
 	stats.FavoriteFeatures[feature]++
-	
+
 	if isError {
 		stats.TotalErrors++
 	}
-	
+
 	// Update average latency
 	if latency > 0 {
 		if stats.AverageLatency == 0 {
@@ -719,9 +719,9 @@ func (ua *UsageAnalytics) addLatencySample(feature string, latency time.Duration
 	if ua.latencyHistogram[feature] == nil {
 		ua.latencyHistogram[feature] = []time.Duration{}
 	}
-	
+
 	ua.latencyHistogram[feature] = append(ua.latencyHistogram[feature], latency)
-	
+
 	// Keep only the last 1000 samples per feature to avoid memory issues
 	if len(ua.latencyHistogram[feature]) > 1000 {
 		ua.latencyHistogram[feature] = ua.latencyHistogram[feature][len(ua.latencyHistogram[feature])-1000:]

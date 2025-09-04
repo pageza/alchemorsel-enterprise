@@ -28,7 +28,7 @@ func (a *ConversationOllamaAdapter) GenerateChatCompletion(ctx context.Context, 
 	if err != nil {
 		return "", err
 	}
-	
+
 	return result.Content, nil
 }
 
@@ -49,7 +49,7 @@ func NewConversationOpenAIAdapter(logger *zap.Logger) *ConversationOpenAIAdapter
 	if apiKey == "" {
 		apiKey = os.Getenv("ALCHEMORSEL_AI_OPENAI_KEY")
 	}
-	
+
 	return &ConversationOpenAIAdapter{
 		logger: logger,
 		hasKey: apiKey != "",
@@ -61,7 +61,7 @@ func (a *ConversationOpenAIAdapter) GenerateChatCompletion(ctx context.Context, 
 	if !a.hasKey {
 		return "", fmt.Errorf("OpenAI API key not configured")
 	}
-	
+
 	// For now, return a fallback message until we implement full OpenAI integration
 	return "I'm sorry, but OpenAI integration is not fully implemented yet. Please use the local AI model.", nil
 }

@@ -18,19 +18,19 @@ type RecipeService interface {
 	PublishRecipe(ctx context.Context, recipeID, userID uuid.UUID) error
 	ArchiveRecipe(ctx context.Context, recipeID, userID uuid.UUID) error
 	DeleteRecipe(ctx context.Context, recipeID, userID uuid.UUID) error
-	
+
 	// Recipe interactions
 	LikeRecipe(ctx context.Context, recipeID, userID uuid.UUID) error
 	UnlikeRecipe(ctx context.Context, recipeID, userID uuid.UUID) error
 	RateRecipe(ctx context.Context, cmd RateRecipeCommand) error
-	
+
 	// Queries - operations that read state
 	GetRecipeByID(ctx context.Context, recipeID uuid.UUID) (*RecipeDTO, error)
 	GetRecipesByUser(ctx context.Context, userID uuid.UUID, params PaginationParams) (*RecipeList, error)
 	SearchRecipes(ctx context.Context, query SearchQuery) (*RecipeList, error)
 	GetTrendingRecipes(ctx context.Context, params PaginationParams) (*RecipeList, error)
 	GetRecommendedRecipes(ctx context.Context, userID uuid.UUID, params PaginationParams) (*RecipeList, error)
-	
+
 	// AI operations
 	GenerateRecipeWithAI(ctx context.Context, cmd GenerateRecipeCommand) (*RecipeDTO, error)
 	SuggestIngredientSubstitutes(ctx context.Context, ingredientID uuid.UUID) ([]IngredientDTO, error)
@@ -140,33 +140,33 @@ type PaginationParams struct {
 
 // RecipeDTO is the data transfer object for recipes
 type RecipeDTO struct {
-	ID           uuid.UUID                `json:"id"`
-	Title        string                   `json:"title"`
-	Description  string                   `json:"description"`
-	AuthorID     uuid.UUID                `json:"author_id"`
-	AuthorName   string                   `json:"author_name"`
-	Ingredients  []IngredientDTO          `json:"ingredients"`
-	Instructions []InstructionDTO         `json:"instructions"`
-	Nutrition    *NutritionDTO            `json:"nutrition,omitempty"`
-	Cuisine      recipe.CuisineType       `json:"cuisine"`
-	Category     recipe.CategoryType      `json:"category"`
-	Difficulty   recipe.DifficultyLevel   `json:"difficulty"`
-	PrepTime     int                      `json:"prep_time"`
-	CookTime     int                      `json:"cook_time"`
-	TotalTime    int                      `json:"total_time"`
-	Servings     int                      `json:"servings"`
-	Calories     int                      `json:"calories"`
-	Tags         []string                 `json:"tags"`
-	Images       []ImageDTO               `json:"images"`
-	Likes        int                      `json:"likes"`
-	Views        int                      `json:"views"`
-	Rating       float64                  `json:"rating"`
-	RatingCount  int                      `json:"rating_count"`
-	Status       recipe.RecipeStatus      `json:"status"`
-	AIGenerated  bool                     `json:"ai_generated"`
-	CreatedAt    string                   `json:"created_at"`
-	UpdatedAt    string                   `json:"updated_at"`
-	PublishedAt  *string                  `json:"published_at,omitempty"`
+	ID           uuid.UUID              `json:"id"`
+	Title        string                 `json:"title"`
+	Description  string                 `json:"description"`
+	AuthorID     uuid.UUID              `json:"author_id"`
+	AuthorName   string                 `json:"author_name"`
+	Ingredients  []IngredientDTO        `json:"ingredients"`
+	Instructions []InstructionDTO       `json:"instructions"`
+	Nutrition    *NutritionDTO          `json:"nutrition,omitempty"`
+	Cuisine      recipe.CuisineType     `json:"cuisine"`
+	Category     recipe.CategoryType    `json:"category"`
+	Difficulty   recipe.DifficultyLevel `json:"difficulty"`
+	PrepTime     int                    `json:"prep_time"`
+	CookTime     int                    `json:"cook_time"`
+	TotalTime    int                    `json:"total_time"`
+	Servings     int                    `json:"servings"`
+	Calories     int                    `json:"calories"`
+	Tags         []string               `json:"tags"`
+	Images       []ImageDTO             `json:"images"`
+	Likes        int                    `json:"likes"`
+	Views        int                    `json:"views"`
+	Rating       float64                `json:"rating"`
+	RatingCount  int                    `json:"rating_count"`
+	Status       recipe.RecipeStatus    `json:"status"`
+	AIGenerated  bool                   `json:"ai_generated"`
+	CreatedAt    string                 `json:"created_at"`
+	UpdatedAt    string                 `json:"updated_at"`
+	PublishedAt  *string                `json:"published_at,omitempty"`
 }
 
 // IngredientDTO for ingredient data
@@ -181,11 +181,11 @@ type IngredientDTO struct {
 
 // InstructionDTO for instruction data
 type InstructionDTO struct {
-	StepNumber  int              `json:"step_number"`
-	Description string           `json:"description"`
-	Duration    int              `json:"duration,omitempty"`
-	Temperature *TemperatureDTO  `json:"temperature,omitempty"`
-	Images      []string         `json:"images,omitempty"`
+	StepNumber  int             `json:"step_number"`
+	Description string          `json:"description"`
+	Duration    int             `json:"duration,omitempty"`
+	Temperature *TemperatureDTO `json:"temperature,omitempty"`
+	Images      []string        `json:"images,omitempty"`
 }
 
 // TemperatureDTO for temperature data
@@ -226,10 +226,10 @@ type RecipeList struct {
 
 // NutritionAnalysis for AI nutrition analysis
 type NutritionAnalysis struct {
-	RecipeID      uuid.UUID     `json:"recipe_id"`
-	Nutrition     NutritionDTO  `json:"nutrition"`
-	HealthScore   float64       `json:"health_score"`
-	Warnings      []string      `json:"warnings,omitempty"`
-	Suggestions   []string      `json:"suggestions,omitempty"`
-	AnalyzedAt    string        `json:"analyzed_at"`
+	RecipeID    uuid.UUID    `json:"recipe_id"`
+	Nutrition   NutritionDTO `json:"nutrition"`
+	HealthScore float64      `json:"health_score"`
+	Warnings    []string     `json:"warnings,omitempty"`
+	Suggestions []string     `json:"suggestions,omitempty"`
+	AnalyzedAt  string       `json:"analyzed_at"`
 }

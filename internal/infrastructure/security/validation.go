@@ -23,7 +23,7 @@ type ValidationService struct {
 // NewValidationService creates a new validation service
 func NewValidationService(logger *zap.Logger) *ValidationService {
 	validate := validator.New()
-	
+
 	// Register custom validation rules
 	validate.RegisterValidation("recipe_name", validateRecipeName)
 	validate.RegisterValidation("ingredient", validateIngredient)
@@ -32,7 +32,7 @@ func NewValidationService(logger *zap.Logger) *ValidationService {
 	validate.RegisterValidation("safe_filename", validateSafeFilename)
 	validate.RegisterValidation("safe_html", validateSafeHTML)
 	validate.RegisterValidation("strong_password", validateStrongPassword)
-	
+
 	return &ValidationService{
 		logger:    logger,
 		validator: validate,
@@ -80,34 +80,34 @@ func RecipeSanitizationConfig() SanitizationConfig {
 func (v *ValidationService) SanitizeInput(input string, config SanitizationConfig) string {
 	// Trim whitespace
 	result := strings.TrimSpace(input)
-	
+
 	// Enforce max length
 	if config.MaxLength > 0 && len(result) > config.MaxLength {
 		result = result[:config.MaxLength]
 	}
-	
+
 	// Strip JavaScript
 	if config.StripJavaScript {
 		result = v.stripJavaScript(result)
 	}
-	
+
 	// Strip SQL keywords
 	if config.StripSQLKeywords {
 		result = v.stripSQLKeywords(result)
 	}
-	
+
 	// Handle HTML
 	if config.StripHTML {
 		result = v.stripHTML(result)
 	} else {
 		result = v.sanitizeHTML(result, config.AllowedTags, config.AllowedAttributes)
 	}
-	
+
 	// Normalize whitespace
 	if config.NormalizeWhitespace {
 		result = v.normalizeWhitespace(result)
 	}
-	
+
 	return result
 }
 
@@ -116,19 +116,19 @@ func (v *ValidationService) stripJavaScript(input string) string {
 	// Remove script tags
 	scriptRegex := regexp.MustCompile(`(?i)<script[^>]*>.*?</script>`)
 	input = scriptRegex.ReplaceAllString(input, "")
-	
+
 	// Remove JavaScript event handlers
 	eventRegex := regexp.MustCompile(`(?i)on[a-z]+\s*=\s*["'][^"']*["']`)
 	input = eventRegex.ReplaceAllString(input, "")
-	
+
 	// Remove javascript: URLs
 	jsURLRegex := regexp.MustCompile(`(?i)javascript:\s*[^"'\s>]*`)
 	input = jsURLRegex.ReplaceAllString(input, "")
-	
+
 	// Remove eval, setTimeout, setInterval patterns
 	evalRegex := regexp.MustCompile(`(?i)(eval|setTimeout|setInterval)\s*\(`)
 	input = evalRegex.ReplaceAllString(input, "")
-	
+
 	return input
 }
 
@@ -140,7 +140,7 @@ func (v *ValidationService) stripSQLKeywords(input string) string {
 		"SCRIPT", "JAVASCRIPT", "VBSCRIPT", "ONLOAD", "ONERROR",
 		"--", "/*", "*/", "xp_", "sp_", "@@",
 	}
-	
+
 	result := input
 	for _, keyword := range sqlKeywords {
 		// Case-insensitive replacement
@@ -148,7 +148,7 @@ func (v *ValidationService) stripSQLKeywords(input string) string {
 		regex := regexp.MustCompile(pattern)
 		result = regex.ReplaceAllString(result, "")
 	}
-	
+
 	return result
 }
 
@@ -157,10 +157,10 @@ func (v *ValidationService) stripHTML(input string) string {
 	// Remove HTML tags
 	htmlRegex := regexp.MustCompile(`<[^>]*>`)
 	result := htmlRegex.ReplaceAllString(input, "")
-	
+
 	// Decode HTML entities
 	result = html.UnescapeString(result)
-	
+
 	return result
 }
 
@@ -169,27 +169,27 @@ func (v *ValidationService) sanitizeHTML(input string, allowedTags, allowedAttrs
 	if len(allowedTags) == 0 {
 		return v.stripHTML(input)
 	}
-	
+
 	// This is a simplified implementation
 	// In production, use a library like bluemonday
 	result := input
-	
+
 	// Remove dangerous tags
 	dangerousTags := []string{
 		"script", "object", "embed", "link", "style", "iframe",
 		"frame", "frameset", "meta", "base", "form", "input",
 		"textarea", "button", "select", "option",
 	}
-	
+
 	for _, tag := range dangerousTags {
 		pattern := fmt.Sprintf(`(?i)<%s[^>]*>.*?</%s>|<%s[^>]*/>`, tag, tag, tag)
 		regex := regexp.MustCompile(pattern)
 		result = regex.ReplaceAllString(result, "")
 	}
-	
+
 	// Escape HTML for safety
 	result = html.EscapeString(result)
-	
+
 	return result
 }
 
@@ -198,10 +198,10 @@ func (v *ValidationService) normalizeWhitespace(input string) string {
 	// Replace multiple whitespace with single space
 	spaceRegex := regexp.MustCompile(`\s+`)
 	result := spaceRegex.ReplaceAllString(input, " ")
-	
+
 	// Trim
 	result = strings.TrimSpace(result)
-	
+
 	return result
 }
 
@@ -216,14 +216,14 @@ func (v *ValidationService) ValidationMiddleware() gin.HandlerFunc {
 				c.Abort()
 				return
 			}
-			
+
 			// Check for valid content types
 			validTypes := []string{
 				"application/json",
 				"application/x-www-form-urlencoded",
 				"multipart/form-data",
 			}
-			
+
 			valid := false
 			for _, validType := range validTypes {
 				if strings.Contains(contentType, validType) {
@@ -231,21 +231,21 @@ func (v *ValidationService) ValidationMiddleware() gin.HandlerFunc {
 					break
 				}
 			}
-			
+
 			if !valid {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid content type"})
 				c.Abort()
 				return
 			}
 		}
-		
+
 		// Validate request size
 		if c.Request.ContentLength > 10*1024*1024 { // 10MB limit
 			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "Request too large"})
 			c.Abort()
 			return
 		}
-		
+
 		// Check for suspicious patterns in URL
 		if v.containsSuspiciousPatterns(c.Request.URL.Path) {
 			v.logger.Warn("Suspicious URL pattern detected",
@@ -257,7 +257,7 @@ func (v *ValidationService) ValidationMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		
+
 		c.Next()
 	}
 }
@@ -275,14 +275,14 @@ func (v *ValidationService) containsSuspiciousPatterns(path string) bool {
 		"null", "/etc/passwd", "/proc/", "\\windows\\",
 		"cmd.exe", "powershell", "/bin/bash", "/bin/sh",
 	}
-	
+
 	pathLower := strings.ToLower(path)
 	for _, pattern := range suspiciousPatterns {
 		if strings.Contains(pathLower, strings.ToLower(pattern)) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -291,12 +291,12 @@ func (v *ValidationService) containsSuspiciousPatterns(path string) bool {
 // validateRecipeName validates recipe names
 func validateRecipeName(fl validator.FieldLevel) bool {
 	name := fl.Field().String()
-	
+
 	// Check length
 	if len(name) < 3 || len(name) > 100 {
 		return false
 	}
-	
+
 	// Check for valid characters (letters, numbers, spaces, basic punctuation)
 	for _, r := range name {
 		if !unicode.IsLetter(r) && !unicode.IsNumber(r) && !unicode.IsSpace(r) &&
@@ -304,19 +304,19 @@ func validateRecipeName(fl validator.FieldLevel) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
 // validateIngredient validates ingredient names
 func validateIngredient(fl validator.FieldLevel) bool {
 	ingredient := fl.Field().String()
-	
+
 	// Check length
 	if len(ingredient) < 1 || len(ingredient) > 200 {
 		return false
 	}
-	
+
 	// Check for dangerous characters
 	dangerous := []string{"<", ">", "script", "javascript:", "onload", "onerror"}
 	ingredientLower := strings.ToLower(ingredient)
@@ -325,14 +325,14 @@ func validateIngredient(fl validator.FieldLevel) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
 // validateNoSQLInjection checks for SQL injection patterns
 func validateNoSQLInjection(fl validator.FieldLevel) bool {
 	value := strings.ToLower(fl.Field().String())
-	
+
 	sqlPatterns := []string{
 		"'", "\"", ";", "--", "/*", "*/",
 		"union", "select", "insert", "update", "delete", "drop",
@@ -340,20 +340,20 @@ func validateNoSQLInjection(fl validator.FieldLevel) bool {
 		"or 1=1", "and 1=1", "' or '", "' and '",
 		"1' or '1'='1", "admin'--",
 	}
-	
+
 	for _, pattern := range sqlPatterns {
 		if strings.Contains(value, pattern) {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
 // validateNoXSS checks for XSS patterns
 func validateNoXSS(fl validator.FieldLevel) bool {
 	value := strings.ToLower(fl.Field().String())
-	
+
 	xssPatterns := []string{
 		"<script", "</script>", "javascript:", "vbscript:",
 		"onload", "onerror", "onclick", "onmouseover", "onfocus",
@@ -362,25 +362,25 @@ func validateNoXSS(fl validator.FieldLevel) bool {
 		"eval(", "alert(", "confirm(", "prompt(",
 		"document.cookie", "document.write", "window.location",
 	}
-	
+
 	for _, pattern := range xssPatterns {
 		if strings.Contains(value, pattern) {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
 // validateSafeFilename validates filenames for safety
 func validateSafeFilename(fl validator.FieldLevel) bool {
 	filename := fl.Field().String()
-	
+
 	// Check length
 	if len(filename) < 1 || len(filename) > 255 {
 		return false
 	}
-	
+
 	// Check for dangerous patterns
 	dangerous := []string{
 		"../", "..\\", "\\", "/", ":", "*", "?", "\"", "<", ">", "|",
@@ -388,21 +388,21 @@ func validateSafeFilename(fl validator.FieldLevel) bool {
 		"COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2",
 		"LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 	}
-	
+
 	filenameUpper := strings.ToUpper(filename)
 	for _, danger := range dangerous {
 		if strings.Contains(filenameUpper, danger) {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
 // validateSafeHTML validates HTML content for safety
 func validateSafeHTML(fl validator.FieldLevel) bool {
 	html := strings.ToLower(fl.Field().String())
-	
+
 	// Check for dangerous HTML elements
 	dangerous := []string{
 		"<script", "<object", "<embed", "<link", "<style", "<iframe",
@@ -410,31 +410,31 @@ func validateSafeHTML(fl validator.FieldLevel) bool {
 		"<textarea", "<button", "<select", "<option", "<applet",
 		"javascript:", "vbscript:", "data:", "onload", "onerror",
 	}
-	
+
 	for _, danger := range dangerous {
 		if strings.Contains(html, danger) {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
 // validateStrongPassword validates password strength
 func validateStrongPassword(fl validator.FieldLevel) bool {
 	password := fl.Field().String()
-	
+
 	// Minimum length
 	if len(password) < 8 {
 		return false
 	}
-	
+
 	// Check for required character types
 	hasUpper := false
 	hasLower := false
 	hasNumber := false
 	hasSpecial := false
-	
+
 	for _, char := range password {
 		switch {
 		case unicode.IsUpper(char):
@@ -447,7 +447,7 @@ func validateStrongPassword(fl validator.FieldLevel) bool {
 			hasSpecial = true
 		}
 	}
-	
+
 	// Require at least 3 of 4 character types
 	typeCount := 0
 	if hasUpper {
@@ -462,7 +462,7 @@ func validateStrongPassword(fl validator.FieldLevel) bool {
 	if hasSpecial {
 		typeCount++
 	}
-	
+
 	return typeCount >= 3
 }
 
@@ -474,12 +474,12 @@ func (v *ValidationService) ValidateStruct(s interface{}) error {
 // GetValidationError formats validation errors for API responses
 func (v *ValidationService) GetValidationError(err error) map[string]string {
 	errors := make(map[string]string)
-	
+
 	if validationErrors, ok := err.(validator.ValidationErrors); ok {
 		for _, e := range validationErrors {
 			field := e.Field()
 			tag := e.Tag()
-			
+
 			switch tag {
 			case "required":
 				errors[field] = fmt.Sprintf("%s is required", field)
@@ -508,6 +508,6 @@ func (v *ValidationService) GetValidationError(err error) map[string]string {
 			}
 		}
 	}
-	
+
 	return errors
 }

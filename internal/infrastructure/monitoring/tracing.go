@@ -18,12 +18,12 @@ import (
 
 // TracingConfig holds tracing configuration
 type TracingConfig struct {
-	ServiceName     string
-	ServiceVersion  string
-	Environment     string
-	JaegerEndpoint  string
-	SamplingRate    float64
-	Enabled         bool
+	ServiceName    string
+	ServiceVersion string
+	Environment    string
+	JaegerEndpoint string
+	SamplingRate   float64
+	Enabled        bool
 }
 
 // TracingProvider wraps OpenTelemetry tracing functionality

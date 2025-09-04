@@ -27,11 +27,11 @@ type RoutingEntry struct {
 
 // RoutingMetrics tracks routing table performance
 type RoutingMetrics struct {
-	CacheHits      int64
-	CacheMisses    int64
-	TotalLookups   int64
-	Evictions      int64
-	mu             sync.RWMutex
+	CacheHits    int64
+	CacheMisses  int64
+	TotalLookups int64
+	Evictions    int64
+	mu           sync.RWMutex
 }
 
 // NewRoutingTable creates a new routing table
@@ -40,10 +40,10 @@ func NewRoutingTable() *RoutingTable {
 		entries: make(map[string]*RoutingEntry),
 		metrics: &RoutingMetrics{},
 	}
-	
+
 	// Start cleanup goroutine
 	go rt.cleanupExpired()
-	
+
 	return rt
 }
 
@@ -130,12 +130,12 @@ func (rt *RoutingTable) GetStats() RoutingTableStats {
 	}
 
 	return RoutingTableStats{
-		TotalEntries:  int64(len(rt.entries)),
-		CacheHits:     rt.metrics.CacheHits,
-		CacheMisses:   rt.metrics.CacheMisses,
-		TotalLookups:  rt.metrics.TotalLookups,
-		HitRatio:      hitRatio,
-		Evictions:     rt.metrics.Evictions,
+		TotalEntries: int64(len(rt.entries)),
+		CacheHits:    rt.metrics.CacheHits,
+		CacheMisses:  rt.metrics.CacheMisses,
+		TotalLookups: rt.metrics.TotalLookups,
+		HitRatio:     hitRatio,
+		Evictions:    rt.metrics.Evictions,
 	}
 }
 
@@ -234,10 +234,10 @@ func (rt *RoutingTable) GetTopClients(limit int) []ClientActivity {
 	activities := make([]ClientActivity, 0, len(rt.entries))
 	for clientIP, entry := range rt.entries {
 		activities = append(activities, ClientActivity{
-			ClientIP:    clientIP,
-			Region:      entry.SelectedRegion,
-			UsageCount:  entry.UsageCount,
-			LastUsed:    entry.LastUsed,
+			ClientIP:   clientIP,
+			Region:     entry.SelectedRegion,
+			UsageCount: entry.UsageCount,
+			LastUsed:   entry.LastUsed,
 		})
 	}
 
@@ -297,11 +297,11 @@ func (rt *RoutingTable) UpdateDecision(clientIP string, decision *RoutingDecisio
 func (rt *RoutingTable) GetActiveRegions() []string {
 	distribution := rt.GetRegionDistribution()
 	regions := make([]string, 0, len(distribution))
-	
+
 	for region := range distribution {
 		regions = append(regions, region)
 	}
-	
+
 	sort.Strings(regions)
 	return regions
 }
@@ -353,7 +353,7 @@ func (nm *NetworkMetrics) RecordRoutingDecisionTime(duration time.Duration) {
 	defer nm.mu.Unlock()
 
 	nm.routingDecisionTimes = append(nm.routingDecisionTimes, duration)
-	
+
 	// Keep only recent measurements
 	maxSamples := 1000
 	if len(nm.routingDecisionTimes) > maxSamples {
@@ -381,7 +381,7 @@ func (nm *NetworkMetrics) GetRegionPerformance(regionName, requestType string) *
 }
 
 // UpdateRegionPerformance updates performance metrics for a region
-func (nm *NetworkMetrics) UpdateRegionPerformance(regionName, requestType string, 
+func (nm *NetworkMetrics) UpdateRegionPerformance(regionName, requestType string,
 	successRate float64, avgResponseTime time.Duration, throughput float64) {
 	nm.mu.Lock()
 	defer nm.mu.Unlock()

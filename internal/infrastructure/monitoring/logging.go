@@ -93,7 +93,7 @@ func NewLogger(config LogConfig) (*Logger, error) {
 func (l *Logger) WithCorrelationID(ctx context.Context) *zap.Logger {
 	traceID := TraceIDFromContext(ctx)
 	spanID := SpanIDFromContext(ctx)
-	
+
 	fields := []zap.Field{}
 	if traceID != "" {
 		fields = append(fields, zap.String("trace_id", traceID))
@@ -101,7 +101,7 @@ func (l *Logger) WithCorrelationID(ctx context.Context) *zap.Logger {
 	if spanID != "" {
 		fields = append(fields, zap.String("span_id", spanID))
 	}
-	
+
 	return l.Logger.With(fields...)
 }
 
@@ -124,7 +124,7 @@ func (l *Logger) WithUserID(ctx context.Context) *zap.Logger {
 // WithContext adds all available context fields to logger
 func (l *Logger) WithContext(ctx context.Context) *zap.Logger {
 	logger := l.Logger
-	
+
 	// Add trace/span IDs
 	if traceID := TraceIDFromContext(ctx); traceID != "" {
 		logger = logger.With(zap.String("trace_id", traceID))
@@ -132,24 +132,24 @@ func (l *Logger) WithContext(ctx context.Context) *zap.Logger {
 	if spanID := SpanIDFromContext(ctx); spanID != "" {
 		logger = logger.With(zap.String("span_id", spanID))
 	}
-	
+
 	// Add request ID
 	if requestID := RequestIDFromContext(ctx); requestID != "" {
 		logger = logger.With(zap.String("request_id", requestID))
 	}
-	
+
 	// Add user ID
 	if userID := UserIDFromContext(ctx); userID != "" {
 		logger = logger.With(zap.String("user_id", userID))
 	}
-	
+
 	return logger
 }
 
 // HTTPRequestLogger logs HTTP request details
 func (l *Logger) HTTPRequestLogger(ctx context.Context, method, path, userAgent, clientIP string, statusCode int, duration time.Duration, size int64) {
 	logger := l.WithContext(ctx)
-	
+
 	fields := []zap.Field{
 		zap.String("method", method),
 		zap.String("path", path),
@@ -159,7 +159,7 @@ func (l *Logger) HTTPRequestLogger(ctx context.Context, method, path, userAgent,
 		zap.Duration("duration", duration),
 		zap.Int64("response_size", size),
 	}
-	
+
 	if statusCode >= 500 {
 		logger.Error("HTTP request completed with server error", fields...)
 	} else if statusCode >= 400 {
@@ -172,14 +172,14 @@ func (l *Logger) HTTPRequestLogger(ctx context.Context, method, path, userAgent,
 // DatabaseQueryLogger logs database query details
 func (l *Logger) DatabaseQueryLogger(ctx context.Context, operation, table, query string, duration time.Duration, err error) {
 	logger := l.WithContext(ctx)
-	
+
 	fields := []zap.Field{
 		zap.String("operation", operation),
 		zap.String("table", table),
 		zap.String("query", query),
 		zap.Duration("duration", duration),
 	}
-	
+
 	if err != nil {
 		logger.Error("Database query failed", append(fields, zap.Error(err))...)
 	} else {
@@ -190,7 +190,7 @@ func (l *Logger) DatabaseQueryLogger(ctx context.Context, operation, table, quer
 // AIRequestLogger logs AI service request details
 func (l *Logger) AIRequestLogger(ctx context.Context, provider, model, operation string, duration time.Duration, tokensUsed int, err error) {
 	logger := l.WithContext(ctx)
-	
+
 	fields := []zap.Field{
 		zap.String("provider", provider),
 		zap.String("model", model),
@@ -198,7 +198,7 @@ func (l *Logger) AIRequestLogger(ctx context.Context, provider, model, operation
 		zap.Duration("duration", duration),
 		zap.Int("tokens_used", tokensUsed),
 	}
-	
+
 	if err != nil {
 		logger.Error("AI request failed", append(fields, zap.Error(err))...)
 	} else {
@@ -209,14 +209,14 @@ func (l *Logger) AIRequestLogger(ctx context.Context, provider, model, operation
 // CacheOperationLogger logs cache operation details
 func (l *Logger) CacheOperationLogger(ctx context.Context, operation, key string, hit bool, duration time.Duration, err error) {
 	logger := l.WithContext(ctx)
-	
+
 	fields := []zap.Field{
 		zap.String("operation", operation),
 		zap.String("key", key),
 		zap.Bool("hit", hit),
 		zap.Duration("duration", duration),
 	}
-	
+
 	if err != nil {
 		logger.Error("Cache operation failed", append(fields, zap.Error(err))...)
 	} else {
@@ -227,21 +227,21 @@ func (l *Logger) CacheOperationLogger(ctx context.Context, operation, key string
 // BusinessEventLogger logs business events
 func (l *Logger) BusinessEventLogger(ctx context.Context, event, entityType, entityID string, metadata map[string]interface{}) {
 	logger := l.WithContext(ctx)
-	
+
 	fields := []zap.Field{
 		zap.String("event", event),
 		zap.String("entity_type", entityType),
 		zap.String("entity_id", entityID),
 		zap.Any("metadata", metadata),
 	}
-	
+
 	logger.Info("Business event occurred", fields...)
 }
 
 // SecurityEventLogger logs security-related events
 func (l *Logger) SecurityEventLogger(ctx context.Context, event, userID, clientIP, userAgent string, severity string, details map[string]interface{}) {
 	logger := l.WithContext(ctx)
-	
+
 	fields := []zap.Field{
 		zap.String("event", event),
 		zap.String("user_id", userID),
@@ -250,7 +250,7 @@ func (l *Logger) SecurityEventLogger(ctx context.Context, event, userID, clientI
 		zap.String("severity", severity),
 		zap.Any("details", details),
 	}
-	
+
 	switch severity {
 	case "critical", "high":
 		logger.Error("Security event detected", fields...)
@@ -264,13 +264,13 @@ func (l *Logger) SecurityEventLogger(ctx context.Context, event, userID, clientI
 // PerformanceLogger logs performance metrics
 func (l *Logger) PerformanceLogger(ctx context.Context, operation string, duration time.Duration, metadata map[string]interface{}) {
 	logger := l.WithContext(ctx)
-	
+
 	fields := []zap.Field{
 		zap.String("operation", operation),
 		zap.Duration("duration", duration),
 		zap.Any("metadata", metadata),
 	}
-	
+
 	if duration > time.Second {
 		logger.Warn("Slow operation detected", fields...)
 	} else {

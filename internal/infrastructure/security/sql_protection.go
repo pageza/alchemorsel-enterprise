@@ -27,10 +27,10 @@ func NewSQLSecurityService(logger *zap.Logger) *SQLSecurityService {
 		logger:         logger,
 		queryWhitelist: make(map[string]bool),
 	}
-	
+
 	// Initialize dangerous SQL patterns
 	service.initializeDangerousPatterns()
-	
+
 	return service
 }
 
@@ -40,18 +40,18 @@ func (s *SQLSecurityService) initializeDangerousPatterns() {
 		// Union-based injection
 		`(?i)\bunion\b.*\bselect\b`,
 		`(?i)\bunion\b.*\ball\b.*\bselect\b`,
-		
+
 		// Boolean-based injection
 		`(?i)\bor\b\s+\d+\s*=\s*\d+`,
 		`(?i)\band\b\s+\d+\s*=\s*\d+`,
 		`(?i)'\s*or\s*'.*'`,
 		`(?i)'\s*and\s*'.*'`,
-		
+
 		// Time-based injection
 		`(?i)\bwaitfor\b.*\bdelay\b`,
 		`(?i)\bsleep\b\s*\(`,
 		`(?i)\bbenchmark\b\s*\(`,
-		
+
 		// Stacked queries
 		`(?i);\s*drop\b`,
 		`(?i);\s*delete\b`,
@@ -59,40 +59,40 @@ func (s *SQLSecurityService) initializeDangerousPatterns() {
 		`(?i);\s*insert\b`,
 		`(?i);\s*create\b`,
 		`(?i);\s*alter\b`,
-		
+
 		// Information disclosure
 		`(?i)\binformation_schema\b`,
 		`(?i)\bsys\.\b`,
 		`(?i)\bmaster\.\b`,
 		`(?i)\bmysql\.\b`,
 		`(?i)\bpg_\w+`,
-		
+
 		// Function calls
 		`(?i)\bexec\b\s*\(`,
 		`(?i)\bexecute\b\s*\(`,
 		`(?i)\beval\b\s*\(`,
 		`(?i)\bcast\b\s*\(`,
 		`(?i)\bconvert\b\s*\(`,
-		
+
 		// Comment patterns
 		`--[^\r\n]*`,
 		`/\*.*?\*/`,
 		`#[^\r\n]*`,
-		
+
 		// Hex encoding
 		`0x[0-9a-fA-F]+`,
-		
+
 		// Substring/char functions
 		`(?i)\bsubstring\b\s*\(`,
 		`(?i)\bchar\b\s*\(`,
 		`(?i)\bash\b\s*\(`,
 		`(?i)\bord\b\s*\(`,
-		
+
 		// Conditional statements
 		`(?i)\bif\b\s*\(.*,.*,.*\)`,
 		`(?i)\bcase\b.*\bwhen\b`,
 	}
-	
+
 	s.dangerousPatterns = make([]*regexp.Regexp, len(patterns))
 	for i, pattern := range patterns {
 		s.dangerousPatterns[i] = regexp.MustCompile(pattern)
@@ -111,7 +111,7 @@ func (s *SQLSecurityService) ValidateSQL(query string, args ...interface{}) erro
 			return fmt.Errorf("potentially dangerous SQL pattern detected")
 		}
 	}
-	
+
 	// Check arguments for injection patterns
 	for i, arg := range args {
 		if argStr, ok := arg.(string); ok {
@@ -126,7 +126,7 @@ func (s *SQLSecurityService) ValidateSQL(query string, args ...interface{}) erro
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -134,26 +134,26 @@ func (s *SQLSecurityService) ValidateSQL(query string, args ...interface{}) erro
 func (s *SQLSecurityService) sanitizeQueryForLogging(query string) string {
 	// Replace potential sensitive values with placeholders
 	sensitivePatterns := []*regexp.Regexp{
-		regexp.MustCompile(`'[^']*'`),          // String literals
-		regexp.MustCompile(`"[^"]*"`),          // Quoted strings
-		regexp.MustCompile(`\b\d{13,19}\b`),   // Potential credit card numbers
-		regexp.MustCompile(`\b\d{9,11}\b`),    // Potential SSNs
+		regexp.MustCompile(`'[^']*'`),       // String literals
+		regexp.MustCompile(`"[^"]*"`),       // Quoted strings
+		regexp.MustCompile(`\b\d{13,19}\b`), // Potential credit card numbers
+		regexp.MustCompile(`\b\d{9,11}\b`),  // Potential SSNs
 	}
-	
+
 	result := query
 	for _, pattern := range sensitivePatterns {
 		result = pattern.ReplaceAllString(result, "'***'")
 	}
-	
+
 	return result
 }
 
 // SecureGormLogger provides secure logging for GORM
 type SecureGormLogger struct {
 	logger                    *zap.Logger
-	sqlSecurity              *SQLSecurityService
-	slowThreshold            time.Duration
-	logLevel                 logger.LogLevel
+	sqlSecurity               *SQLSecurityService
+	slowThreshold             time.Duration
+	logLevel                  logger.LogLevel
 	ignoreRecordNotFoundError bool
 }
 
@@ -161,9 +161,9 @@ type SecureGormLogger struct {
 func NewSecureGormLogger(logger *zap.Logger, sqlSecurity *SQLSecurityService) *SecureGormLogger {
 	return &SecureGormLogger{
 		logger:                    logger,
-		sqlSecurity:              sqlSecurity,
-		slowThreshold:            200 * time.Millisecond,
-		logLevel:                 4, // Warn level
+		sqlSecurity:               sqlSecurity,
+		slowThreshold:             200 * time.Millisecond,
+		logLevel:                  4, // Warn level
 		ignoreRecordNotFoundError: true,
 	}
 }
@@ -201,10 +201,10 @@ func (l *SecureGormLogger) Trace(ctx context.Context, begin time.Time, fc func()
 	if l.logLevel <= logger.Silent {
 		return
 	}
-	
+
 	elapsed := time.Since(begin)
 	sql, rows := fc()
-	
+
 	// Security check on SQL query
 	if secErr := l.sqlSecurity.ValidateSQL(sql); secErr != nil {
 		l.logger.Error("SQL security violation",
@@ -214,7 +214,7 @@ func (l *SecureGormLogger) Trace(ctx context.Context, begin time.Time, fc func()
 		)
 		return
 	}
-	
+
 	// Log based on conditions
 	switch {
 	case err != nil && l.logLevel >= logger.Error && (!l.ignoreRecordNotFoundError || err != gorm.ErrRecordNotFound):
@@ -267,7 +267,7 @@ func (s *SecureDB) Raw(sql string, values ...interface{}) *gorm.DB {
 		db.AddError(fmt.Errorf("SQL security violation: %w", err))
 		return db
 	}
-	
+
 	return s.DB.Raw(sql, values...)
 }
 
@@ -282,7 +282,7 @@ func (s *SecureDB) Exec(sql string, values ...interface{}) *gorm.DB {
 		db.AddError(fmt.Errorf("SQL security violation: %w", err))
 		return db
 	}
-	
+
 	return s.DB.Exec(sql, values...)
 }
 
@@ -301,7 +301,7 @@ type DatabaseSecurityConfig struct {
 // ValidateQueryComplexity analyzes query complexity
 func (s *SQLSecurityService) ValidateQueryComplexity(query string, maxComplexity int) error {
 	complexity := s.calculateQueryComplexity(query)
-	
+
 	if complexity > maxComplexity {
 		s.logger.Warn("Query complexity exceeded",
 			zap.String("query", s.sanitizeQueryForLogging(query)),
@@ -310,7 +310,7 @@ func (s *SQLSecurityService) ValidateQueryComplexity(query string, maxComplexity
 		)
 		return fmt.Errorf("query complexity %d exceeds maximum %d", complexity, maxComplexity)
 	}
-	
+
 	return nil
 }
 
@@ -318,32 +318,32 @@ func (s *SQLSecurityService) ValidateQueryComplexity(query string, maxComplexity
 func (s *SQLSecurityService) calculateQueryComplexity(query string) int {
 	complexity := 0
 	queryUpper := strings.ToUpper(query)
-	
+
 	// Count complex operations
 	complexPatterns := map[string]int{
-		"JOIN":        2,
-		"INNER JOIN":  2,
-		"LEFT JOIN":   2,
-		"RIGHT JOIN":  2,
-		"OUTER JOIN":  3,
-		"UNION":       3,
-		"SUBQUERY":    4,
-		"GROUP BY":    2,
-		"ORDER BY":    1,
-		"HAVING":      2,
-		"DISTINCT":    2,
-		"COUNT":       1,
-		"SUM":         1,
-		"AVG":         1,
-		"MAX":         1,
-		"MIN":         1,
+		"JOIN":       2,
+		"INNER JOIN": 2,
+		"LEFT JOIN":  2,
+		"RIGHT JOIN": 2,
+		"OUTER JOIN": 3,
+		"UNION":      3,
+		"SUBQUERY":   4,
+		"GROUP BY":   2,
+		"ORDER BY":   1,
+		"HAVING":     2,
+		"DISTINCT":   2,
+		"COUNT":      1,
+		"SUM":        1,
+		"AVG":        1,
+		"MAX":        1,
+		"MIN":        1,
 	}
-	
+
 	for pattern, score := range complexPatterns {
 		count := strings.Count(queryUpper, pattern)
 		complexity += count * score
 	}
-	
+
 	// Count nested parentheses (indicating subqueries)
 	depth := 0
 	maxDepth := 0
@@ -358,7 +358,7 @@ func (s *SQLSecurityService) calculateQueryComplexity(query string) int {
 		}
 	}
 	complexity += maxDepth * 2
-	
+
 	return complexity
 }
 
@@ -375,7 +375,7 @@ func NewParameterSanitizer(logger *zap.Logger) *ParameterSanitizer {
 // SanitizeParameters sanitizes database parameters
 func (p *ParameterSanitizer) SanitizeParameters(params []driver.Value) []driver.Value {
 	sanitized := make([]driver.Value, len(params))
-	
+
 	for i, param := range params {
 		if str, ok := param.(string); ok {
 			sanitized[i] = p.sanitizeStringParameter(str)
@@ -383,7 +383,7 @@ func (p *ParameterSanitizer) SanitizeParameters(params []driver.Value) []driver.
 			sanitized[i] = param
 		}
 	}
-	
+
 	return sanitized
 }
 
@@ -391,7 +391,7 @@ func (p *ParameterSanitizer) SanitizeParameters(params []driver.Value) []driver.
 func (p *ParameterSanitizer) sanitizeStringParameter(value string) string {
 	// Remove null bytes
 	value = strings.ReplaceAll(value, "\x00", "")
-	
+
 	// Limit length
 	if len(value) > 10000 {
 		p.logger.Warn("Parameter length exceeded limit",
@@ -400,7 +400,7 @@ func (p *ParameterSanitizer) sanitizeStringParameter(value string) string {
 		)
 		value = value[:10000]
 	}
-	
+
 	// Remove dangerous Unicode characters
 	var result strings.Builder
 	for _, r := range value {
@@ -409,7 +409,7 @@ func (p *ParameterSanitizer) sanitizeStringParameter(value string) string {
 			result.WriteRune(r)
 		}
 	}
-	
+
 	return result.String()
 }
 
@@ -423,7 +423,7 @@ func (s *SQLSecurityService) IsWhitelistedQuery(query string) bool {
 	// Normalize query for comparison
 	normalized := strings.ToUpper(strings.TrimSpace(query))
 	normalized = regexp.MustCompile(`\s+`).ReplaceAllString(normalized, " ")
-	
+
 	return s.queryWhitelist[normalized]
 }
 

@@ -26,21 +26,21 @@ import (
 
 // OpenTelemetryConfig holds OpenTelemetry configuration
 type OpenTelemetryConfig struct {
-	ServiceName     string
-	ServiceVersion  string
-	Environment     string
-	
+	ServiceName    string
+	ServiceVersion string
+	Environment    string
+
 	// Tracing configuration
-	TracingEnabled     bool
-	JaegerEndpoint     string
-	OTLPTraceEndpoint  string
-	SamplingRate       float64
-	
+	TracingEnabled    bool
+	JaegerEndpoint    string
+	OTLPTraceEndpoint string
+	SamplingRate      float64
+
 	// Metrics configuration
 	MetricsEnabled     bool
 	MetricsPort        int
 	OTLPMetricEndpoint string
-	
+
 	// Resource attributes
 	ResourceAttributes map[string]string
 }
@@ -61,27 +61,27 @@ func NewOpenTelemetryProvider(config OpenTelemetryConfig, logger *zap.Logger) (*
 		logger: logger,
 		config: config,
 	}
-	
+
 	// Initialize resource
 	resource, err := provider.createResource()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
-	
+
 	// Initialize tracing if enabled
 	if config.TracingEnabled {
 		if err := provider.initializeTracing(resource); err != nil {
 			return nil, fmt.Errorf("failed to initialize tracing: %w", err)
 		}
 	}
-	
+
 	// Initialize metrics if enabled
 	if config.MetricsEnabled {
 		if err := provider.initializeMetrics(resource); err != nil {
 			return nil, fmt.Errorf("failed to initialize metrics: %w", err)
 		}
 	}
-	
+
 	logger.Info("OpenTelemetry provider initialized",
 		zap.String("service", config.ServiceName),
 		zap.String("version", config.ServiceVersion),
@@ -89,7 +89,7 @@ func NewOpenTelemetryProvider(config OpenTelemetryConfig, logger *zap.Logger) (*
 		zap.Bool("tracing_enabled", config.TracingEnabled),
 		zap.Bool("metrics_enabled", config.MetricsEnabled),
 	)
-	
+
 	return provider, nil
 }
 
@@ -100,12 +100,12 @@ func (o *OpenTelemetryProvider) createResource() (*resource.Resource, error) {
 		semconv.ServiceVersion(o.config.ServiceVersion),
 		semconv.DeploymentEnvironment(o.config.Environment),
 	}
-	
+
 	// Add custom resource attributes
 	for key, value := range o.config.ResourceAttributes {
 		attrs = append(attrs, attribute.String(key, value))
 	}
-	
+
 	return resource.New(
 		context.Background(),
 		resource.WithAttributes(attrs...),
@@ -119,7 +119,7 @@ func (o *OpenTelemetryProvider) createResource() (*resource.Resource, error) {
 // initializeTracing sets up distributed tracing
 func (o *OpenTelemetryProvider) initializeTracing(res *resource.Resource) error {
 	var exporters []sdktrace.SpanExporter
-	
+
 	// Jaeger exporter
 	if o.config.JaegerEndpoint != "" {
 		jaegerExporter, err := jaeger.New(
@@ -133,7 +133,7 @@ func (o *OpenTelemetryProvider) initializeTracing(res *resource.Resource) error 
 		exporters = append(exporters, jaegerExporter)
 		o.logger.Info("Jaeger exporter configured", zap.String("endpoint", o.config.JaegerEndpoint))
 	}
-	
+
 	// OTLP HTTP exporter
 	if o.config.OTLPTraceEndpoint != "" {
 		otlpExporter, err := otlptracehttp.New(
@@ -147,82 +147,82 @@ func (o *OpenTelemetryProvider) initializeTracing(res *resource.Resource) error 
 		exporters = append(exporters, otlpExporter)
 		o.logger.Info("OTLP trace exporter configured", zap.String("endpoint", o.config.OTLPTraceEndpoint))
 	}
-	
+
 	if len(exporters) == 0 {
 		o.logger.Warn("No trace exporters configured, using noop")
 		return nil
 	}
-	
+
 	// Create span processors for each exporter
 	var spanProcessors []sdktrace.SpanProcessor
 	for _, exporter := range exporters {
 		spanProcessors = append(spanProcessors, sdktrace.NewBatchSpanProcessor(exporter))
 	}
-	
+
 	// Create tracer provider
 	o.tracerProvider = sdktrace.NewTracerProvider(
 		sdktrace.WithResource(res),
 		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(o.config.SamplingRate)),
 		sdktrace.WithSpanProcessor(spanProcessors[0]), // Primary processor
 	)
-	
+
 	// Add additional processors if any
 	for i := 1; i < len(spanProcessors); i++ {
 		o.tracerProvider.RegisterSpanProcessor(spanProcessors[i])
 	}
-	
+
 	// Set global tracer provider
 	otel.SetTracerProvider(o.tracerProvider)
-	
+
 	// Set global propagator
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
-	
+
 	// Create tracer
 	o.tracer = otel.Tracer(
 		o.config.ServiceName,
 		trace.WithInstrumentationVersion(o.config.ServiceVersion),
 		trace.WithSchemaURL(semconv.SchemaURL),
 	)
-	
+
 	return nil
 }
 
 // initializeMetrics sets up metrics collection
 func (o *OpenTelemetryProvider) initializeMetrics(res *resource.Resource) error {
 	var readers []sdkmetric.Reader
-	
+
 	// Prometheus exporter
 	prometheusExporter, err := prometheus.New()
 	if err != nil {
 		return fmt.Errorf("failed to create Prometheus exporter: %w", err)
 	}
 	readers = append(readers, prometheusExporter)
-	
+
 	// OTLP metrics exporter (if configured)
 	if o.config.OTLPMetricEndpoint != "" {
 		// Configure OTLP metrics exporter here
 		o.logger.Info("OTLP metrics endpoint configured", zap.String("endpoint", o.config.OTLPMetricEndpoint))
 	}
-	
+
 	// Create meter provider
 	o.meterProvider = sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(res),
 		sdkmetric.WithReader(prometheusExporter),
 	)
-	
+
 	// Set global meter provider
 	otel.SetMeterProvider(o.meterProvider)
-	
+
 	// Create meter
 	o.meter = otel.Meter(
 		o.config.ServiceName,
 		metric.WithInstrumentationVersion(o.config.ServiceVersion),
 		metric.WithSchemaURL(semconv.SchemaURL),
 	)
-	
+
 	return nil
 }
 
@@ -249,14 +249,14 @@ func (o *OpenTelemetryProvider) StartBusinessSpan(ctx context.Context, operation
 	if o.tracer == nil {
 		return ctx, trace.SpanFromContext(ctx)
 	}
-	
+
 	spanAttrs := []attribute.KeyValue{
 		attribute.String("business.operation", operation),
 		attribute.String("business.entity", entity),
 		attribute.String("span.kind", "business"),
 	}
 	spanAttrs = append(spanAttrs, attrs...)
-	
+
 	return o.tracer.Start(ctx, fmt.Sprintf("business.%s.%s", entity, operation),
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(spanAttrs...),
@@ -268,13 +268,13 @@ func (o *OpenTelemetryProvider) StartExternalSpan(ctx context.Context, serviceNa
 	if o.tracer == nil {
 		return ctx, trace.SpanFromContext(ctx)
 	}
-	
+
 	spanAttrs := []attribute.KeyValue{
 		attribute.String("external.service", serviceName),
 		attribute.String("external.operation", operation),
 	}
 	spanAttrs = append(spanAttrs, attrs...)
-	
+
 	return o.tracer.Start(ctx, fmt.Sprintf("external.%s.%s", serviceName, operation),
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(spanAttrs...),
@@ -286,7 +286,7 @@ func (o *OpenTelemetryProvider) InstrumentHTTPHandler(handler http.Handler, oper
 	if o.tracer == nil {
 		return handler
 	}
-	
+
 	return otelhttp.NewHandler(handler, operation,
 		otelhttp.WithTracerProvider(o.tracerProvider),
 		otelhttp.WithMeterProvider(o.meterProvider),
@@ -304,7 +304,7 @@ func (o *OpenTelemetryProvider) CreateCounter(name, description, unit string) (m
 	if o.meter == nil {
 		return nil, fmt.Errorf("meter not initialized")
 	}
-	
+
 	return o.meter.Int64Counter(name,
 		metric.WithDescription(description),
 		metric.WithUnit(unit),
@@ -316,7 +316,7 @@ func (o *OpenTelemetryProvider) CreateHistogram(name, description, unit string) 
 	if o.meter == nil {
 		return nil, fmt.Errorf("meter not initialized")
 	}
-	
+
 	return o.meter.Float64Histogram(name,
 		metric.WithDescription(description),
 		metric.WithUnit(unit),
@@ -328,7 +328,7 @@ func (o *OpenTelemetryProvider) CreateGauge(name, description, unit string) (met
 	if o.meter == nil {
 		return nil, fmt.Errorf("meter not initialized")
 	}
-	
+
 	return o.meter.Float64ObservableGauge(name,
 		metric.WithDescription(description),
 		metric.WithUnit(unit),
@@ -381,23 +381,23 @@ func (o *OpenTelemetryProvider) GetSpanID(ctx context.Context) string {
 // Shutdown gracefully shuts down the OpenTelemetry provider
 func (o *OpenTelemetryProvider) Shutdown(ctx context.Context) error {
 	var errs []error
-	
+
 	if o.tracerProvider != nil {
 		if err := o.tracerProvider.Shutdown(ctx); err != nil {
 			errs = append(errs, fmt.Errorf("failed to shutdown tracer provider: %w", err))
 		}
 	}
-	
+
 	if o.meterProvider != nil {
 		if err := o.meterProvider.Shutdown(ctx); err != nil {
 			errs = append(errs, fmt.Errorf("failed to shutdown meter provider: %w", err))
 		}
 	}
-	
+
 	if len(errs) > 0 {
 		return fmt.Errorf("shutdown errors: %v", errs)
 	}
-	
+
 	o.logger.Info("OpenTelemetry provider shutdown completed")
 	return nil
 }
@@ -405,17 +405,17 @@ func (o *OpenTelemetryProvider) Shutdown(ctx context.Context) error {
 // BusinessMetrics provides business-specific telemetry
 type BusinessMetrics struct {
 	provider *OpenTelemetryProvider
-	
+
 	// Counters
-	recipesCreated   metric.Int64Counter
-	recipesViewed    metric.Int64Counter
-	usersRegistered  metric.Int64Counter
-	aiRequests       metric.Int64Counter
-	
+	recipesCreated  metric.Int64Counter
+	recipesViewed   metric.Int64Counter
+	usersRegistered metric.Int64Counter
+	aiRequests      metric.Int64Counter
+
 	// Histograms
 	recipeCreationDuration metric.Float64Histogram
 	aiResponseTime         metric.Float64Histogram
-	
+
 	// Gauges
 	activeUsers metric.Float64ObservableGauge
 }
@@ -423,9 +423,9 @@ type BusinessMetrics struct {
 // NewBusinessMetrics creates business-specific metrics
 func NewBusinessMetrics(provider *OpenTelemetryProvider) (*BusinessMetrics, error) {
 	bm := &BusinessMetrics{provider: provider}
-	
+
 	var err error
-	
+
 	// Create counters
 	if bm.recipesCreated, err = provider.CreateCounter(
 		"business.recipes.created.total",
@@ -434,7 +434,7 @@ func NewBusinessMetrics(provider *OpenTelemetryProvider) (*BusinessMetrics, erro
 	); err != nil {
 		return nil, err
 	}
-	
+
 	if bm.recipesViewed, err = provider.CreateCounter(
 		"business.recipes.viewed.total",
 		"Total number of recipe views",
@@ -442,7 +442,7 @@ func NewBusinessMetrics(provider *OpenTelemetryProvider) (*BusinessMetrics, erro
 	); err != nil {
 		return nil, err
 	}
-	
+
 	if bm.usersRegistered, err = provider.CreateCounter(
 		"business.users.registered.total",
 		"Total number of users registered",
@@ -450,7 +450,7 @@ func NewBusinessMetrics(provider *OpenTelemetryProvider) (*BusinessMetrics, erro
 	); err != nil {
 		return nil, err
 	}
-	
+
 	if bm.aiRequests, err = provider.CreateCounter(
 		"business.ai.requests.total",
 		"Total number of AI requests",
@@ -458,7 +458,7 @@ func NewBusinessMetrics(provider *OpenTelemetryProvider) (*BusinessMetrics, erro
 	); err != nil {
 		return nil, err
 	}
-	
+
 	// Create histograms
 	if bm.recipeCreationDuration, err = provider.CreateHistogram(
 		"business.recipe.creation.duration",
@@ -467,7 +467,7 @@ func NewBusinessMetrics(provider *OpenTelemetryProvider) (*BusinessMetrics, erro
 	); err != nil {
 		return nil, err
 	}
-	
+
 	if bm.aiResponseTime, err = provider.CreateHistogram(
 		"business.ai.response.duration",
 		"AI service response time",
@@ -475,7 +475,7 @@ func NewBusinessMetrics(provider *OpenTelemetryProvider) (*BusinessMetrics, erro
 	); err != nil {
 		return nil, err
 	}
-	
+
 	return bm, nil
 }
 
@@ -485,10 +485,10 @@ func (bm *BusinessMetrics) RecordRecipeCreated(ctx context.Context, userID, reci
 		attribute.String("user.id", userID),
 		attribute.String("recipe.id", recipeID),
 	}
-	
+
 	bm.recipesCreated.Add(ctx, 1, metric.WithAttributes(attrs...))
 	bm.recipeCreationDuration.Record(ctx, float64(duration.Milliseconds()), metric.WithAttributes(attrs...))
-	
+
 	// Record span event
 	bm.provider.RecordSpanEvent(ctx, "recipe.created", attrs...)
 }
@@ -499,7 +499,7 @@ func (bm *BusinessMetrics) RecordRecipeViewed(ctx context.Context, userID, recip
 		attribute.String("user.id", userID),
 		attribute.String("recipe.id", recipeID),
 	}
-	
+
 	bm.recipesViewed.Add(ctx, 1, metric.WithAttributes(attrs...))
 	bm.provider.RecordSpanEvent(ctx, "recipe.viewed", attrs...)
 }
@@ -510,7 +510,7 @@ func (bm *BusinessMetrics) RecordUserRegistered(ctx context.Context, userID, met
 		attribute.String("user.id", userID),
 		attribute.String("registration.method", method),
 	}
-	
+
 	bm.usersRegistered.Add(ctx, 1, metric.WithAttributes(attrs...))
 	bm.provider.RecordSpanEvent(ctx, "user.registered", attrs...)
 }
@@ -521,15 +521,15 @@ func (bm *BusinessMetrics) RecordAIRequest(ctx context.Context, provider, model 
 	if !success {
 		status = "error"
 	}
-	
+
 	attrs := []attribute.KeyValue{
 		attribute.String("ai.provider", provider),
 		attribute.String("ai.model", model),
 		attribute.String("ai.status", status),
 	}
-	
+
 	bm.aiRequests.Add(ctx, 1, metric.WithAttributes(attrs...))
 	bm.aiResponseTime.Record(ctx, float64(duration.Milliseconds()), metric.WithAttributes(attrs...))
-	
+
 	bm.provider.RecordSpanEvent(ctx, "ai.request.completed", attrs...)
 }

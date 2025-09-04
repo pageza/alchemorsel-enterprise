@@ -64,7 +64,7 @@ func TestEnterpriseHealthCheck_RegisterDependency(t *testing.T) {
 
 func TestEnterpriseHealthCheck_SetMaintenanceMode(t *testing.T) {
 	ehc := NewEnterpriseHealthCheck("1.0.0", zap.NewNop())
-	
+
 	startTime := time.Now()
 	endTime := startTime.Add(1 * time.Hour)
 
@@ -233,7 +233,7 @@ func TestEnterpriseHealthCheck_CheckWithMode_CircuitBreakers(t *testing.T) {
 	assert.Equal(t, StatusHealthy, response.Status)
 	assert.Len(t, response.CircuitBreakers, 1)
 	assert.Contains(t, response.CircuitBreakers, "database")
-	
+
 	cbStatus := response.CircuitBreakers["database"]
 	assert.Equal(t, "database", cbStatus.Name)
 	assert.Equal(t, StateClosed, cbStatus.State)
@@ -255,7 +255,7 @@ func TestEnterpriseHealthCheck_CheckDependencies(t *testing.T) {
 	dependencies := ehc.CheckDependencies(ctx)
 
 	assert.Len(t, dependencies, 2)
-	
+
 	// Find each dependency
 	var dbDependency, cacheDependency *DependencyStatus
 	for i := range dependencies {
@@ -322,7 +322,7 @@ func TestCircuitBreakerChecker_Check_Success(t *testing.T) {
 	assert.Equal(t, StatusHealthy, result.Status)
 	assert.Equal(t, "OK", result.Message)
 	assert.NotNil(t, result.Metadata)
-	
+
 	if metadata, ok := result.Metadata.(map[string]interface{}); ok {
 		assert.Equal(t, "closed", metadata["circuit_breaker_state"])
 	}
@@ -372,7 +372,7 @@ func TestCircuitBreakerChecker_Check_CircuitOpen(t *testing.T) {
 	assert.Equal(t, StatusUnhealthy, result.Status)
 	assert.Contains(t, result.Message, "circuit breaker")
 	assert.NotNil(t, result.Metadata)
-	
+
 	if metadata, ok := result.Metadata.(map[string]interface{}); ok {
 		assert.Equal(t, "open", metadata["circuit_breaker_state"])
 	}
@@ -422,18 +422,18 @@ func TestEnterpriseHealthCheck_ComplexScenario(t *testing.T) {
 	// Verify comprehensive response
 	AssertEnterpriseResponseStructure(t, response)
 	assert.Equal(t, StatusHealthy, response.Status)
-	
+
 	// Should have basic checks
 	assert.Len(t, response.Checks, 2) // api + external_service (with circuit breaker)
-	
+
 	// Should have dependencies in topological order
 	assert.Len(t, response.Dependencies, 2)
 	AssertDependencyOrder(t, response.Dependencies, []string{"postgres", "redis"})
-	
+
 	// Should have circuit breaker status
 	assert.Len(t, response.CircuitBreakers, 1)
 	assert.Contains(t, response.CircuitBreakers, "external_service")
-	
+
 	// Should have system info
 	assert.NotEmpty(t, response.SystemInfo.Hostname)
 }
