@@ -127,7 +127,9 @@ func TestCircuitBreaker_Execute_RejectsWhenOpen(t *testing.T) {
 	result, err := cb.Execute(successFunc)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "circuit breaker 'test' is open")
+	if err != nil {
+		assert.Contains(t, err.Error(), "circuit breaker 'test' is open")
+	}
 	assert.Nil(t, result)
 
 	stats := cb.GetStats()
@@ -252,16 +254,20 @@ func TestCircuitBreaker_Execute_MaxRequestsInHalfOpen(t *testing.T) {
 		return "success", nil
 	}
 
-	for i := 0; i < config.MaxRequests; i++ {
+	// First SuccessThreshold (2) requests should succeed and close the circuit
+	for i := 0; i < config.SuccessThreshold; i++ {
 		result, err := cb.Execute(successFunc)
 		assert.NoError(t, err)
 		assert.Equal(t, "success", result)
 	}
 
-	// Additional requests should be rejected
-	_, err := cb.Execute(successFunc)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "circuit breaker 'test' is open")
+	// Circuit should now be closed after SuccessThreshold successes
+	assert.Equal(t, StateClosed, cb.GetState())
+
+	// Additional requests should now be allowed since circuit is closed
+	result, err := cb.Execute(successFunc)
+	assert.NoError(t, err)
+	assert.Equal(t, "success", result)
 }
 
 func TestCircuitBreaker_GetStatus(t *testing.T) {

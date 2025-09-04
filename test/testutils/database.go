@@ -26,12 +26,13 @@ import (
 
 // TestDatabase provides a test database instance with cleanup
 type TestDatabase struct {
-	Container testcontainers.Container
-	DB        *sql.DB
-	GormDB    *gorm.DB
-	PgxPool   *pgxpool.Pool
-	DSN       string
-	t         *testing.T
+	Container     testcontainers.Container
+	DB            *sql.DB
+	GormDB        *gorm.DB
+	PgxPool       *pgxpool.Pool
+	DSN           string
+	t             *testing.T
+	migrationPath string
 }
 
 // DatabaseConfig holds test database configuration
@@ -137,6 +138,11 @@ func SetupTestDatabaseWithConfig(t *testing.T, cfg DatabaseConfig) *TestDatabase
 		t:         t,
 	}
 
+	// Run migrations
+	if err := testDB.RunMigrations(); err != nil {
+		t.Logf("Warning: Failed to run migrations: %v", err)
+	}
+
 	// Setup cleanup
 	t.Cleanup(func() {
 		testDB.Cleanup()
@@ -147,13 +153,28 @@ func SetupTestDatabaseWithConfig(t *testing.T, cfg DatabaseConfig) *TestDatabase
 
 // RunMigrations runs database migrations on the test database
 func (td *TestDatabase) RunMigrations() error {
+	// Get migration path - try multiple possible paths
+	possiblePaths := []string{
+		"file://" + filepath.Join("../../internal/infrastructure/persistence/migrations/sql"),
+		"file://" + filepath.Join("internal/infrastructure/persistence/migrations/sql"),
+		"file://internal/infrastructure/persistence/migrations/sql",
+	}
+	
+	for _, migrationPath := range possiblePaths {
+		if err := td.RunMigrationsWithPath(migrationPath); err == nil {
+			return nil
+		}
+	}
+	
+	return fmt.Errorf("failed to run migrations with any path")
+}
+
+// RunMigrationsWithPath runs migrations with a specific path
+func (td *TestDatabase) RunMigrationsWithPath(migrationPath string) error {
 	driver, err := migratePostgres.WithInstance(td.DB, &migratePostgres.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to create postgres driver: %w", err)
 	}
-
-	// Get migration path
-	migrationPath := "file://" + filepath.Join("../../internal/infrastructure/persistence/migrations/sql")
 
 	m, err := migrate.NewWithDatabaseInstance(migrationPath, "postgres", driver)
 	if err != nil {

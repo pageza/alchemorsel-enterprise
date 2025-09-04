@@ -448,6 +448,10 @@ func (a *AuthService) ValidateSession(sessionID, userID, ipAddress string) (*Ses
 
 // HashPassword securely hashes a password using bcrypt
 func (a *AuthService) HashPassword(password string) (string, error) {
+	if len(strings.TrimSpace(password)) == 0 {
+		return "", fmt.Errorf("password cannot be empty")
+	}
+	
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), a.config.Auth.BCryptCost)
 	if err != nil {
 		return "", fmt.Errorf("failed to hash password: %w", err)

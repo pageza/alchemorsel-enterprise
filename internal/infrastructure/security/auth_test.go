@@ -55,8 +55,15 @@ func (suite *AuthServiceTestSuite) SetupSuite() {
 		DB:   1, // Use different DB for tests
 	})
 
+	// Test Redis connection and skip if not available
+	ctx := context.Background()
+	if err := suite.redisClient.Ping(ctx).Err(); err != nil {
+		suite.T().Skipf("Redis not available for testing: %v", err)
+		return
+	}
+
 	// Clear Redis before tests
-	suite.redisClient.FlushDB(context.Background())
+	suite.redisClient.FlushDB(ctx)
 
 	// Create auth service
 	suite.authService = NewAuthService(suite.config, suite.logger, suite.redisClient)
@@ -73,7 +80,11 @@ func (suite *AuthServiceTestSuite) TearDownSuite() {
 
 // SetupTest clears Redis before each test
 func (suite *AuthServiceTestSuite) SetupTest() {
-	suite.redisClient.FlushDB(context.Background())
+	if suite.redisClient != nil {
+		if err := suite.redisClient.FlushDB(context.Background()).Err(); err != nil {
+			suite.T().Logf("Warning: Failed to flush Redis: %v", err)
+		}
+	}
 }
 
 // TestTokenGeneration tests JWT token generation
