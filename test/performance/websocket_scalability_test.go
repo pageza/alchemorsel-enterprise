@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/alchemorsel/v3/internal/infrastructure/websocket"
-	"github.com/alchemorsel/v3/test/testutils"
 	"github.com/google/uuid"
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"

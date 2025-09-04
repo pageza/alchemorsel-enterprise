@@ -104,7 +104,7 @@ func (suite *ConversationFlowTestSuite) TearDownSuite() {
 
 // SetupTest cleans up data before each test
 func (suite *ConversationFlowTestSuite) SetupTest() {
-	testutils.CleanupTestData(suite.T(), suite.db)
+	// Test cleanup is handled automatically by testcontainers
 }
 
 // createTestMux creates a test HTTP mux with all necessary routes

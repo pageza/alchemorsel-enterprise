@@ -383,7 +383,7 @@ func (suite *ChatWorkflowE2ETestSuite) TestMultiDeviceConversationContinuity() {
 			"message": "I want to start planning a dinner party menu",
 		})
 		
-		convCreated, err := mobileConn.WaitForMessageType("conversation_created", 5*time.Second)
+		_, err := mobileConn.WaitForMessageType("conversation_created", 5*time.Second)
 		suite.NoError(err)
 		
 		response1, err := mobileConn.WaitForMessageType("chat_response", 5*time.Second)
@@ -463,7 +463,6 @@ func (suite *ChatWorkflowE2ETestSuite) TestConversationErrorHandlingAndRecovery(
 		if response.Type != "conversation_created" {
 			_, err := conn.WaitForMessageType("conversation_created", 5*time.Second)
 			suite.NoError(err)
-			suite.NotEmpty(convCreated)
 		}
 		
 		aiResponse, err := conn.WaitForMessageType("chat_response", 5*time.Second)
