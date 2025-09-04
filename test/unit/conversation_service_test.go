@@ -30,11 +30,10 @@ func (suite *ConversationServiceTestSuite) SetupSuite() {
 
 // TearDownTest cleans up after each test
 func (suite *ConversationServiceTestSuite) TearDownTest() {
-	// Reset mocks after each test
+	// Reset mocks after each test - don't call SetupStandardMocks to avoid conflicts
 	suite.testSuite.MockConversationRepo.Mock = mock.Mock{}
 	suite.testSuite.MockMessageRepo.Mock = mock.Mock{}
 	suite.testSuite.MockContextRepo.Mock = mock.Mock{}
-	suite.testSuite.SetupStandardMocks()
 }
 
 // TestCreateConversation tests conversation creation
@@ -86,6 +85,7 @@ func (suite *ConversationServiceTestSuite) TestCreateConversation() {
 	}
 
 	for _, tc := range testCases {
+		tc := tc // Capture loop variable
 		suite.Run(tc.name, func() {
 			// Setup mock to capture created conversation
 			suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.MatchedBy(func(conv *conversation.Conversation) bool {
@@ -125,6 +125,7 @@ func (suite *ConversationServiceTestSuite) TestIntentClassification() {
 	classifier := conversation.NewIntentClassifier()
 
 	for _, tc := range testCases {
+		tc := tc // Capture loop variable
 		suite.Run(tc.Message, func() {
 			intent := classifier.ClassifyIntent(tc.Message)
 			suite.Equal(tc.ExpectedIntent, intent, "Failed to classify: %s", tc.Message)
@@ -174,9 +175,23 @@ func (suite *ConversationServiceTestSuite) TestAddMessage() {
 	}
 
 	for _, tc := range testCases {
+		tc := tc // Capture loop variable
 		suite.Run(tc.name, func() {
+			// Create a fresh mock for this specific test
+			freshMockRepo := testutils.NewMockMessageRepository()
+			
+			// Replace the service's message repo with our fresh mock
+			originalRepo := suite.testSuite.MockMessageRepo
+			suite.testSuite.MockMessageRepo = freshMockRepo
+			suite.testSuite.ConversationService = conversation.NewService(
+				suite.testSuite.MockConversationRepo,
+				freshMockRepo,
+				suite.testSuite.MockContextRepo,
+				suite.testSuite.AIService,
+			)
+
 			// Setup mock to capture created message
-			suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.MatchedBy(func(msg *conversation.Message) bool {
+			freshMockRepo.On("CreateMessage", mock.Anything, mock.MatchedBy(func(msg *conversation.Message) bool {
 				suite.Equal(conversationID, msg.ConversationID)
 				suite.Equal(tc.role, msg.Role)
 				suite.Equal(tc.content, msg.Content)
@@ -198,7 +213,10 @@ func (suite *ConversationServiceTestSuite) TestAddMessage() {
 				suite.Equal(tc.content, msg.Content)
 			}
 
-			suite.testSuite.MockMessageRepo.AssertExpectations(suite.T())
+			freshMockRepo.AssertExpectations(suite.T())
+			
+			// Restore original mock
+			suite.testSuite.MockMessageRepo = originalRepo
 		})
 	}
 }
@@ -320,6 +338,7 @@ func (suite *ConversationServiceTestSuite) TestProcessMessage() {
 	}
 
 	for _, tc := range testCases {
+		tc := tc // Capture loop variable
 		suite.Run(tc.name, func() {
 			tc.setupMocks()
 
@@ -524,6 +543,7 @@ func (suite *ConversationServiceTestSuite) TestConversationTitleGeneration() {
 	}
 
 	for _, tc := range testCases {
+		tc := tc // Capture loop variable
 		suite.Run(tc.name, func() {
 			userID := suite.testSuite.GetTestUserID("testuser")
 
@@ -621,6 +641,7 @@ func TestIntentClassifierEdgeCases(t *testing.T) {
 	}
 
 	for _, tc := range edgeCases {
+		tc := tc // Capture loop variable
 		t.Run(tc.name, func(t *testing.T) {
 			intent := classifier.ClassifyIntent(tc.message)
 			assert.Equal(t, tc.expectedIntent, intent)
