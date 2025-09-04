@@ -441,7 +441,7 @@ func TestDependencyGraph_ValidateCycles(t *testing.T) {
 	// Let's create a completely new cyclic graph
 	dg2 := NewDependencyGraph()
 	dg2.AddNode("database", []string{"service"})
-	dg2.AddNode("service", []string{"api"})  
+	dg2.AddNode("service", []string{"api"})
 	dg2.AddNode("api", []string{"cache"})
 	dg2.AddNode("cache", []string{"database"})
 
