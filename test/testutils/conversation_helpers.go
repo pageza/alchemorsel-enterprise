@@ -2,19 +2,14 @@
 package testutils
 
 import (
-	"context"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 // ConversationTestSuite provides comprehensive testing infrastructure for conversations

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/alchemorsel/v3/internal/application/conversation"
+	"github.com/alchemorsel/v3/internal/domain/user"
 )
 
 // ChatHandler handles HTTP-based chat interactions
@@ -74,7 +75,7 @@ func (h *ChatHandler) HandleChatMessage(w http.ResponseWriter, r *http.Request) 
 	conversationID := req.ConversationID
 	if conversationID == "" {
 		// Create new conversation
-		conv, err := h.convService.CreateConversation(ctx, user.ID, req.Message)
+		conv, err := h.convService.CreateConversation(ctx, user.ID().String(), req.Message)
 		if err != nil {
 			log.Printf("Failed to create conversation: %v", err)
 			h.writeErrorResponse(w, "Failed to create conversation", http.StatusInternalServerError)
@@ -84,7 +85,7 @@ func (h *ChatHandler) HandleChatMessage(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Process the message
-	userMsg, aiResponse, err := h.convService.ProcessMessage(ctx, conversationID, req.Message, user.ID)
+	userMsg, aiResponse, err := h.convService.ProcessMessage(ctx, conversationID, req.Message, user.ID().String())
 	if err != nil {
 		log.Printf("Failed to process message: %v", err)
 		h.writeErrorResponse(w, "Failed to process message", http.StatusInternalServerError)
@@ -133,7 +134,7 @@ func (h *ChatHandler) HandleConversationList(w http.ResponseWriter, r *http.Requ
 	}
 
 	ctx := r.Context()
-	conversations, err := h.convService.GetUserConversations(ctx, user.ID, 50, 0)
+	conversations, err := h.convService.GetUserConversations(ctx, user.ID().String(), 50, 0)
 	if err != nil {
 		log.Printf("Failed to get conversations: %v", err)
 		h.writeErrorResponse(w, "Failed to retrieve conversations", http.StatusInternalServerError)
@@ -170,7 +171,7 @@ func (h *ChatHandler) HandleConversationHistory(w http.ResponseWriter, r *http.R
 	}
 
 	// Check if user owns the conversation
-	if conv.UserID != user.ID {
+	if conv.UserID != user.ID().String() {
 		h.writeErrorResponse(w, "Access denied", http.StatusForbidden)
 		return
 	}
@@ -207,7 +208,7 @@ func (h *ChatHandler) HandleConversationDelete(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if conv.UserID != user.ID {
+	if conv.UserID != user.ID().String() {
 		h.writeErrorResponse(w, "Access denied", http.StatusForbidden)
 		return
 	}
@@ -257,7 +258,7 @@ func (h *ChatHandler) HandleConversationRename(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if conv.UserID != user.ID {
+	if conv.UserID != user.ID().String() {
 		h.writeErrorResponse(w, "Access denied", http.StatusForbidden)
 		return
 	}
@@ -287,7 +288,7 @@ func (h *ChatHandler) HandleConversationListHTMX(w http.ResponseWriter, r *http.
 	}
 
 	ctx := r.Context()
-	conversations, err := h.convService.GetUserConversations(ctx, user.ID, 50, 0)
+	conversations, err := h.convService.GetUserConversations(ctx, user.ID().String(), 50, 0)
 	if err != nil {
 		log.Printf("Failed to get conversations: %v", err)
 		w.Write([]byte(`<div class="error">Failed to load conversations</div>`))
@@ -349,7 +350,7 @@ func (h *ChatHandler) HandleConversationStats(w http.ResponseWriter, r *http.Req
 	}
 
 	ctx := r.Context()
-	stats, err := h.convService.GetConversationStats(ctx, user.ID)
+	stats, err := h.convService.GetConversationStats(ctx, user.ID().String())
 	if err != nil {
 		log.Printf("Failed to get conversation stats: %v", err)
 		h.writeErrorResponse(w, "Failed to retrieve statistics", http.StatusInternalServerError)
@@ -374,8 +375,8 @@ func (h *ChatHandler) writeErrorResponse(w http.ResponseWriter, message string, 
 }
 
 // getUserFromHTTPContext extracts user from HTTP context
-func getUserFromHTTPContext(ctx context.Context) *User {
-	if user, ok := ctx.Value("user").(*User); ok {
+func getUserFromHTTPContext(ctx context.Context) *user.User {
+	if user, ok := ctx.Value("user").(*user.User); ok {
 		return user
 	}
 	return nil
@@ -408,7 +409,7 @@ func (h *ChatHandler) HandleAIChatHTMX(w http.ResponseWriter, r *http.Request) {
 	// Handle conversation creation or continuation
 	if conversationID == "" && user != nil {
 		// Create new conversation
-		conv, err := h.convService.CreateConversation(ctx, user.ID, message)
+		conv, err := h.convService.CreateConversation(ctx, user.ID().String(), message)
 		if err != nil {
 			log.Printf("Failed to create conversation: %v", err)
 			h.writeHTMXError(w, "Failed to create conversation")
@@ -421,7 +422,7 @@ func (h *ChatHandler) HandleAIChatHTMX(w http.ResponseWriter, r *http.Request) {
 
 	if user != nil && conversationID != "" {
 		// Process message with conversation service
-		_, aiResponse, err := h.convService.ProcessMessage(ctx, conversationID, message, user.ID)
+		_, aiResponse, err := h.convService.ProcessMessage(ctx, conversationID, message, user.ID().String())
 		if err != nil {
 			log.Printf("Failed to process message: %v", err)
 			response = "I apologize, but I encountered an error processing your message. Please try again."
@@ -443,7 +444,7 @@ func (h *ChatHandler) HandleAIChatHTMX(w http.ResponseWriter, r *http.Request) {
 	// Create user message HTML
 	userName := "Anonymous"
 	if user != nil {
-		userName = user.Name
+		userName = user.Name()
 	}
 
 	userMessageHTML := fmt.Sprintf(`

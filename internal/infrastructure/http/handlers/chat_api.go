@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/alchemorsel/v3/internal/application/conversation"
+	"github.com/alchemorsel/v3/internal/domain/user"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
@@ -51,9 +52,9 @@ func (h *ChatAPIHandlers) ListConversations(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	conversations, err := h.conversationService.GetUserConversations(r.Context(), user.ID, limit, offset)
+	conversations, err := h.conversationService.GetUserConversations(r.Context(), user.ID().String(), limit, offset)
 	if err != nil {
-		h.logger.Error("Failed to get conversations", zap.Error(err), zap.String("user_id", user.ID))
+		h.logger.Error("Failed to get conversations", zap.Error(err), zap.String("user_id", user.ID().String()))
 		h.writeErrorResponse(w, "Failed to retrieve conversations", http.StatusInternalServerError)
 		return
 	}
@@ -90,9 +91,9 @@ func (h *ChatAPIHandlers) CreateConversation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	conversation, err := h.conversationService.CreateConversation(r.Context(), user.ID, req.InitialMessage)
+	conversation, err := h.conversationService.CreateConversation(r.Context(), user.ID().String(), req.InitialMessage)
 	if err != nil {
-		h.logger.Error("Failed to create conversation", zap.Error(err), zap.String("user_id", user.ID))
+		h.logger.Error("Failed to create conversation", zap.Error(err), zap.String("user_id", user.ID().String()))
 		h.writeErrorResponse(w, "Failed to create conversation", http.StatusInternalServerError)
 		return
 	}
@@ -125,7 +126,7 @@ func (h *ChatAPIHandlers) GetConversation(w http.ResponseWriter, r *http.Request
 	}
 
 	// Check if user owns the conversation
-	if conversation.UserID != user.ID {
+	if conversation.UserID != user.ID().String() {
 		h.writeErrorResponse(w, "Access denied", http.StatusForbidden)
 		return
 	}
@@ -172,7 +173,7 @@ func (h *ChatAPIHandlers) UpdateConversation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if conversation.UserID != user.ID {
+	if conversation.UserID != user.ID().String() {
 		h.writeErrorResponse(w, "Access denied", http.StatusForbidden)
 		return
 	}
@@ -213,7 +214,7 @@ func (h *ChatAPIHandlers) DeleteConversation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if conversation.UserID != user.ID {
+	if conversation.UserID != user.ID().String() {
 		h.writeErrorResponse(w, "Access denied", http.StatusForbidden)
 		return
 	}
@@ -253,7 +254,7 @@ func (h *ChatAPIHandlers) GetConversationMessages(w http.ResponseWriter, r *http
 	}
 
 	// Check if user owns the conversation
-	if conversation.UserID != user.ID {
+	if conversation.UserID != user.ID().String() {
 		h.writeErrorResponse(w, "Access denied", http.StatusForbidden)
 		return
 	}
@@ -302,13 +303,13 @@ func (h *ChatAPIHandlers) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if conversation.UserID != user.ID {
+	if conversation.UserID != user.ID().String() {
 		h.writeErrorResponse(w, "Access denied", http.StatusForbidden)
 		return
 	}
 
 	// Process the message
-	userMessage, aiResponse, err := h.conversationService.ProcessMessage(r.Context(), conversationID, req.Message, user.ID)
+	userMessage, aiResponse, err := h.conversationService.ProcessMessage(r.Context(), conversationID, req.Message, user.ID().String())
 	if err != nil {
 		h.logger.Error("Failed to process message", zap.Error(err), zap.String("conversation_id", conversationID))
 		h.writeErrorResponse(w, "Failed to process message", http.StatusInternalServerError)
@@ -341,8 +342,8 @@ func (h *ChatAPIHandlers) writeErrorResponse(w http.ResponseWriter, message stri
 }
 
 // getUserFromContext extracts user from context
-func getUserFromContext(ctx context.Context) *User {
-	if user, ok := ctx.Value("user").(*User); ok {
+func getUserFromContext(ctx context.Context) *user.User {
+	if user, ok := ctx.Value("user").(*user.User); ok {
 		return user
 	}
 	return nil
