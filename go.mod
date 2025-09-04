@@ -11,7 +11,7 @@ require (
 	github.com/docker/go-connections v0.5.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/gin-gonic/gin v1.10.1
-	github.com/go-chi/chi/v5 v5.0.7
+	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-playground/validator/v10 v10.20.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt/v4 v4.5.2
@@ -65,7 +65,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v28.2.2+incompatible // indirect
+	github.com/docker/docker v28.3.3+incompatible // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect

@@ -464,15 +464,14 @@ func (suite *AuthServiceTestSuite) TestAuthMiddleware() {
 		userID := uuid.New().String()
 		email := "test@example.com"
 		roles := []string{"user"}
-		sessionID := uuid.New().String()
 		ipAddress := "192.168.1.1"
 
-		// Create session and token
-		_, err := suite.authService.CreateSession(userID, ipAddress, "Test Browser")
+		// Create session and get the actual session ID returned
+		session, err := suite.authService.CreateSession(userID, ipAddress, "Test Browser")
 		require.NoError(suite.T(), err)
 
 		token, err := suite.authService.GenerateAccessToken(
-			userID, email, roles, sessionID, ipAddress, "Test Browser",
+			userID, email, roles, session.SessionID, ipAddress, "Test Browser",
 		)
 		require.NoError(suite.T(), err)
 

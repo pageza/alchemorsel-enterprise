@@ -149,7 +149,10 @@ func (h *HealthCheck) Check(ctx context.Context) Response {
 		Checks:    []Check{},
 	}
 
-	// Create context with timeout
+	// Create context with timeout - handle nil context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 

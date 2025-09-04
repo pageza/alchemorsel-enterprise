@@ -195,7 +195,8 @@ func (td *TestDatabase) SeedTestData() error {
 		INSERT INTO users (id, email, password_hash, username, created_at, updated_at)
 		VALUES 
 			('550e8400-e29b-41d4-a716-446655440001', 'test@example.com', '$2a$10$hash', 'testuser', NOW(), NOW()),
-			('550e8400-e29b-41d4-a716-446655440002', 'chef@example.com', '$2a$10$hash', 'chefuser', NOW(), NOW())
+			('550e8400-e29b-41d4-a716-446655440002', 'chef@example.com', '$2a$10$hash', 'chefuser', NOW(), NOW()),
+			('550e8400-e29b-41d4-a716-446655440003', 'third@example.com', '$2a$10$hash', 'thirduser', NOW(), NOW())
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to seed users: %w", err)
@@ -222,6 +223,9 @@ func (td *TestDatabase) TruncateAllTables() error {
 		"recipe_ingredients",
 		"recipe_instructions",
 		"recipes",
+		"conversation_contexts",
+		"messages",
+		"conversations",
 		"user_sessions",
 		"users",
 	}

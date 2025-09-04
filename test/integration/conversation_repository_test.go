@@ -55,9 +55,13 @@ func (suite *ConversationRepositoryTestSuite) TearDownSuite() {
 	suite.testDB.Cleanup()
 }
 
-// SetupTest cleans up data before each test
+// SetupTest cleans up data before each test and seeds required data
 func (suite *ConversationRepositoryTestSuite) SetupTest() {
 	suite.testDB.TruncateAllTables()
+	
+	// Seed the users that conversation tests depend on
+	err := suite.testDB.SeedTestData()
+	suite.Require().NoError(err, "Failed to seed test data")
 }
 
 // TestConversationCRUD tests basic CRUD operations for conversations

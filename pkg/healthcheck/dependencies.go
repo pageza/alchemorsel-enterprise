@@ -291,7 +291,7 @@ func (dg *DependencyGraph) TopologicalSort() []string {
 
 		temp[name] = false
 		visited[name] = true
-		result = append(result, name)
+		result = append([]string{name}, result...) // Prepend instead of append for correct dependency order
 
 		return true
 	}
