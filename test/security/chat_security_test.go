@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -696,7 +697,7 @@ func (suite *ChatSecurityTestSuite) sendChatMessage(userID, message, conversatio
 	return &http.Response{
 		StatusCode: w.Code,
 		Header:     w.Header(),
-		Body:       w.Body,
+		Body:       io.NopCloser(w.Body),
 	}
 }
 

@@ -577,7 +577,6 @@ func BenchmarkRecipeCreation(b *testing.B) {
 
 // BenchmarkRecipeAddIngredient benchmarks adding ingredients
 func BenchmarkRecipeAddIngredient(b *testing.B) {
-	recipe, _ := NewRecipe("Benchmark Recipe", "Description", uuid.New())
 	ingredient := Ingredient{
 		ID:       uuid.New(),
 		Name:     "Test Ingredient",

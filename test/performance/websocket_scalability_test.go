@@ -288,7 +288,7 @@ func TestWebSocketMemoryUsage(t *testing.T) {
 		const numConnections = 100
 		const testDuration = 30 * time.Second
 		
-		var connections []*websocket.Conn
+		var connections []*gorillaws.Conn
 		defer func() {
 			for _, conn := range connections {
 				conn.Close()
@@ -392,7 +392,7 @@ func TestWebSocketMessageThroughput(t *testing.T) {
 	
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			var connections []*websocket.Conn
+			var connections []*gorillaws.Conn
 			defer func() {
 				for _, conn := range connections {
 					conn.Close()
@@ -419,7 +419,7 @@ func TestWebSocketMessageThroughput(t *testing.T) {
 			var wg sync.WaitGroup
 			for i, conn := range connections {
 				wg.Add(1)
-				go func(connIndex int, c *websocket.Conn) {
+				go func(connIndex int, c *gorillaws.Conn) {
 					defer wg.Done()
 					
 					for j := 0; j < tc.messagesPerConn; j++ {
@@ -498,7 +498,7 @@ func TestWebSocketConnectionStability(t *testing.T) {
 		const numConnections = 20
 		const testDuration = 2 * time.Minute
 		
-		var connections []*websocket.Conn
+		var connections []*gorillaws.Conn
 		defer func() {
 			for _, conn := range connections {
 				conn.Close()
@@ -527,7 +527,7 @@ func TestWebSocketConnectionStability(t *testing.T) {
 		var wg sync.WaitGroup
 		for i, conn := range connections {
 			wg.Add(1)
-			go func(connIndex int, c *websocket.Conn) {
+			go func(connIndex int, c *gorillaws.Conn) {
 				defer wg.Done()
 				defer atomic.AddInt64(&activeConnections, -1)
 				
@@ -635,7 +635,7 @@ func TestWebSocketResourceCleanup(t *testing.T) {
 		for cycle := 0; cycle < cycles; cycle++ {
 			t.Logf("Running cleanup cycle %d/%d", cycle+1, cycles)
 			
-			var connections []*websocket.Conn
+			var connections []*gorillaws.Conn
 			
 			// Create connections
 			for i := 0; i < connectionsPerCycle; i++ {

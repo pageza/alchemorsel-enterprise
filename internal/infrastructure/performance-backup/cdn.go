@@ -157,7 +157,8 @@ func (c *CDNManager) getCloudFrontStatistics(ctx context.Context, startTime, end
 
 // PurgeAllCache purges entire CDN cache
 func (c *CDNManager) PurgeAllCache(ctx context.Context) error {
-	return c.InvalidateCache(ctx, []string{"/*"})
+	_, err := c.InvalidateCache(ctx, []string{"/*"})
+	return err
 }
 
 // PurgeByTags purges cache by tags (if supported by CDN provider)

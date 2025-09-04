@@ -46,7 +46,7 @@ func (suite *ConversationFlowTestSuite) SetupSuite() {
 	suite.ctx, suite.cancel = context.WithCancel(context.Background())
 	
 	// Setup test database
-	suite.db = testutils.SetupTestDatabase(suite.T())
+	suite.db = testutils.SetupTestDatabase(suite.T()).GormDB
 	
 	// Create repositories
 	suite.conversationRepo = gorm.NewConversationRepository(suite.db)

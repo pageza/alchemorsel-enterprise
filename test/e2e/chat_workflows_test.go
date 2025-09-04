@@ -156,7 +156,7 @@ func (suite *ChatWorkflowE2ETestSuite) TestExperiencedChefComplexRecipe() {
 			"conversation_id": conversationID,
 		})
 		
-		response2, err := conn.WaitForMessageType("chat_response", 5*time.Second)
+		_, err = conn.WaitForMessageType("chat_response", 5*time.Second)
 		suite.NoError(err)
 		
 		// Step 3: Request specific techniques

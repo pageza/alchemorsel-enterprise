@@ -505,8 +505,7 @@ func (suite *AuthServiceTestSuite) TestAuthMiddleware() {
 		assert.Equal(suite.T(), http.StatusUnauthorized, w.Code)
 		
 		var response map[string]interface{}
-		err := testutils.NewHTTPAssertions(suite.T()).JSONResponse(w.Result(), &response)
-		require.NoError(suite.T(), err)
+		testutils.NewHTTPAssertions(suite.T()).JSONResponse(w.Result(), &response)
 		assert.Contains(suite.T(), response["error"], "Authorization header required")
 	})
 
