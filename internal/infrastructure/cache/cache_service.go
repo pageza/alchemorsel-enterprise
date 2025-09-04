@@ -54,20 +54,20 @@ type CacheConfig struct {
 
 // CacheMetrics tracks comprehensive cache performance
 type CacheMetrics struct {
-	L1Hits       int64         `json:"l1_hits"`   // Local cache hits
-	L1Misses     int64         `json:"l1_misses"` // Local cache misses
-	L2Hits       int64         `json:"l2_hits"`   // Redis cache hits
-	L2Misses     int64         `json:"l2_misses"` // Redis cache misses
-	TotalHits    int64         `json:"total_hits"`
-	TotalMisses  int64         `json:"total_misses"`
-	Errors       int64         `json:"errors"`
-	WriteOps     int64         `json:"write_ops"`
-	ReadOps      int64         `json:"read_ops"`
-	InvalidOps   int64         `json:"invalid_ops"`
-	AvgReadTime  int64         `json:"avg_read_time"`  // stored as nanoseconds for atomic ops
-	AvgWriteTime int64         `json:"avg_write_time"` // stored as nanoseconds for atomic ops
-	LastReset    time.Time     `json:"last_reset"`
-	mu           sync.RWMutex  // protects LastReset
+	L1Hits       int64        `json:"l1_hits"`   // Local cache hits
+	L1Misses     int64        `json:"l1_misses"` // Local cache misses
+	L2Hits       int64        `json:"l2_hits"`   // Redis cache hits
+	L2Misses     int64        `json:"l2_misses"` // Redis cache misses
+	TotalHits    int64        `json:"total_hits"`
+	TotalMisses  int64        `json:"total_misses"`
+	Errors       int64        `json:"errors"`
+	WriteOps     int64        `json:"write_ops"`
+	ReadOps      int64        `json:"read_ops"`
+	InvalidOps   int64        `json:"invalid_ops"`
+	AvgReadTime  int64        `json:"avg_read_time"`  // stored as nanoseconds for atomic ops
+	AvgWriteTime int64        `json:"avg_write_time"` // stored as nanoseconds for atomic ops
+	LastReset    time.Time    `json:"last_reset"`
+	mu           sync.RWMutex // protects LastReset
 }
 
 // CacheEntry represents a cached item with metadata
@@ -602,12 +602,12 @@ func (c *CacheService) ResetStats() {
 	atomic.StoreInt64(&c.metrics.InvalidOps, 0)
 	atomic.StoreInt64(&c.metrics.AvgReadTime, 0)
 	atomic.StoreInt64(&c.metrics.AvgWriteTime, 0)
-	
+
 	// Reset LastReset time with mutex protection
 	c.metrics.mu.Lock()
 	c.metrics.LastReset = time.Now()
 	c.metrics.mu.Unlock()
-	
+
 	c.logger.Info("Cache statistics reset")
 }
 
