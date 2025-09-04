@@ -206,7 +206,7 @@ func NewCoreWebVitalsOrchestrator(config CWVOrchestratorConfig, cacheClient *cac
 		rumConfig.SampleRate = config.SampleRate
 		rumConfig.EnableRealTimeAlerts = config.EnableRealTimeAlerts
 		rumConfig.AlertThresholds = config.AlertThresholds
-		rumSystem = NewRUMSystem(rumConfig, cacheClient)
+		rumSystem = NewRUMSystem(rumConfig)
 		
 		// Initialize Core Web Vitals monitor
 		cwvConfig := DefaultCWVConfig()

@@ -292,14 +292,12 @@ func (m *CoreWebVitalsMiddleware) optimizeHTML(ctx context.Context, html string,
 		return nil, fmt.Errorf("failed to optimize HTML: %w", err)
 	}
 	
-	// Inject RUM script if enabled
+	// Inject RUM script if enabled and return as []byte
 	if m.config.EnableRUM {
-		optimized = m.injectRUMScript([]byte(optimized), r)
-	} else {
-		optimized = []byte(optimized)
+		return m.injectRUMScript([]byte(optimized), r), nil
 	}
 	
-	return optimized, nil
+	return []byte(optimized), nil
 }
 
 // injectRUMScript injects the RUM (Real User Monitoring) script into HTML
