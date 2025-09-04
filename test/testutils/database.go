@@ -196,7 +196,7 @@ func (td *TestDatabase) SeedTestData() error {
 		VALUES 
 			('550e8400-e29b-41d4-a716-446655440001', 'test@example.com', '$2a$10$hash', 'testuser', NOW(), NOW()),
 			('550e8400-e29b-41d4-a716-446655440002', 'chef@example.com', '$2a$10$hash', 'chefuser', NOW(), NOW()),
-			('550e8400-e29b-41d4-a716-446655440003', 'third@example.com', '$2a$10$hash', 'thirduser', NOW(), NOW())
+			('550e8400-e29b-41d4-a716-446655440003', 'admin@example.com', '$2a$10$hash', 'adminuser', NOW(), NOW())
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to seed users: %w", err)

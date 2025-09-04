@@ -192,11 +192,10 @@ func (suite *ConversationServiceTestSuite) TestAddMessage() {
 
 			// Setup mock to capture created message
 			freshMockRepo.On("CreateMessage", mock.Anything, mock.MatchedBy(func(msg *conversation.Message) bool {
-				suite.Equal(conversationID, msg.ConversationID)
-				suite.Equal(tc.role, msg.Role)
-				suite.Equal(tc.content, msg.Content)
-				suite.NotEmpty(msg.ID)
-				return true
+				return msg.ConversationID == conversationID &&
+					msg.Role == tc.role &&
+					msg.Content == tc.content &&
+					msg.ID != ""
 			})).Return(nil).Once()
 
 			// Add message
@@ -268,44 +267,61 @@ func (suite *ConversationServiceTestSuite) TestGetConversationWithMessages() {
 // TestProcessMessage tests message processing workflow
 func (suite *ConversationServiceTestSuite) TestProcessMessage() {
 	userID := suite.testSuite.GetTestUserID("testuser")
-	conv := suite.testSuite.CreateTestConversation(userID, conversation.IntentRecipeCreation)
 
 	testCases := []struct {
 		name         string
 		userMessage  string
-		setupMocks   func()
+		setupMocks   func() *conversation.Conversation
 		expectedResp string
 		shouldError  bool
 	}{
 		{
 			name:        "Recipe Creation Flow",
 			userMessage: "I want to make carbonara",
-			setupMocks: func() {
+			setupMocks: func() *conversation.Conversation {
+				// Create conversation directly without relying on helper mock setup
+				conv := &conversation.Conversation{
+					ID:        uuid.New().String(),
+					UserID:    userID,
+					Title:     "Test Recipe Creation Conversation",
+					Intent:    conversation.IntentRecipeCreation,
+					Status:    conversation.StatusActive,
+					Metadata:  make(map[string]interface{}),
+					CreatedAt: time.Now(),
+					UpdatedAt: time.Now(),
+				}
+				
+				// Clear any existing standard mock behavior that might interfere
+				suite.testSuite.MockConversationRepo.ExpectedCalls = nil
+				suite.testSuite.MockMessageRepo.ExpectedCalls = nil
+				suite.testSuite.MockContextRepo.ExpectedCalls = nil
+				suite.testSuite.MockAIService.ExpectedCalls = nil
+				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
+				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
+				
+				// Mock getting conversation (called by ProcessMessage after AddMessage)
+				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, conv.ID).Return(conv, nil).Times(1)
+				
 				// Mock adding user message
 				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.MatchedBy(func(msg *conversation.Message) bool {
 					return msg.Role == conversation.RoleUser && msg.Content == "I want to make carbonara"
 				})).Return(nil).Once()
 
-				// Mock getting conversation
-				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, conv.ID).Return(conv, nil).Once()
-
 				// Mock getting conversation messages for AI context
 				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, conv.ID, 20, 0).Return([]*conversation.Message{}, nil).Once()
 
-				// Mock AI service response
-				aiResponse := &conversation.ConversationalResponse{
-					Content:    "Great! I'll help you make carbonara. What ingredients do you have?",
-					Intent:     conversation.IntentRecipeCreation,
-					Confidence: 0.9,
-					Metadata:   map[string]interface{}{"provider": "test"},
-				}
-				suite.testSuite.MockAIService.On("GenerateConversationalResponse", mock.Anything, conv, mock.AnythingOfType("[]*conversation.Message"), "I want to make carbonara").
-					Return(aiResponse, nil).Once()
+				// Mock AI client health checks and responses (since the real AIService is being used)
+				suite.testSuite.MockOllamaClient.On("HealthCheck", mock.Anything).Return(nil).Once()
+				suite.testSuite.MockOllamaClient.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
+					Return("Great! I'll help you make carbonara. What ingredients do you have?", nil).Once()
+
 
 				// Mock setting AI metadata context
 				suite.testSuite.MockContextRepo.On("SetContext", mock.Anything, mock.MatchedBy(func(ctx *conversation.ConversationContext) bool {
 					return ctx.ConversationID == conv.ID && ctx.ContextType == "ai_metadata"
 				})).Return(nil).Once()
+				
+				return conv
 			},
 			expectedResp: "Great! I'll help you make carbonara. What ingredients do you have?",
 			shouldError:  false,
@@ -313,24 +329,49 @@ func (suite *ConversationServiceTestSuite) TestProcessMessage() {
 		{
 			name:        "AI Service Failure - Fallback",
 			userMessage: "How do I cook rice?",
-			setupMocks: func() {
-				// Update conversation intent for this test
-				conv.Intent = conversation.IntentCookingHelp
+			setupMocks: func() *conversation.Conversation {
+				// Create conversation with cooking help intent for this test directly
+				conv := &conversation.Conversation{
+					ID:        uuid.New().String(),
+					UserID:    userID,
+					Title:     "Test Cooking Help Conversation",
+					Intent:    conversation.IntentCookingHelp,
+					Status:    conversation.StatusActive,
+					Metadata:  make(map[string]interface{}),
+					CreatedAt: time.Now(),
+					UpdatedAt: time.Now(),
+				}
+				
+				// Clear any existing standard mock behavior that might interfere
+				suite.testSuite.MockConversationRepo.ExpectedCalls = nil
+				suite.testSuite.MockMessageRepo.ExpectedCalls = nil
+				suite.testSuite.MockContextRepo.ExpectedCalls = nil
+				suite.testSuite.MockAIService.ExpectedCalls = nil
+				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
+				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
 
+				// Mock getting conversation (called by ProcessMessage after AddMessage)
+				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, conv.ID).Return(conv, nil).Times(1)
+				
 				// Mock adding user message
 				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.MatchedBy(func(msg *conversation.Message) bool {
 					return msg.Role == conversation.RoleUser && msg.Content == "How do I cook rice?"
 				})).Return(nil).Once()
 
-				// Mock getting conversation
-				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, conv.ID).Return(conv, nil).Once()
-
 				// Mock getting conversation messages
 				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, conv.ID, 20, 0).Return([]*conversation.Message{}, nil).Once()
 
-				// Mock AI service failure
-				suite.testSuite.MockAIService.On("GenerateConversationalResponse", mock.Anything, conv, mock.AnythingOfType("[]*conversation.Message"), "How do I cook rice?").
-					Return((*conversation.ConversationalResponse)(nil), assert.AnError).Once()
+				// Mock AI service failure - both Ollama and OpenAI fail so it falls back to simple response
+				suite.testSuite.MockOllamaClient.On("HealthCheck", mock.Anything).Return(assert.AnError).Once()
+				suite.testSuite.MockOpenAIClient.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
+					Return("", assert.AnError).Once()
+
+				// Mock setting fallback metadata context
+				suite.testSuite.MockContextRepo.On("SetContext", mock.Anything, mock.MatchedBy(func(ctx *conversation.ConversationContext) bool {
+					return ctx.ConversationID == conv.ID && ctx.ContextType == "ai_metadata"
+				})).Return(nil).Once()
+				
+				return conv
 			},
 			expectedResp: "I'm here to help with your cooking question!",
 			shouldError:  false,
@@ -340,7 +381,7 @@ func (suite *ConversationServiceTestSuite) TestProcessMessage() {
 	for _, tc := range testCases {
 		tc := tc // Capture loop variable
 		suite.Run(tc.name, func() {
-			tc.setupMocks()
+			conv := tc.setupMocks()
 
 			userMsg, response, err := suite.testSuite.ConversationService.ProcessMessage(suite.ctx, conv.ID, tc.userMessage, userID)
 
