@@ -105,9 +105,9 @@ func createTestConfig() *EnterpriseConfig {
 	}
 }
 
-func createTestService() (*EnterpriseAIService, *MockCacheRepository) {
+func createTestService(t zaptest.TestingT) (*EnterpriseAIService, *MockCacheRepository) {
 	mockCache := &MockCacheRepository{}
-	logger := zaptest.NewLogger(nil)
+	logger := zaptest.NewLogger(t)
 	config := createTestConfig()
 
 	service := NewEnterpriseAIService("ollama", mockCache, config, logger)
@@ -117,7 +117,7 @@ func createTestService() (*EnterpriseAIService, *MockCacheRepository) {
 // Enterprise AI Service Tests
 
 func TestNewEnterpriseAIService(t *testing.T) {
-	service, _ := createTestService()
+	service, _ := createTestService(t)
 
 	assert.NotNil(t, service)
 	assert.NotNil(t, service.costTracker)
@@ -128,7 +128,7 @@ func TestNewEnterpriseAIService(t *testing.T) {
 }
 
 func TestGenerateRecipe(t *testing.T) {
-	service, mockCache := createTestService()
+	service, mockCache := createTestService(t)
 
 	// Mock cache miss
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
@@ -151,7 +151,7 @@ func TestGenerateRecipe(t *testing.T) {
 }
 
 func TestGenerateIngredientSuggestions(t *testing.T) {
-	service, mockCache := createTestService()
+	service, mockCache := createTestService(t)
 
 	// Mock cache miss
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
@@ -171,7 +171,7 @@ func TestGenerateIngredientSuggestions(t *testing.T) {
 }
 
 func TestAnalyzeNutritionalContent(t *testing.T) {
-	service, mockCache := createTestService()
+	service, mockCache := createTestService(t)
 
 	// Mock cache miss
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
@@ -190,7 +190,7 @@ func TestAnalyzeNutritionalContent(t *testing.T) {
 }
 
 func TestOptimizeRecipe(t *testing.T) {
-	service, mockCache := createTestService()
+	service, mockCache := createTestService(t)
 
 	// Mock cache miss
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
@@ -207,7 +207,7 @@ func TestOptimizeRecipe(t *testing.T) {
 }
 
 func TestRateLimitingExceeded(t *testing.T) {
-	service, _ := createTestService()
+	service, _ := createTestService(t)
 
 	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
 
@@ -224,7 +224,7 @@ func TestRateLimitingExceeded(t *testing.T) {
 }
 
 func TestBudgetLimitExceeded(t *testing.T) {
-	service, _ := createTestService()
+	service, _ := createTestService(t)
 
 	// Set a very low budget
 	service.config.DailyBudgetCents = 1
@@ -246,7 +246,7 @@ func TestBudgetLimitExceeded(t *testing.T) {
 }
 
 func TestHealthCheck(t *testing.T) {
-	service, _ := createTestService()
+	service, _ := createTestService(t)
 
 	health, err := service.HealthCheck(context.Background())
 
@@ -564,7 +564,7 @@ func TestCostAlerts(t *testing.T) {
 // Integration Tests
 
 func TestFullWorkflow(t *testing.T) {
-	service, mockCache := createTestService()
+	service, mockCache := createTestService(t)
 
 	// Mock cache behavior
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
@@ -604,7 +604,7 @@ func TestFullWorkflow(t *testing.T) {
 // Benchmark tests
 
 func BenchmarkGenerateRecipe(b *testing.B) {
-	service, mockCache := createTestService()
+	service, mockCache := createTestService(b)
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
 
 	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
