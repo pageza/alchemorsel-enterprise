@@ -18,6 +18,7 @@ import (
 // ConversationRepositoryTestSuite tests conversation repository with real database
 type ConversationRepositoryTestSuite struct {
 	suite.Suite
+	testDB           *testutils.TestDatabase
 	db               *gormdb.DB
 	conversationRepo *gorm.ConversationRepository
 	messageRepo      *gorm.MessageRepository
@@ -31,7 +32,8 @@ func (suite *ConversationRepositoryTestSuite) SetupSuite() {
 	suite.ctx = context.Background()
 	
 	// Setup test database
-	suite.db = testutils.SetupTestDatabase(suite.T()).GormDB
+	suite.testDB = testutils.SetupTestDatabase(suite.T())
+	suite.db = suite.testDB.GormDB
 	
 	// Create repositories
 	suite.conversationRepo = gorm.NewConversationRepository(suite.db)
@@ -48,7 +50,7 @@ func (suite *ConversationRepositoryTestSuite) SetupSuite() {
 
 // TearDownSuite cleans up the test database
 func (suite *ConversationRepositoryTestSuite) TearDownSuite() {
-	testutils.TeardownTestDatabase(suite.T(), suite.db)
+	suite.testDB.Cleanup()
 }
 
 // SetupTest cleans up data before each test
@@ -782,12 +784,12 @@ func TestConversationRepositorySuite(t *testing.T) {
 
 // TestRepositoryDataIntegrity tests data integrity scenarios
 func TestRepositoryDataIntegrity(t *testing.T) {
-	db := testutils.SetupTestDatabase(t)
-	defer testutils.TeardownTestDatabase(t, db)
+	testDB := testutils.SetupTestDatabase(t)
+	defer testDB.Cleanup()
 
-	conversationRepo := gorm.NewConversationRepository(db)
-	messageRepo := gorm.NewMessageRepository(db)
-	contextRepo := gorm.NewContextRepository(db)
+	conversationRepo := gorm.NewConversationRepository(testDB.GormDB)
+	messageRepo := gorm.NewMessageRepository(testDB.GormDB)
+	contextRepo := gorm.NewContextRepository(testDB.GormDB)
 	ctx := context.Background()
 
 	t.Run("JSON Metadata Handling", func(t *testing.T) {

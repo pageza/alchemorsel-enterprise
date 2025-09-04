@@ -41,11 +41,11 @@ func (suite *ChatHandlerTestSuite) SetupSuite() {
 	suite.ctx = context.Background()
 	
 	// Create test user
-	suite.testUser = &user.User{
-		ID:    suite.testSuite.GetTestUserID("testuser"),
-		Email: "test@example.com",
-		Name:  "Test User",
+	testUser, err := user.NewUser("test@example.com", "Test User", "password")
+	if err != nil {
+		panic(err) // Should not happen in tests
 	}
+	suite.testUser = testUser
 	
 }
 
@@ -755,10 +755,9 @@ func TestChatHandlerPerformance(t *testing.T) {
 	testSuite := testutils.NewConversationTestSuite()
 	chatHandler := handlers.NewChatHandler(testSuite.ConversationService)
 	
-	testUser := &user.User{
-		ID:    testSuite.GetTestUserID("testuser"),
-		Email: "test@example.com",
-		Name:  "Test User",
+	testUser, err := user.NewUser("test@example.com", "Test User", "password")
+	if err != nil {
+		panic(err) // Should not happen in tests
 	}
 
 	t.Run("Concurrent Requests", func(t *testing.T) {
