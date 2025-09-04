@@ -305,7 +305,7 @@ func TestIntegration_ExternalServiceChecker_Timeout(t *testing.T) {
 
 	assert.Equal(t, "slow_service", check.Name)
 	assert.Equal(t, StatusUnhealthy, check.Status)
-	assert.Contains(t, check.Message, "timeout")
+	assert.Contains(t, check.Message, "deadline exceeded")
 }
 
 // TestIntegration_DependencyGraphWithRealServices tests dependency graph with real services

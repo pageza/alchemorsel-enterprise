@@ -12,6 +12,7 @@ import (
 
 	"github.com/docker/go-connections/nat"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/lib/pq" // PostgreSQL driver for testcontainers wait.ForSQL
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
