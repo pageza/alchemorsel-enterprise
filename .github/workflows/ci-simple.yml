@@ -106,6 +106,11 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Tidy modules
+        run: |
+          go mod tidy
+          go mod verify
+
       - name: Run Go Vulnerability Check
         uses: golang/govulncheck-action@v1
         with:
