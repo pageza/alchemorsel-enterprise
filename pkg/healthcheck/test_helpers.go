@@ -429,7 +429,7 @@ func TestMetricsConfig() MetricsConfig {
 	// Generate unique namespace to avoid metrics registration conflicts in tests
 	return MetricsConfig{
 		Namespace: fmt.Sprintf("test_%d", time.Now().UnixNano()),
-		Subsystem: "healthcheck", 
+		Subsystem: "healthcheck",
 		Enabled:   true,
 	}
 }
