@@ -135,7 +135,6 @@ func (suite *ConversationServiceTestSuite) TestIntentClassification() {
 // TestAddMessage tests adding messages to conversations
 func (suite *ConversationServiceTestSuite) TestAddMessage() {
 	conversationID := uuid.New().String()
-	userID := suite.testSuite.GetTestUserID("testuser")
 
 	testCases := []struct {
 		name        string
