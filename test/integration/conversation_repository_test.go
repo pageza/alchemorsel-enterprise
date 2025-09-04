@@ -791,7 +791,6 @@ func TestRepositoryDataIntegrity(t *testing.T) {
 
 	conversationRepo := gorm.NewConversationRepository(testDB.GormDB)
 	messageRepo := gorm.NewMessageRepository(testDB.GormDB)
-	contextRepo := gorm.NewContextRepository(testDB.GormDB)
 	ctx := context.Background()
 
 	t.Run("JSON Metadata Handling", func(t *testing.T) {
