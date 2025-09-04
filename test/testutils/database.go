@@ -159,13 +159,13 @@ func (td *TestDatabase) RunMigrations() error {
 		"file://" + filepath.Join("internal/infrastructure/persistence/migrations/sql"),
 		"file://internal/infrastructure/persistence/migrations/sql",
 	}
-	
+
 	for _, migrationPath := range possiblePaths {
 		if err := td.RunMigrationsWithPath(migrationPath); err == nil {
 			return nil
 		}
 	}
-	
+
 	return fmt.Errorf("failed to run migrations with any path")
 }
 
