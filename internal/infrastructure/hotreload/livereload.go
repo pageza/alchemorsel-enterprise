@@ -1,5 +1,5 @@
 // Package hotreload provides live reload functionality for development
-// This includes WebSocket server, file watching, and browser notification
+// This includes file watching and browser notification via HTTP
 package hotreload
 
 import (
@@ -15,16 +15,13 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/gorilla/websocket"
+	// "github.com/gorilla/websocket" // Disabled websocket functionality
 )
 
-// LiveReloadServer provides WebSocket-based live reload functionality
+// LiveReloadServer provides HTTP-based live reload functionality
 type LiveReloadServer struct {
 	port     int
 	server   *http.Server
-	upgrader websocket.Upgrader
-	clients  map[*websocket.Conn]bool
-	mutex    sync.RWMutex
 	watcher  *fsnotify.Watcher
 	
 	// Configuration
@@ -34,9 +31,6 @@ type LiveReloadServer struct {
 	debounceDelay  time.Duration
 	
 	// Channels
-	broadcast chan ReloadMessage
-	register  chan *websocket.Conn
-	unregister chan *websocket.Conn
 	shutdown  chan struct{}
 }
 
@@ -93,31 +87,17 @@ func NewLiveReloadServer(config *LiveReloadConfig) (*LiveReloadServer, error) {
 	}
 
 	server := &LiveReloadServer{
-		port: config.Port,
-		upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				// Allow all origins in development
-				return true
-			},
-			ReadBufferSize:  1024,
-			WriteBufferSize: 1024,
-		},
-		clients:         make(map[*websocket.Conn]bool),
+		port:            config.Port,
 		watcher:         watcher,
 		watchPaths:      config.WatchPaths,
 		includeExts:     config.IncludeExts,
 		excludePatterns: config.ExcludePatterns,
 		debounceDelay:   config.DebounceDelay,
-		
-		broadcast:  make(chan ReloadMessage),
-		register:   make(chan *websocket.Conn),
-		unregister: make(chan *websocket.Conn),
-		shutdown:   make(chan struct{}),
+		shutdown:        make(chan struct{}),
 	}
 
 	// Setup HTTP server
 	mux := http.NewServeMux()
-	mux.HandleFunc("/livereload", server.handleWebSocket)
 	mux.HandleFunc("/livereload.js", server.serveLiveReloadScript)
 	mux.HandleFunc("/status", server.handleStatus)
 	mux.HandleFunc("/", server.handleHealth)
@@ -139,8 +119,6 @@ func (s *LiveReloadServer) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to setup file watcher: %w", err)
 	}
 
-	// Start the hub
-	go s.runHub(ctx)
 
 	// Start file watching goroutine
 	go s.watchFiles(ctx)
@@ -211,48 +189,6 @@ func (s *LiveReloadServer) addWatchPath(path string) error {
 	})
 }
 
-// runHub manages WebSocket connections and message broadcasting
-func (s *LiveReloadServer) runHub(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-s.shutdown:
-			return
-		case client := <-s.register:
-			s.mutex.Lock()
-			s.clients[client] = true
-			s.mutex.Unlock()
-			log.Printf("LiveReload client connected (total: %d)", len(s.clients))
-
-		case client := <-s.unregister:
-			s.mutex.Lock()
-			if _, ok := s.clients[client]; ok {
-				delete(s.clients, client)
-				client.Close()
-			}
-			s.mutex.Unlock()
-			log.Printf("LiveReload client disconnected (total: %d)", len(s.clients))
-
-		case message := <-s.broadcast:
-			s.mutex.RLock()
-			for client := range s.clients {
-				select {
-				case <-ctx.Done():
-					s.mutex.RUnlock()
-					return
-				default:
-					if err := client.WriteJSON(message); err != nil {
-						log.Printf("Error writing to client: %v", err)
-						client.Close()
-						delete(s.clients, client)
-					}
-				}
-			}
-			s.mutex.RUnlock()
-		}
-	}
-}
 
 // watchFiles monitors file system changes
 func (s *LiveReloadServer) watchFiles(ctx context.Context) {
@@ -321,73 +257,8 @@ func (s *LiveReloadServer) shouldReload(filePath string) bool {
 // handleFileChange processes a file change event
 func (s *LiveReloadServer) handleFileChange(event fsnotify.Event) {
 	log.Printf("File changed: %s (%s)", event.Name, event.Op.String())
-
-	ext := filepath.Ext(event.Name)
-	isCSS := ext == ".css"
-
-	message := ReloadMessage{
-		Command:   "reload",
-		Path:      event.Name,
-		LiveCSS:   isCSS,
-		Live:      true,
-		Ext:       ext,
-		Timestamp: time.Now().UnixMilli(),
-		Metadata: map[string]interface{}{
-			"operation": event.Op.String(),
-			"service":   "alchemorsel-v3",
-		},
-	}
-
-	select {
-	case s.broadcast <- message:
-	case <-time.After(1 * time.Second):
-		log.Printf("Timeout broadcasting reload message")
-	}
 }
 
-// handleWebSocket handles WebSocket upgrade and connection
-func (s *LiveReloadServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := s.upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("WebSocket upgrade failed: %v", err)
-		return
-	}
-
-	// Register client
-	s.register <- conn
-
-	// Handle client disconnection
-	go func() {
-		defer func() {
-			s.unregister <- conn
-		}()
-
-		for {
-			_, _, err := conn.ReadMessage()
-			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					log.Printf("WebSocket error: %v", err)
-				}
-				break
-			}
-		}
-	}()
-
-	// Send hello message
-	helloMessage := ReloadMessage{
-		Command:   "hello",
-		Timestamp: time.Now().UnixMilli(),
-		Metadata: map[string]interface{}{
-			"server":  "alchemorsel-v3-livereload",
-			"version": "1.0.0",
-		},
-	}
-
-	if err := conn.WriteJSON(helloMessage); err != nil {
-		log.Printf("Error sending hello message: %v", err)
-		return
-	}
-}
 
 // serveLiveReloadScript serves the client-side JavaScript
 func (s *LiveReloadServer) serveLiveReloadScript(w http.ResponseWriter, r *http.Request) {
@@ -479,15 +350,10 @@ func (s *LiveReloadServer) serveLiveReloadScript(w http.ResponseWriter, r *http.
 
 // handleStatus provides server status information
 func (s *LiveReloadServer) handleStatus(w http.ResponseWriter, r *http.Request) {
-	s.mutex.RLock()
-	clientCount := len(s.clients)
-	s.mutex.RUnlock()
-
 	status := map[string]interface{}{
 		"server":           "alchemorsel-v3-livereload",
 		"status":           "running",
 		"port":             s.port,
-		"connected_clients": clientCount,
 		"watch_paths":      s.watchPaths,
 		"include_exts":     s.includeExts,
 		"exclude_patterns": s.excludePatterns,
@@ -507,20 +373,5 @@ func (s *LiveReloadServer) handleHealth(w http.ResponseWriter, r *http.Request) 
 
 // TriggerReload manually triggers a reload
 func (s *LiveReloadServer) TriggerReload(path string) {
-	message := ReloadMessage{
-		Command:   "reload",
-		Path:      path,
-		Live:      true,
-		Timestamp: time.Now().UnixMilli(),
-		Metadata: map[string]interface{}{
-			"trigger": "manual",
-			"service": "alchemorsel-v3",
-		},
-	}
-
-	select {
-	case s.broadcast <- message:
-	case <-time.After(1 * time.Second):
-		log.Printf("Timeout triggering manual reload")
-	}
+	log.Printf("Manual reload triggered for: %s", path)
 }

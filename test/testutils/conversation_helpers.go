@@ -12,8 +12,6 @@ import (
 
 	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
-	wsManager "github.com/alchemorsel/v3/internal/infrastructure/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -49,7 +47,7 @@ func NewConversationTestSuite() *ConversationTestSuite {
 	}
 
 	// Setup standard mock behaviors
-	suite.setupStandardMocks()
+	suite.SetupStandardMocks()
 
 	// Create AI service with mock clients
 	suite.AIService = conversation.NewAIService(suite.MockOllamaClient, suite.MockOpenAIClient)
@@ -65,8 +63,8 @@ func NewConversationTestSuite() *ConversationTestSuite {
 	return suite
 }
 
-// setupStandardMocks configures default mock behaviors
-func (s *ConversationTestSuite) setupStandardMocks() {
+// SetupStandardMocks configures default mock behaviors
+func (s *ConversationTestSuite) SetupStandardMocks() {
 	s.MockConversationRepo.SetupStandardMockBehavior()
 	s.MockMessageRepo.SetupStandardMockBehavior()
 	s.MockContextRepo.SetupStandardMockBehavior()
@@ -154,175 +152,6 @@ func (s *ConversationTestSuite) AssertExpectations(t *testing.T) {
 	s.MockAIService.AssertExpectations(t)
 	s.MockOllamaClient.AssertExpectations(t)
 	s.MockOpenAIClient.AssertExpectations(t)
-}
-
-// WebSocketTestHelper provides utilities for testing WebSocket connections
-type WebSocketTestHelper struct {
-	Server     *httptest.Server
-	Manager    *wsManager.Manager
-	Connections map[string]*TestWebSocketConnection
-	mu         sync.RWMutex
-}
-
-// TestWebSocketConnection represents a test WebSocket connection
-type TestWebSocketConnection struct {
-	ID           string
-	UserID       string
-	Conn         *websocket.Conn
-	MessagesChan chan wsManager.Message
-	ErrorsChan   chan error
-	DoneChan     chan struct{}
-}
-
-// NewWebSocketTestHelper creates a new WebSocket test helper
-func NewWebSocketTestHelper() *WebSocketTestHelper {
-	manager := wsManager.NewManager()
-	helper := &WebSocketTestHelper{
-		Manager:     manager,
-		Connections: make(map[string]*TestWebSocketConnection),
-	}
-
-	// Create test server
-	helper.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID := r.URL.Query().Get("user_id")
-		if userID == "" {
-			userID = "550e8400-e29b-41d4-a716-446655440001" // Default test user
-		}
-
-		err := manager.HandleUpgrade(w, r, userID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	}))
-
-	// Start manager in background
-	go manager.Start(context.Background())
-
-	return helper
-}
-
-// ConnectWebSocket creates a WebSocket connection for testing
-func (h *WebSocketTestHelper) ConnectWebSocket(t *testing.T, userID string) *TestWebSocketConnection {
-	// Convert HTTP URL to WebSocket URL
-	wsURL := "ws" + h.Server.URL[4:] + "?user_id=" + userID
-
-	// Connect to WebSocket
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
-	require.NoError(t, err)
-
-	testConn := &TestWebSocketConnection{
-		ID:           uuid.New().String(),
-		UserID:       userID,
-		Conn:         conn,
-		MessagesChan: make(chan wsManager.Message, 100),
-		ErrorsChan:   make(chan error, 10),
-		DoneChan:     make(chan struct{}),
-	}
-
-	// Start message reader
-	go h.readMessages(testConn)
-
-	h.mu.Lock()
-	h.Connections[testConn.ID] = testConn
-	h.mu.Unlock()
-
-	// Wait for connection to be established
-	select {
-	case msg := <-testConn.MessagesChan:
-		assert.Equal(t, "connection_established", msg.Type)
-	case err := <-testConn.ErrorsChan:
-		t.Fatalf("Failed to establish WebSocket connection: %v", err)
-	case <-time.After(5 * time.Second):
-		t.Fatal("Timeout waiting for WebSocket connection")
-	}
-
-	return testConn
-}
-
-// readMessages reads messages from WebSocket connection
-func (h *WebSocketTestHelper) readMessages(testConn *TestWebSocketConnection) {
-	defer close(testConn.DoneChan)
-
-	for {
-		var msg wsManager.Message
-		err := testConn.Conn.ReadJSON(&msg)
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				select {
-				case testConn.ErrorsChan <- err:
-				default:
-				}
-			}
-			return
-		}
-
-		select {
-		case testConn.MessagesChan <- msg:
-		case <-testConn.DoneChan:
-			return
-		}
-	}
-}
-
-// SendMessage sends a message through the WebSocket connection
-func (tc *TestWebSocketConnection) SendMessage(msg wsManager.Message) error {
-	return tc.Conn.WriteJSON(msg)
-}
-
-// WaitForMessage waits for a message with timeout
-func (tc *TestWebSocketConnection) WaitForMessage(timeout time.Duration) (wsManager.Message, error) {
-	select {
-	case msg := <-tc.MessagesChan:
-		return msg, nil
-	case err := <-tc.ErrorsChan:
-		return wsManager.Message{}, err
-	case <-time.After(timeout):
-		return wsManager.Message{}, fmt.Errorf("timeout waiting for message")
-	}
-}
-
-// WaitForMessageType waits for a message of specific type
-func (tc *TestWebSocketConnection) WaitForMessageType(messageType string, timeout time.Duration) (wsManager.Message, error) {
-	deadline := time.Now().Add(timeout)
-	
-	for time.Now().Before(deadline) {
-		select {
-		case msg := <-tc.MessagesChan:
-			if msg.Type == messageType {
-				return msg, nil
-			}
-			// Put message back for other tests
-			select {
-			case tc.MessagesChan <- msg:
-			default:
-			}
-		case err := <-tc.ErrorsChan:
-			return wsManager.Message{}, err
-		case <-time.After(100 * time.Millisecond):
-			continue
-		}
-	}
-	
-	return wsManager.Message{}, fmt.Errorf("timeout waiting for message type: %s", messageType)
-}
-
-// Close closes the WebSocket connection
-func (tc *TestWebSocketConnection) Close() error {
-	close(tc.DoneChan)
-	return tc.Conn.Close()
-}
-
-// Cleanup closes all connections and shuts down the test helper
-func (h *WebSocketTestHelper) Cleanup() {
-	h.mu.Lock()
-	for _, conn := range h.Connections {
-		conn.Close()
-	}
-	h.mu.Unlock()
-
-	if h.Server != nil {
-		h.Server.Close()
-	}
 }
 
 // ConversationTestScenario represents a test scenario for conversations

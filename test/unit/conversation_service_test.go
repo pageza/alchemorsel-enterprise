@@ -34,7 +34,7 @@ func (suite *ConversationServiceTestSuite) TearDownTest() {
 	suite.testSuite.MockConversationRepo.Mock = mock.Mock{}
 	suite.testSuite.MockMessageRepo.Mock = mock.Mock{}
 	suite.testSuite.MockContextRepo.Mock = mock.Mock{}
-	suite.testSuite.setupStandardMocks()
+	suite.testSuite.SetupStandardMocks()
 }
 
 // TestCreateConversation tests conversation creation

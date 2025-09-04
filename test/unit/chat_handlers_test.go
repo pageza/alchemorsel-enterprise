@@ -14,7 +14,6 @@ import (
 
 	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/alchemorsel/v3/internal/infrastructure/http/handlers"
-	"github.com/alchemorsel/v3/internal/infrastructure/websocket"
 	"github.com/alchemorsel/v3/test/testutils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -27,8 +26,6 @@ import (
 type ChatHandlerTestSuite struct {
 	suite.Suite
 	chatHandler     *handlers.ChatHandler
-	wsHandler       *handlers.WebSocketHandler
-	wsManager       *websocket.Manager
 	convService     *conversation.Service
 	testSuite       *testutils.ConversationTestSuite
 	testUser        *handlers.User
@@ -39,9 +36,7 @@ type ChatHandlerTestSuite struct {
 func (suite *ChatHandlerTestSuite) SetupSuite() {
 	suite.testSuite = testutils.NewConversationTestSuite()
 	suite.convService = suite.testSuite.ConversationService
-	suite.wsManager = websocket.NewManager()
 	suite.chatHandler = handlers.NewChatHandler(suite.convService)
-	suite.wsHandler = handlers.NewWebSocketHandler(suite.wsManager, suite.convService)
 	suite.ctx = context.Background()
 	
 	// Create test user
@@ -51,8 +46,6 @@ func (suite *ChatHandlerTestSuite) SetupSuite() {
 		Name:  "Test User",
 	}
 	
-	// Start WebSocket manager
-	go suite.wsManager.Start(suite.ctx)
 }
 
 // SetupTest resets mocks before each test
@@ -61,7 +54,7 @@ func (suite *ChatHandlerTestSuite) SetupTest() {
 	suite.testSuite.MockMessageRepo.Mock = mock.Mock{}
 	suite.testSuite.MockContextRepo.Mock = mock.Mock{}
 	suite.testSuite.MockAIService.Mock = mock.Mock{}
-	suite.testSuite.setupStandardMocks()
+	suite.testSuite.SetupStandardMocks()
 }
 
 // TestHandleChatMessage tests the HTTP chat message handler
@@ -709,127 +702,6 @@ func (suite *ChatHandlerTestSuite) TestHandleAIChatHTMX() {
 	}
 }
 
-// TestWebSocketHandler tests the WebSocket message handling
-func (suite *ChatHandlerTestSuite) TestWebSocketHandler() {
-	testCases := []struct {
-		name        string
-		messageType string
-		content     string
-		setupMocks  func()
-		expectResp  bool
-	}{
-		{
-			name:        "Chat Message",
-			messageType: "chat_message",
-			content:     `{"message": "I want to make carbonara", "conversation_id": ""}`,
-			setupMocks: func() {
-				// Mock conversation creation and processing
-				suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.Anything).Return(nil).Once()
-				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.Anything).Return(nil).Once()
-				
-				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID, conversation.IntentRecipeCreation)
-				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, mock.AnythingOfType("string")).Return(testConv, nil).Once()
-				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, mock.AnythingOfType("string"), 20, 0).Return([]*conversation.Message{}, nil).Once()
-
-				aiResponse := &conversation.ConversationalResponse{
-					Content:    "Great! Let's make carbonara together.",
-					Intent:     conversation.IntentRecipeCreation,
-					Confidence: 0.9,
-					Metadata:   map[string]interface{}{"provider": "test"},
-				}
-				suite.testSuite.MockAIService.On("GenerateConversationalResponse", mock.Anything, mock.Anything, mock.Anything, "I want to make carbonara").
-					Return(aiResponse, nil).Once()
-
-				suite.testSuite.MockContextRepo.On("SetContext", mock.Anything, mock.Anything).Return(nil).Once()
-			},
-			expectResp: true,
-		},
-		{
-			name:        "Ping Message",
-			messageType: "ping",
-			content:     "",
-			setupMocks:  func() {},
-			expectResp:  true,
-		},
-		{
-			name:        "Unknown Message Type",
-			messageType: "unknown",
-			content:     "",
-			setupMocks:  func() {},
-			expectResp:  true, // Should get error response
-		},
-	}
-
-	for _, tc := range testCases {
-		suite.Run(tc.name, func() {
-			tc.setupMocks()
-
-			// Create WebSocket message
-			wsMessage := websocket.Message{
-				ID:        uuid.New().String(),
-				Type:      tc.messageType,
-				Content:   tc.content,
-				Timestamp: time.Now(),
-			}
-
-			// Process message
-			suite.wsHandler.ProcessMessage(suite.ctx, suite.testUser.ID, wsMessage)
-
-			// For this test, we're mainly testing that the handler doesn't panic
-			// In a real scenario, you'd want to verify the response was sent to the user
-			// This would require integration with the WebSocket manager's SendToUser method
-
-			suite.testSuite.AssertExpectations(suite.T())
-		})
-	}
-}
-
-// TestWebSocketUpgrade tests WebSocket connection upgrade
-func (suite *ChatHandlerTestSuite) TestWebSocketUpgrade() {
-	testCases := []struct {
-		name           string
-		userInContext  *handlers.User
-		expectedStatus int
-	}{
-		{
-			name:          "Successful Upgrade",
-			userInContext: suite.testUser,
-			expectedStatus: http.StatusSwitchingProtocols,
-		},
-		{
-			name:          "Unauthorized Upgrade",
-			userInContext: nil,
-			expectedStatus: http.StatusUnauthorized,
-		},
-	}
-
-	for _, tc := range testCases {
-		suite.Run(tc.name, func() {
-			// Create upgrade request
-			req := httptest.NewRequest("GET", "/ws", nil)
-			req.Header.Set("Connection", "upgrade")
-			req.Header.Set("Upgrade", "websocket")
-			req.Header.Set("Sec-WebSocket-Version", "13")
-			req.Header.Set("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
-
-			if tc.userInContext != nil {
-				ctx := context.WithValue(req.Context(), "user", tc.userInContext)
-				req = req.WithContext(ctx)
-			}
-
-			w := httptest.NewRecorder()
-			suite.wsHandler.HandleWebSocketUpgrade(w, req)
-
-			if tc.expectedStatus == http.StatusSwitchingProtocols {
-				// WebSocket upgrade would normally change the status, but in testing
-				// we'll get different behavior due to the test recorder
-				suite.True(w.Code == http.StatusSwitchingProtocols || w.Code == http.StatusBadRequest)
-			} else {
-				suite.Equal(tc.expectedStatus, w.Code)
-			}
-		})
-	}
-}
 
 // TestChatHandlerErrorScenarios tests various error scenarios
 func (suite *ChatHandlerTestSuite) TestChatHandlerErrorScenarios() {
