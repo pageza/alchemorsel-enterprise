@@ -145,9 +145,9 @@ func (suite *ConversationRepositoryTestSuite) TestGetUserConversations() {
 	userID2 := suite.testUsers[1]
 
 	// Create conversations for both users
-	conv1 := suite.createTestConversation(userID1, conversation.IntentRecipeCreation)
-	conv2 := suite.createTestConversation(userID1, conversation.IntentCookingHelp)
-	conv3 := suite.createTestConversation(userID2, conversation.IntentMealPlanning)
+	_ = suite.createTestConversation(userID1, conversation.IntentRecipeCreation)
+	_ = suite.createTestConversation(userID1, conversation.IntentCookingHelp)
+	_ = suite.createTestConversation(userID2, conversation.IntentMealPlanning)
 
 	// Test getting conversations for user1
 	suite.Run("Get User1 Conversations", func() {

@@ -767,7 +767,7 @@ func TestChatHandlerPerformance(t *testing.T) {
 		testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.Anything).Return(nil).Times(numRequests)
 		testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.Anything).Return(nil).Times(numRequests)
 		testSuite.MockConversationRepo.On("GetConversation", mock.Anything, mock.AnythingOfType("string")).
-			Return(testSuite.CreateTestConversation(testUser.ID, conversation.IntentRecipeCreation), nil).Times(numRequests)
+			Return(testSuite.CreateTestConversation(testUser.ID().String(), conversation.IntentRecipeCreation), nil).Times(numRequests)
 		testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, mock.AnythingOfType("string"), 20, 0).
 			Return([]*conversation.Message{}, nil).Times(numRequests)
 
