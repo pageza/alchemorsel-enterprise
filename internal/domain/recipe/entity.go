@@ -276,6 +276,18 @@ func (r *Recipe) UpdateTitle(title string) error {
 	return nil
 }
 
+// UpdateServings sets the number of servings for the recipe
+func (r *Recipe) UpdateServings(servings int) error {
+	if servings <= 0 {
+		return ErrInvalidServings
+	}
+
+	r.servings = servings
+	r.updatedAt = time.Now()
+
+	return nil
+}
+
 // AddIngredient adds a new ingredient to the recipe
 func (r *Recipe) AddIngredient(ingredient Ingredient) error {
 	if err := ingredient.Validate(); err != nil {

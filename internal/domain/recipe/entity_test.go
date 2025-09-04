@@ -49,6 +49,12 @@ func (suite *RecipeTestSuite) createValidRecipe() (*Recipe, error) {
 		return nil, err
 	}
 
+	// Set valid servings
+	err = recipe.UpdateServings(4)
+	if err != nil {
+		return nil, err
+	}
+
 	return recipe, nil
 }
 
@@ -150,6 +156,7 @@ func (suite *RecipeTestSuite) TestRecipeModification() {
 	suite.Run("UpdateTitle_ValidTitle_ShouldUpdate", func() {
 		// Arrange
 		recipe, _ := NewRecipe("Original Title", "Description", uuid.New())
+		recipe.Events() // Clear creation events
 		newTitle := "Updated Title"
 		originalUpdatedAt := recipe.updatedAt
 
@@ -192,6 +199,7 @@ func (suite *RecipeTestSuite) TestRecipeIngredients() {
 	suite.Run("AddValidIngredient_ShouldAdd", func() {
 		// Arrange
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
+		recipe.Events() // Clear creation events
 		ingredient := Ingredient{
 			ID:     uuid.New(),
 			Name:   "Spaghetti",
@@ -238,6 +246,7 @@ func (suite *RecipeTestSuite) TestRecipeInstructions() {
 	suite.Run("AddValidInstruction_ShouldAdd", func() {
 		// Arrange
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
+		recipe.Events() // Clear creation events
 		instruction := Instruction{
 			Description: "Boil water in a large pot",
 			Duration:    5 * time.Minute,
@@ -248,12 +257,14 @@ func (suite *RecipeTestSuite) TestRecipeInstructions() {
 
 		// Assert
 		require.NoError(suite.T(), err)
-		assert.Equal(suite.T(), 1, instruction.StepNumber) // Should be set automatically
+		assert.Equal(suite.T(), 1, len(recipe.Instructions()))
+		assert.Equal(suite.T(), 1, recipe.Instructions()[0].StepNumber) // Should be set automatically
 	})
 
 	suite.Run("AddMultipleInstructions_ShouldNumberSequentially", func() {
 		// Arrange
 		recipe, _ := NewRecipe("Test Recipe", "Description", uuid.New())
+		recipe.Events() // Clear creation events
 		instruction1 := Instruction{
 			Description: "First step",
 			Duration:    5 * time.Minute,
@@ -270,8 +281,9 @@ func (suite *RecipeTestSuite) TestRecipeInstructions() {
 		// Assert
 		require.NoError(suite.T(), err1)
 		require.NoError(suite.T(), err2)
-		assert.Equal(suite.T(), 1, instruction1.StepNumber)
-		assert.Equal(suite.T(), 2, instruction2.StepNumber)
+		assert.Equal(suite.T(), 2, len(recipe.Instructions()))
+		assert.Equal(suite.T(), 1, recipe.Instructions()[0].StepNumber)
+		assert.Equal(suite.T(), 2, recipe.Instructions()[1].StepNumber)
 	})
 }
 
