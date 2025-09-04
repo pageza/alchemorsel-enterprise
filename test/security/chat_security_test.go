@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/alchemorsel/v3/internal/infrastructure/http/handlers"
 	"github.com/alchemorsel/v3/internal/infrastructure/websocket"
 	"github.com/alchemorsel/v3/test/testutils"

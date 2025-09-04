@@ -100,7 +100,6 @@ func (suite *ConversationFlowTestSuite) SetupSuite() {
 func (suite *ConversationFlowTestSuite) TearDownSuite() {
 	suite.cancel()
 	suite.server.Close()
-	testutils.TeardownTestDatabase(suite.T(), suite.db)
 }
 
 // SetupTest cleans up data before each test
