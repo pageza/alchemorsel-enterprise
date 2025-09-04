@@ -426,9 +426,10 @@ func TestCircuitBreakerConfig() CircuitBreakerConfig {
 
 // TestMetricsConfig provides test configuration for metrics
 func TestMetricsConfig() MetricsConfig {
+	// Generate unique namespace to avoid metrics registration conflicts in tests
 	return MetricsConfig{
-		Namespace: "test",
-		Subsystem: "healthcheck",
+		Namespace: fmt.Sprintf("test_%d", time.Now().UnixNano()),
+		Subsystem: "healthcheck", 
 		Enabled:   true,
 	}
 }

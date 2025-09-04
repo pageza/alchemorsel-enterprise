@@ -190,24 +190,26 @@ func (td *TestDatabase) RunMigrationsWithPath(migrationPath string) error {
 
 // SeedTestData inserts test data into the database
 func (td *TestDatabase) SeedTestData() error {
-	// Insert test users
+	// Insert test users - use ON CONFLICT DO NOTHING to handle duplicates gracefully
 	_, err := td.DB.Exec(`
 		INSERT INTO users (id, email, password_hash, username, created_at, updated_at)
 		VALUES 
 			('550e8400-e29b-41d4-a716-446655440001', 'test@example.com', '$2a$10$hash', 'testuser', NOW(), NOW()),
 			('550e8400-e29b-41d4-a716-446655440002', 'chef@example.com', '$2a$10$hash', 'chefuser', NOW(), NOW()),
 			('550e8400-e29b-41d4-a716-446655440003', 'admin@example.com', '$2a$10$hash', 'adminuser', NOW(), NOW())
+		ON CONFLICT (id) DO NOTHING
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to seed users: %w", err)
 	}
 
-	// Insert test recipes
+	// Insert test recipes - use ON CONFLICT DO NOTHING to handle duplicates gracefully
 	_, err = td.DB.Exec(`
 		INSERT INTO recipes (id, title, description, author_id, status, created_at, updated_at)
 		VALUES 
 			('550e8400-e29b-41d4-a716-446655440003', 'Test Recipe', 'A test recipe', '550e8400-e29b-41d4-a716-446655440001', 'published', NOW(), NOW()),
 			('550e8400-e29b-41d4-a716-446655440004', 'Draft Recipe', 'A draft recipe', '550e8400-e29b-41d4-a716-446655440002', 'draft', NOW(), NOW())
+		ON CONFLICT (id) DO NOTHING
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to seed recipes: %w", err)
