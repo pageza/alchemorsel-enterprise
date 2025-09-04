@@ -179,7 +179,7 @@ func (suite *ConversationServiceTestSuite) TestAddMessage() {
 		suite.Run(tc.name, func() {
 			// Create a fresh mock for this specific test
 			freshMockRepo := testutils.NewMockMessageRepository()
-			
+
 			// Replace the service's message repo with our fresh mock
 			originalRepo := suite.testSuite.MockMessageRepo
 			suite.testSuite.MockMessageRepo = freshMockRepo
@@ -214,7 +214,7 @@ func (suite *ConversationServiceTestSuite) TestAddMessage() {
 			}
 
 			freshMockRepo.AssertExpectations(suite.T())
-			
+
 			// Restore original mock
 			suite.testSuite.MockMessageRepo = originalRepo
 		})
