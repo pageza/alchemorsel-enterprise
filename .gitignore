@@ -115,3 +115,6 @@ runtime/data/
 # Archive directory (cleanup storage)
 .archive/
 data/
+
+# Vestigial code directories
+internal/infrastructure/performance-backup/
