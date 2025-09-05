@@ -1,14 +1,18 @@
 package user
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/alchemorsel/v3/internal/domain/user"
+	"github.com/alchemorsel/v3/internal/ports/outbound"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -296,4 +300,403 @@ func BenchmarkTokenValidation(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+// Mock implementations for User Service integration tests
+
+// MockUserRepository is a mock implementation of UserRepository
+type MockUserRepository struct {
+	mock.Mock
+}
+
+func NewMockUserRepository() *MockUserRepository {
+	return &MockUserRepository{}
+}
+
+func (m *MockUserRepository) Create(ctx context.Context, user *user.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) FindByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*user.User), args.Error(1)
+}
+
+func (m *MockUserRepository) FindByEmail(ctx context.Context, email string) (*user.User, error) {
+	args := m.Called(ctx, email)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*user.User), args.Error(1)
+}
+
+func (m *MockUserRepository) Update(ctx context.Context, user *user.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error) {
+	args := m.Called(ctx, id)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockUserRepository) List(ctx context.Context, limit, offset int) ([]*user.User, error) {
+	args := m.Called(ctx, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*user.User), args.Error(1)
+}
+
+func (m *MockUserRepository) Count(ctx context.Context) (int, error) {
+	args := m.Called(ctx)
+	return args.Int(0), args.Error(1)
+}
+
+// MockCacheRepository is a mock implementation of CacheRepository
+type MockCacheRepository struct {
+	mock.Mock
+}
+
+func NewMockCacheRepository() *MockCacheRepository {
+	return &MockCacheRepository{}
+}
+
+func (m *MockCacheRepository) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
+	args := m.Called(ctx, key, value, ttl)
+	return args.Error(0)
+}
+
+func (m *MockCacheRepository) Get(ctx context.Context, key string) (interface{}, error) {
+	args := m.Called(ctx, key)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockCacheRepository) Delete(ctx context.Context, key string) error {
+	args := m.Called(ctx, key)
+	return args.Error(0)
+}
+
+func (m *MockCacheRepository) Exists(ctx context.Context, key string) (bool, error) {
+	args := m.Called(ctx, key)
+	return args.Bool(0), args.Error(1)
+}
+
+// User Service Integration Tests
+
+// TestUserServiceRegistration tests user registration workflow
+func TestUserServiceRegistration(t *testing.T) {
+	t.Run("Register_NewUser_ShouldSucceed", func(t *testing.T) {
+		// Arrange
+		mockUserRepo := NewMockUserRepository()
+		mockCache := NewMockCacheRepository()
+		logger := zaptest.NewLogger(t)
+		service := NewUserService(mockUserRepo, mockCache, "test-secret", logger)
+
+		ctx := context.Background()
+		cmd := RegisterCommand{
+			Email:    "test@example.com",
+			Name:     "Test User",
+			Password: "password123",
+		}
+
+		// Mock: User doesn't exist yet
+		mockUserRepo.On("FindByEmail", ctx, cmd.Email).Return(nil, errors.New("user not found")).Once()
+
+		// Mock: User creation succeeds
+		mockUserRepo.On("Create", ctx, mock.MatchedBy(func(u *user.User) bool {
+			return u.Email() == cmd.Email && u.Name() == cmd.Name
+		})).Return(nil).Once()
+
+		// Act
+		response, err := service.Register(ctx, cmd)
+
+		// Assert
+		require.NoError(t, err)
+		require.NotNil(t, response)
+
+		assert.Equal(t, cmd.Email, response.User.Email)
+		assert.Equal(t, cmd.Name, response.User.Name)
+		assert.NotEmpty(t, response.AccessToken)
+		assert.NotEmpty(t, response.RefreshToken)
+		assert.Equal(t, 3600, response.ExpiresIn)
+		assert.True(t, response.User.IsActive)
+		assert.False(t, response.User.IsVerified)
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Register_ExistingUser_ShouldFail", func(t *testing.T) {
+		// Arrange
+		mockUserRepo := NewMockUserRepository()
+		mockCache := NewMockCacheRepository()
+		logger := zaptest.NewLogger(t)
+		service := NewUserService(mockUserRepo, mockCache, "test-secret", logger)
+
+		ctx := context.Background()
+		cmd := RegisterCommand{
+			Email:    "existing@example.com",
+			Name:     "Existing User",
+			Password: "password123",
+		}
+
+		// Mock: User already exists
+		existingUser, _ := user.NewUser(cmd.Email, cmd.Name, "oldpassword")
+		mockUserRepo.On("FindByEmail", ctx, cmd.Email).Return(existingUser, nil).Once()
+
+		// Act
+		response, err := service.Register(ctx, cmd)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, response)
+		assert.Contains(t, err.Error(), "already exists")
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Register_RepositoryError_ShouldFail", func(t *testing.T) {
+		// Arrange
+		mockUserRepo := NewMockUserRepository()
+		mockCache := NewMockCacheRepository()
+		logger := zaptest.NewLogger(t)
+		service := NewUserService(mockUserRepo, mockCache, "test-secret", logger)
+
+		ctx := context.Background()
+		cmd := RegisterCommand{
+			Email:    "test@example.com",
+			Name:     "Test User",
+			Password: "password123",
+		}
+
+		// Mock: User doesn't exist
+		mockUserRepo.On("FindByEmail", ctx, cmd.Email).Return(nil, errors.New("user not found")).Once()
+
+		// Mock: Repository save fails
+		mockUserRepo.On("Create", ctx, mock.Anything).Return(errors.New("database error")).Once()
+
+		// Act
+		response, err := service.Register(ctx, cmd)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, response)
+		assert.Contains(t, err.Error(), "failed to save user")
+
+		mockUserRepo.AssertExpectations(t)
+	})
+}
+
+// TestUserServiceLogin tests user login workflow
+func TestUserServiceLogin(t *testing.T) {
+	t.Run("Login_ValidCredentials_ShouldSucceed", func(t *testing.T) {
+		// Arrange
+		mockUserRepo := NewMockUserRepository()
+		mockCache := NewMockCacheRepository()
+		logger := zaptest.NewLogger(t)
+		service := NewUserService(mockUserRepo, mockCache, "test-secret", logger)
+
+		ctx := context.Background()
+		email := "test@example.com"
+		password := "password123"
+
+		// Create a test user
+		testUser, _ := user.NewUser(email, "Test User", password)
+
+		cmd := LoginCommand{
+			Email:    email,
+			Password: password,
+		}
+
+		// Mock: Find user by email
+		mockUserRepo.On("FindByEmail", ctx, email).Return(testUser, nil).Once()
+
+		// Mock: Update user after login (last login timestamp)
+		mockUserRepo.On("Update", ctx, mock.MatchedBy(func(u *user.User) bool {
+			return u.Email() == email && u.LastLoginAt() != nil
+		})).Return(nil).Once()
+
+		// Act
+		response, err := service.Login(ctx, cmd)
+
+		// Assert
+		require.NoError(t, err)
+		require.NotNil(t, response)
+
+		assert.Equal(t, email, response.User.Email)
+		assert.Equal(t, "Test User", response.User.Name)
+		assert.NotEmpty(t, response.AccessToken)
+		assert.NotEmpty(t, response.RefreshToken)
+		assert.Equal(t, 3600, response.ExpiresIn)
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Login_InvalidPassword_ShouldFail", func(t *testing.T) {
+		// Arrange
+		mockUserRepo := NewMockUserRepository()
+		mockCache := NewMockCacheRepository()
+		logger := zaptest.NewLogger(t)
+		service := NewUserService(mockUserRepo, mockCache, "test-secret", logger)
+
+		ctx := context.Background()
+		email := "test@example.com"
+		correctPassword := "correctpassword"
+		wrongPassword := "wrongpassword"
+
+		// Create user with correct password
+		testUser, _ := user.NewUser(email, "Test User", correctPassword)
+
+		cmd := LoginCommand{
+			Email:    email,
+			Password: wrongPassword, // Wrong password
+		}
+
+		// Mock: Find user by email
+		mockUserRepo.On("FindByEmail", ctx, email).Return(testUser, nil).Once()
+
+		// Act
+		response, err := service.Login(ctx, cmd)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, response)
+		assert.Contains(t, err.Error(), "invalid credentials")
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Login_UserNotFound_ShouldFail", func(t *testing.T) {
+		// Arrange
+		mockUserRepo := NewMockUserRepository()
+		mockCache := NewMockCacheRepository()
+		logger := zaptest.NewLogger(t)
+		service := NewUserService(mockUserRepo, mockCache, "test-secret", logger)
+
+		ctx := context.Background()
+		cmd := LoginCommand{
+			Email:    "nonexistent@example.com",
+			Password: "password123",
+		}
+
+		// Mock: User not found
+		mockUserRepo.On("FindByEmail", ctx, cmd.Email).Return(nil, errors.New("user not found")).Once()
+
+		// Act
+		response, err := service.Login(ctx, cmd)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, response)
+		assert.Contains(t, err.Error(), "invalid credentials")
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Login_InactiveUser_ShouldFail", func(t *testing.T) {
+		// Arrange
+		mockUserRepo := NewMockUserRepository()
+		mockCache := NewMockCacheRepository()
+		logger := zaptest.NewLogger(t)
+		service := NewUserService(mockUserRepo, mockCache, "test-secret", logger)
+
+		ctx := context.Background()
+		email := "inactive@example.com"
+		password := "password123"
+
+		// Create user and deactivate
+		testUser, _ := user.NewUser(email, "Inactive User", password)
+		testUser.Deactivate()
+
+		cmd := LoginCommand{
+			Email:    email,
+			Password: password,
+		}
+
+		// Mock: Find deactivated user
+		mockUserRepo.On("FindByEmail", ctx, email).Return(testUser, nil).Once()
+
+		// Act
+		response, err := service.Login(ctx, cmd)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, response)
+		assert.Contains(t, err.Error(), "account is deactivated")
+
+		mockUserRepo.AssertExpectations(t)
+	})
+}
+
+// TestUserServicePasswordChange tests password change workflow
+func TestUserServicePasswordChange(t *testing.T) {
+	t.Run("ChangePassword_ValidCurrentPassword_ShouldSucceed", func(t *testing.T) {
+		// Arrange
+		mockUserRepo := NewMockUserRepository()
+		mockCache := NewMockCacheRepository()
+		logger := zaptest.NewLogger(t)
+		service := NewUserService(mockUserRepo, mockCache, "test-secret", logger)
+
+		ctx := context.Background()
+		userID := uuid.New()
+		currentPassword := "oldpassword123"
+		newPassword := "newpassword456"
+
+		// Create user with current password
+		testUser, _ := user.NewUser("test@example.com", "Test User", currentPassword)
+
+		// Mock: Find user by ID
+		mockUserRepo.On("FindByID", ctx, userID).Return(testUser, nil).Once()
+
+		// Mock: Update user with new password
+		mockUserRepo.On("Update", ctx, mock.MatchedBy(func(u *user.User) bool {
+			// Verify the new password works and old doesn't
+			return u.CheckPassword(newPassword) == nil && u.CheckPassword(currentPassword) != nil
+		})).Return(nil).Once()
+
+		// Act
+		err := service.ChangePassword(ctx, userID, currentPassword, newPassword)
+
+		// Assert
+		assert.NoError(t, err)
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("ChangePassword_InvalidCurrentPassword_ShouldFail", func(t *testing.T) {
+		// Arrange
+		mockUserRepo := NewMockUserRepository()
+		mockCache := NewMockCacheRepository()
+		logger := zaptest.NewLogger(t)
+		service := NewUserService(mockUserRepo, mockCache, "test-secret", logger)
+
+		ctx := context.Background()
+		userID := uuid.New()
+		currentPassword := "correctpassword"
+		wrongCurrentPassword := "wrongpassword"
+		newPassword := "newpassword456"
+
+		// Create user with current password
+		testUser, _ := user.NewUser("test@example.com", "Test User", currentPassword)
+
+		// Mock: Find user by ID
+		mockUserRepo.On("FindByID", ctx, userID).Return(testUser, nil).Once()
+
+		// Act
+		err := service.ChangePassword(ctx, userID, wrongCurrentPassword, newPassword)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "current password is incorrect")
+
+		mockUserRepo.AssertExpectations(t)
+	})
 }
