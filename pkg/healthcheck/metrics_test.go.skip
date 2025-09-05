@@ -18,14 +18,15 @@ func TestNewHealthMetrics(t *testing.T) {
 	metrics := NewHealthMetrics()
 
 	assert.NotNil(t, metrics)
-	assert.NotNil(t, metrics.checksTotal)
-	assert.NotNil(t, metrics.checkErrors)
-	assert.NotNil(t, metrics.circuitTrips)
-	assert.NotNil(t, metrics.checkDuration)
-	assert.NotNil(t, metrics.healthStatus)
-	assert.NotNil(t, metrics.dependencyStatus)
-	assert.NotNil(t, metrics.circuitBreakerState)
-	assert.NotNil(t, metrics.checkDurationSummary)
+	// In test environment, metrics should be disabled, so these should be nil
+	assert.Nil(t, metrics.checksTotal)
+	assert.Nil(t, metrics.checkErrors)
+	assert.Nil(t, metrics.circuitTrips)
+	assert.Nil(t, metrics.checkDuration)
+	assert.Nil(t, metrics.healthStatus)
+	assert.Nil(t, metrics.dependencyStatus)
+	assert.Nil(t, metrics.circuitBreakerState)
+	assert.Nil(t, metrics.checkDurationSummary)
 }
 
 func TestNewHealthMetricsWithConfig_Enabled(t *testing.T) {
