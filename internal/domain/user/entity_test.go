@@ -21,11 +21,11 @@ func TestUserPasswordHandling(t *testing.T) {
 		// Assert
 		require.NoError(t, err)
 		require.NotNil(t, user)
-		
+
 		// Password should be hashed, not stored in plaintext
 		assert.NotEqual(t, password, user.passwordHash)
 		assert.NotEmpty(t, user.passwordHash)
-		
+
 		// Hash should be bcrypt format (starts with $2)
 		assert.Contains(t, user.passwordHash, "$2")
 	})
@@ -78,13 +78,13 @@ func TestUserPasswordHandling(t *testing.T) {
 
 		// Assert
 		require.NoError(t, err)
-		
+
 		// Hash should have changed
 		assert.NotEqual(t, oldHash, user.passwordHash)
-		
+
 		// New password should work
 		assert.NoError(t, user.CheckPassword(newPassword))
-		
+
 		// Old password should not work
 		assert.Error(t, user.CheckPassword(originalPassword))
 	})
