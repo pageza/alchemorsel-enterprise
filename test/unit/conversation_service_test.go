@@ -37,6 +37,15 @@ func (suite *ConversationServiceTestSuite) TearDownTest() {
 	suite.testSuite.MockAIService.Mock = mock.Mock{}
 	suite.testSuite.MockOllamaClient.Mock = mock.Mock{}
 	suite.testSuite.MockOpenAIClient.Mock = mock.Mock{}
+
+	// Recreate conversation service with fresh AI service to ensure clean intent classifier state
+	suite.testSuite.AIService = conversation.NewAIService(suite.testSuite.MockOllamaClient, suite.testSuite.MockOpenAIClient)
+	suite.testSuite.ConversationService = conversation.NewService(
+		suite.testSuite.MockConversationRepo,
+		suite.testSuite.MockMessageRepo,
+		suite.testSuite.MockContextRepo,
+		suite.testSuite.AIService,
+	)
 }
 
 // TestCreateConversation tests conversation creation
@@ -598,8 +607,22 @@ func (suite *ConversationServiceTestSuite) TestConversationTitleGeneration() {
 	for _, tc := range testCases {
 		tc := tc // Capture loop variable
 		suite.Run(tc.name, func() {
-			// Reset mocks for clean state
+			// Reset mocks for clean state and recreate service to ensure fresh intent classifier
 			suite.testSuite.MockConversationRepo.Mock = mock.Mock{}
+			suite.testSuite.MockMessageRepo.Mock = mock.Mock{}
+			suite.testSuite.MockContextRepo.Mock = mock.Mock{}
+			suite.testSuite.MockAIService.Mock = mock.Mock{}
+			suite.testSuite.MockOllamaClient.Mock = mock.Mock{}
+			suite.testSuite.MockOpenAIClient.Mock = mock.Mock{}
+
+			// Recreate conversation service with fresh instances
+			suite.testSuite.AIService = conversation.NewAIService(suite.testSuite.MockOllamaClient, suite.testSuite.MockOpenAIClient)
+			suite.testSuite.ConversationService = conversation.NewService(
+				suite.testSuite.MockConversationRepo,
+				suite.testSuite.MockMessageRepo,
+				suite.testSuite.MockContextRepo,
+				suite.testSuite.AIService,
+			)
 
 			userID := suite.testSuite.GetTestUserID("testuser")
 
