@@ -9,7 +9,6 @@ import (
 
 	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/mock"
 )
 
 // ConversationTestSuite provides comprehensive testing infrastructure for conversations
@@ -81,11 +80,8 @@ func (s *ConversationTestSuite) CreateTestConversation(userID string, intent con
 		UpdatedAt: time.Now(),
 	}
 
-	// Configure mock to return this conversation
-	s.MockConversationRepo.On("GetConversation", mock.Anything, conv.ID).Return(conv, nil).Maybe()
-	s.MockConversationRepo.On("CreateConversation", mock.Anything, mock.MatchedBy(func(c *conversation.Conversation) bool {
-		return c.ID == conv.ID
-	})).Return(nil).Maybe()
+	// Don't set up mock expectations here - let individual tests control their mocks
+	// This prevents conflicts with test-specific expectations
 
 	return conv
 }
@@ -101,11 +97,8 @@ func (s *ConversationTestSuite) CreateTestMessage(conversationID string, role co
 		CreatedAt:      time.Now(),
 	}
 
-	// Configure mock to return this message
-	s.MockMessageRepo.On("GetMessage", mock.Anything, msg.ID).Return(msg, nil).Maybe()
-	s.MockMessageRepo.On("CreateMessage", mock.Anything, mock.MatchedBy(func(m *conversation.Message) bool {
-		return m.ID == msg.ID
-	})).Return(nil).Maybe()
+	// Don't set up mock expectations here - let individual tests control their mocks
+	// This prevents conflicts with test-specific expectations
 
 	return msg
 }
@@ -124,9 +117,8 @@ func (s *ConversationTestSuite) CreateConversationWithMessages(userID string, in
 		messages = append(messages, msg)
 	}
 
-	// Configure mock to return messages for this conversation
-	s.MockMessageRepo.On("GetConversationMessages", mock.Anything, conv.ID, mock.AnythingOfType("int"), mock.AnythingOfType("int")).
-		Return(messages, nil).Maybe()
+	// Don't set up mock expectations here - let individual tests control their mocks
+	// This prevents conflicts with test-specific expectations
 
 	return conv, messages
 }

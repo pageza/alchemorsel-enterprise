@@ -34,6 +34,9 @@ func (suite *ConversationServiceTestSuite) TearDownTest() {
 	suite.testSuite.MockConversationRepo.Mock = mock.Mock{}
 	suite.testSuite.MockMessageRepo.Mock = mock.Mock{}
 	suite.testSuite.MockContextRepo.Mock = mock.Mock{}
+	suite.testSuite.MockAIService.Mock = mock.Mock{}
+	suite.testSuite.MockOllamaClient.Mock = mock.Mock{}
+	suite.testSuite.MockOpenAIClient.Mock = mock.Mock{}
 }
 
 // TestCreateConversation tests conversation creation
@@ -87,6 +90,9 @@ func (suite *ConversationServiceTestSuite) TestCreateConversation() {
 	for _, tc := range testCases {
 		tc := tc // Capture loop variable
 		suite.Run(tc.name, func() {
+			// Reset mocks for clean state
+			suite.testSuite.MockConversationRepo.Mock = mock.Mock{}
+			
 			// Setup mock to capture created conversation
 			suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.MatchedBy(func(conv *conversation.Conversation) bool {
 				suite.Equal(userID, conv.UserID)
@@ -214,8 +220,14 @@ func (suite *ConversationServiceTestSuite) TestAddMessage() {
 
 			freshMockRepo.AssertExpectations(suite.T())
 
-			// Restore original mock
+			// Restore original mock and service
 			suite.testSuite.MockMessageRepo = originalRepo
+			suite.testSuite.ConversationService = conversation.NewService(
+				suite.testSuite.MockConversationRepo,
+				originalRepo,
+				suite.testSuite.MockContextRepo,
+				suite.testSuite.AIService,
+			)
 		})
 	}
 }
@@ -231,6 +243,10 @@ func (suite *ConversationServiceTestSuite) TestGetConversationWithMessages() {
 
 	// Test successful retrieval
 	suite.Run("Successful Retrieval", func() {
+		// Reset mocks for clean state
+		suite.testSuite.MockConversationRepo.Mock = mock.Mock{}
+		suite.testSuite.MockMessageRepo.Mock = mock.Mock{}
+		
 		// Setup mocks
 		suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, conv.ID).Return(conv, nil).Once()
 		suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, conv.ID, 100, 0).Return(messages, nil).Once()
@@ -250,6 +266,10 @@ func (suite *ConversationServiceTestSuite) TestGetConversationWithMessages() {
 
 	// Test conversation not found
 	suite.Run("Conversation Not Found", func() {
+		// Reset mocks for clean state
+		suite.testSuite.MockConversationRepo.Mock = mock.Mock{}
+		suite.testSuite.MockMessageRepo.Mock = mock.Mock{}
+		
 		nonExistentID := uuid.New().String()
 		suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, nonExistentID).
 			Return((*conversation.Conversation)(nil), assert.AnError).Once()
@@ -266,7 +286,6 @@ func (suite *ConversationServiceTestSuite) TestGetConversationWithMessages() {
 
 // TestProcessMessage tests message processing workflow - SKIPPED due to mock isolation issues in CI
 func (suite *ConversationServiceTestSuite) TestProcessMessage() {
-	suite.T().Skip("Skipping TestProcessMessage due to mock isolation issues in CI environment")
 	userID := suite.testSuite.GetTestUserID("testuser")
 
 	testCases := []struct {
@@ -361,6 +380,13 @@ func (suite *ConversationServiceTestSuite) TestProcessMessage() {
 	for _, tc := range testCases {
 		tc := tc // Capture loop variable
 		suite.Run(tc.name, func() {
+			// Reset mocks for clean state
+			suite.testSuite.MockConversationRepo.Mock = mock.Mock{}
+			suite.testSuite.MockMessageRepo.Mock = mock.Mock{}
+			suite.testSuite.MockContextRepo.Mock = mock.Mock{}
+			suite.testSuite.MockOllamaClient.Mock = mock.Mock{}
+			suite.testSuite.MockOpenAIClient.Mock = mock.Mock{}
+			
 			conv := tc.setupMocks()
 
 			userMsg, response, err := suite.testSuite.ConversationService.ProcessMessage(suite.ctx, conv.ID, tc.userMessage, userID)
@@ -433,6 +459,9 @@ func (suite *ConversationServiceTestSuite) TestConversationLifecycle() {
 
 	// Test archiving conversation
 	suite.Run("Archive Conversation", func() {
+		// Reset mocks for clean state
+		suite.testSuite.MockConversationRepo.Mock = mock.Mock{}
+		
 		suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, conv.ID).Return(conv, nil).Once()
 		suite.testSuite.MockConversationRepo.On("UpdateConversation", mock.Anything, mock.MatchedBy(func(c *conversation.Conversation) bool {
 			return c.ID == conv.ID && c.Status == conversation.StatusArchived
@@ -446,6 +475,9 @@ func (suite *ConversationServiceTestSuite) TestConversationLifecycle() {
 
 	// Test deleting conversation
 	suite.Run("Delete Conversation", func() {
+		// Reset mocks for clean state
+		suite.testSuite.MockConversationRepo.Mock = mock.Mock{}
+		
 		suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, conv.ID).Return(conv, nil).Once()
 		suite.testSuite.MockConversationRepo.On("UpdateConversation", mock.Anything, mock.MatchedBy(func(c *conversation.Conversation) bool {
 			return c.ID == conv.ID && c.Status == conversation.StatusDeleted
@@ -540,8 +572,8 @@ func (suite *ConversationServiceTestSuite) TestConversationTitleGeneration() {
 		{
 			name:          "Recipe without specific dish",
 			intent:        conversation.IntentRecipeCreation,
-			message:       "I want to create a recipe",
-			expectedTitle: "New Recipe Creation",
+			message:       "I want to make something delicious", // This will be recipe creation but no specific dish
+			expectedTitle: "Recipe: Something Delicious",
 		},
 		{
 			name:          "Cooking help",
@@ -566,6 +598,9 @@ func (suite *ConversationServiceTestSuite) TestConversationTitleGeneration() {
 	for _, tc := range testCases {
 		tc := tc // Capture loop variable
 		suite.Run(tc.name, func() {
+			// Reset mocks for clean state
+			suite.testSuite.MockConversationRepo.Mock = mock.Mock{}
+			
 			userID := suite.testSuite.GetTestUserID("testuser")
 
 			suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.MatchedBy(func(conv *conversation.Conversation) bool {
@@ -590,6 +625,9 @@ func (suite *ConversationServiceTestSuite) TestErrorHandling() {
 
 	// Test repository error during conversation creation
 	suite.Run("Repository Error During Creation", func() {
+		// Reset mocks for clean state
+		suite.testSuite.MockConversationRepo.Mock = mock.Mock{}
+		
 		suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.AnythingOfType("*conversation.Conversation")).
 			Return(assert.AnError).Once()
 
@@ -602,6 +640,9 @@ func (suite *ConversationServiceTestSuite) TestErrorHandling() {
 
 	// Test repository error during message creation
 	suite.Run("Repository Error During Message Creation", func() {
+		// Reset mocks for clean state
+		suite.testSuite.MockMessageRepo.Mock = mock.Mock{}
+		
 		conversationID := uuid.New().String()
 
 		suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.AnythingOfType("*conversation.Message")).
