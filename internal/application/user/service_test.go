@@ -1,6 +1,7 @@
 package user
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -32,8 +33,8 @@ func TestJWTTokenGeneration(t *testing.T) {
 		assert.NotEqual(t, accessToken, refreshToken)
 
 		// Tokens should be valid JWT format (3 parts separated by dots)
-		assert.Len(t, jwt.Split(accessToken), 3)
-		assert.Len(t, jwt.Split(refreshToken), 3)
+		assert.Len(t, strings.Split(accessToken, "."), 3)
+		assert.Len(t, strings.Split(refreshToken, "."), 3)
 	})
 
 	t.Run("GenerateTokens_ShouldIncludeCorrectClaims", func(t *testing.T) {
