@@ -762,7 +762,7 @@ func TestChatHandlerPerformance(t *testing.T) {
 
 		// Reset all mocks to ensure clean state
 		testSuite.MockConversationRepo.ExpectedCalls = nil
-		testSuite.MockMessageRepo.ExpectedCalls = nil  
+		testSuite.MockMessageRepo.ExpectedCalls = nil
 		testSuite.MockContextRepo.ExpectedCalls = nil
 		testSuite.MockAIService.ExpectedCalls = nil
 		testSuite.MockOllamaClient.ExpectedCalls = nil
