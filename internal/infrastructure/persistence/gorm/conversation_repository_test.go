@@ -126,7 +126,34 @@ func (suite *ConversationRepositoryTestSuite) TestCreateConversation_DatabaseErr
 }
 
 func (suite *ConversationRepositoryTestSuite) TestGetConversation_Success() {
-	suite.T().Skip("Skipping due to GORM SQL generation differences in CI - business logic tested elsewhere")
+	convID := "conv-123"
+	expectedTime := time.Now()
+
+	// Match any SELECT query on conversations table
+	suite.mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "conversations" WHERE`)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "user_id", "title", "intent", "status", "metadata", "created_at", "updated_at", "deleted_at",
+		}).AddRow(
+			convID,
+			"user-456",
+			"Test Conversation",
+			"recipe_creation",
+			"active",
+			`{"key":"value"}`,
+			expectedTime,
+			expectedTime,
+			nil,
+		))
+
+	result, err := suite.conversationRepo.GetConversation(suite.ctx, convID)
+	assert.NoError(suite.T(), err)
+	assert.NotNil(suite.T(), result)
+	assert.Equal(suite.T(), convID, result.ID)
+	assert.Equal(suite.T(), "user-456", result.UserID)
+	assert.Equal(suite.T(), "Test Conversation", result.Title)
+	assert.Equal(suite.T(), conversation.IntentRecipeCreation, result.Intent)
+	assert.Equal(suite.T(), conversation.StatusActive, result.Status)
+	assert.Equal(suite.T(), "value", result.Metadata["key"])
 }
 
 func (suite *ConversationRepositoryTestSuite) TestGetConversation_NotFound() {
@@ -143,7 +170,27 @@ func (suite *ConversationRepositoryTestSuite) TestGetConversation_NotFound() {
 }
 
 func (suite *ConversationRepositoryTestSuite) TestGetConversation_InvalidMetadata() {
-	suite.T().Skip("Skipping due to GORM SQL generation differences in CI - business logic tested elsewhere")
+	convID := "conv-123"
+
+	suite.mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "conversations" WHERE`)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "user_id", "title", "intent", "status", "metadata", "created_at", "updated_at", "deleted_at",
+		}).AddRow(
+			convID,
+			"user-456",
+			"Test Conversation",
+			"recipe_creation",
+			"active",
+			`{invalid json}`, // Invalid JSON
+			time.Now(),
+			time.Now(),
+			nil,
+		))
+
+	result, err := suite.conversationRepo.GetConversation(suite.ctx, convID)
+	assert.Error(suite.T(), err)
+	assert.Nil(suite.T(), result)
+	assert.Contains(suite.T(), err.Error(), "failed to unmarshal metadata")
 }
 
 func (suite *ConversationRepositoryTestSuite) TestGetUserConversations_Success() {
@@ -201,7 +248,16 @@ func (suite *ConversationRepositoryTestSuite) TestUpdateConversation_MetadataErr
 }
 
 func (suite *ConversationRepositoryTestSuite) TestDeleteConversation_Success() {
-	suite.T().Skip("Skipping due to GORM SQL generation differences in CI - business logic tested elsewhere")
+	convID := "conv-123"
+
+	suite.mock.ExpectBegin()
+	// GORM adds updated_at automatically in updates
+	suite.mock.ExpectExec(regexp.QuoteMeta(`UPDATE "conversations" SET`)).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	suite.mock.ExpectCommit()
+
+	err := suite.conversationRepo.DeleteConversation(suite.ctx, convID)
+	assert.NoError(suite.T(), err)
 }
 
 // Message Repository Tests
@@ -229,7 +285,32 @@ func (suite *ConversationRepositoryTestSuite) TestCreateMessage_Success() {
 }
 
 func (suite *ConversationRepositoryTestSuite) TestGetMessage_Success() {
-	suite.T().Skip("Skipping due to GORM SQL generation differences in CI - business logic tested elsewhere")
+	msgID := "msg-123"
+	expectedTime := time.Now()
+
+	suite.mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "messages" WHERE`)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "conversation_id", "role", "content", "metadata", "tokens_used", "processing_time_ms", "model_used", "created_at",
+		}).AddRow(
+			msgID,
+			"conv-456",
+			"user",
+			"Hello world",
+			`{"key":"value"}`,
+			10,
+			100,
+			"gpt-4",
+			expectedTime,
+		))
+
+	result, err := suite.messageRepo.GetMessage(suite.ctx, msgID)
+	assert.NoError(suite.T(), err)
+	assert.NotNil(suite.T(), result)
+	assert.Equal(suite.T(), msgID, result.ID)
+	assert.Equal(suite.T(), "conv-456", result.ConversationID)
+	assert.Equal(suite.T(), conversation.RoleUser, result.Role)
+	assert.Equal(suite.T(), "Hello world", result.Content)
+	assert.Equal(suite.T(), 10, result.TokensUsed)
 }
 
 func (suite *ConversationRepositoryTestSuite) TestGetConversationMessages_Success() {
@@ -288,11 +369,47 @@ func (suite *ConversationRepositoryTestSuite) TestDeleteMessage_Success() {
 // Context Repository Tests
 
 func (suite *ConversationRepositoryTestSuite) TestSetContext_Success() {
-	suite.T().Skip("Skipping due to GORM SQL generation differences in CI - business logic tested elsewhere")
+	ctx := &conversation.ConversationContext{
+		ConversationID: "conv-123",
+		ContextType:    "recipe_state",
+		ContextData:    map[string]interface{}{"step": 1},
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+
+	suite.mock.ExpectBegin()
+	// GORM Save() does an UPDATE first for composite keys
+	suite.mock.ExpectExec(regexp.QuoteMeta(`UPDATE "conversation_context" SET`)).
+		WillReturnResult(sqlmock.NewResult(1, 1)) // 1 row affected, UPDATE succeeds
+	suite.mock.ExpectCommit()
+
+	err := suite.contextRepo.SetContext(suite.ctx, ctx)
+	assert.NoError(suite.T(), err)
 }
 
 func (suite *ConversationRepositoryTestSuite) TestGetContext_Success() {
-	suite.T().Skip("Skipping due to GORM SQL generation differences in CI - business logic tested elsewhere")
+	convID := "conv-123"
+	contextType := "recipe_state"
+	expectedTime := time.Now()
+
+	// GORM adds ORDER BY and LIMIT automatically for First()
+	suite.mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "conversation_context" WHERE`)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"conversation_id", "context_type", "context_data", "created_at", "updated_at",
+		}).AddRow(
+			convID,
+			contextType,
+			`{"step":1}`,
+			expectedTime,
+			expectedTime,
+		))
+
+	result, err := suite.contextRepo.GetContext(suite.ctx, convID, contextType)
+	assert.NoError(suite.T(), err)
+	assert.NotNil(suite.T(), result)
+	assert.Equal(suite.T(), convID, result.ConversationID)
+	assert.Equal(suite.T(), contextType, result.ContextType)
+	assert.Equal(suite.T(), float64(1), result.ContextData["step"]) // JSON numbers are float64
 }
 
 func (suite *ConversationRepositoryTestSuite) TestGetAllContext_Success() {
