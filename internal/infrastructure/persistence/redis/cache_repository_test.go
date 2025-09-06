@@ -244,12 +244,12 @@ func TestNewCacheRepository(t *testing.T) {
 // TestCacheRepositoryGet tests the Get method
 func TestCacheRepositoryGet(t *testing.T) {
 	tests := []struct {
-		name           string
-		key            string
-		setupMocks     func(*MockCacheService)
-		expectedData   []byte
-		expectedError  string
-		expectError    bool
+		name          string
+		key           string
+		setupMocks    func(*MockCacheService)
+		expectedData  []byte
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name: "successful get",
@@ -310,13 +310,13 @@ func TestCacheRepositoryGet(t *testing.T) {
 // TestCacheRepositorySet tests the Set method
 func TestCacheRepositorySet(t *testing.T) {
 	tests := []struct {
-		name           string
-		key            string
-		value          []byte
-		ttl            time.Duration
-		setupMocks     func(*MockCacheService)
-		expectedError  string
-		expectError    bool
+		name          string
+		key           string
+		value         []byte
+		ttl           time.Duration
+		setupMocks    func(*MockCacheService)
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name:  "successful set",
@@ -378,11 +378,11 @@ func TestCacheRepositorySet(t *testing.T) {
 // TestCacheRepositoryDelete tests the Delete method
 func TestCacheRepositoryDelete(t *testing.T) {
 	tests := []struct {
-		name           string
-		key            string
-		setupMocks     func(*MockCacheService)
-		expectedError  string
-		expectError    bool
+		name          string
+		key           string
+		setupMocks    func(*MockCacheService)
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name: "successful delete",
@@ -579,12 +579,12 @@ func TestCacheRepositoryMGet(t *testing.T) {
 // TestCacheRepositoryMSet tests the MSet method
 func TestCacheRepositoryMSet(t *testing.T) {
 	tests := []struct {
-		name           string
-		items          map[string][]byte
-		ttl            time.Duration
-		setupMocks     func(*MockCacheService)
-		expectedError  string
-		expectError    bool
+		name          string
+		items         map[string][]byte
+		ttl           time.Duration
+		setupMocks    func(*MockCacheService)
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name: "successful multi-set",
@@ -606,7 +606,7 @@ func TestCacheRepositoryMSet(t *testing.T) {
 			expectError:   false,
 		},
 		{
-			name: "empty items",
+			name:  "empty items",
 			items: map[string][]byte{},
 			ttl:   time.Minute,
 			setupMocks: func(m *MockCacheService) {
@@ -657,12 +657,12 @@ func TestCacheRepositoryMSet(t *testing.T) {
 // TestCacheRepositoryIncrement tests the Increment method
 func TestCacheRepositoryIncrement(t *testing.T) {
 	tests := []struct {
-		name           string
-		key            string
-		setupMocks     func(*MockCacheService)
-		expectedValue  int64
-		expectedError  string
-		expectError    bool
+		name          string
+		key           string
+		setupMocks    func(*MockCacheService)
+		expectedValue int64
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name: "successful increment",
@@ -712,12 +712,12 @@ func TestCacheRepositoryIncrement(t *testing.T) {
 // TestCacheRepositoryDecrement tests the Decrement method
 func TestCacheRepositoryDecrement(t *testing.T) {
 	tests := []struct {
-		name           string
-		key            string
-		setupMocks     func(*MockCacheService)
-		expectedValue  int64
-		expectedError  string
-		expectError    bool
+		name          string
+		key           string
+		setupMocks    func(*MockCacheService)
+		expectedValue int64
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name: "successful decrement",
@@ -767,12 +767,12 @@ func TestCacheRepositoryDecrement(t *testing.T) {
 // TestCacheRepositorySAdd tests the SAdd method
 func TestCacheRepositorySAdd(t *testing.T) {
 	tests := []struct {
-		name           string
-		key            string
-		members        []string
-		setupMocks     func(*MockCacheService)
-		expectedError  string
-		expectError    bool
+		name          string
+		key           string
+		members       []string
+		setupMocks    func(*MockCacheService)
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name:    "successful set add",
@@ -899,12 +899,12 @@ func TestCacheRepositorySMembers(t *testing.T) {
 // TestCacheRepositorySRem tests the SRem method
 func TestCacheRepositorySRem(t *testing.T) {
 	tests := []struct {
-		name           string
-		key            string
-		members        []string
-		setupMocks     func(*MockCacheService)
-		expectedError  string
-		expectError    bool
+		name          string
+		key           string
+		members       []string
+		setupMocks    func(*MockCacheService)
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name:    "successful set remove",
@@ -1037,7 +1037,7 @@ func TestCacheRepositoryIntegration(t *testing.T) {
 		// Get multiple values
 		keys := []string{"user:1", "user:2", "user:3"}
 		mockCacheService.On("MGet", mock.Anything, keys).Return(items, nil).Once()
-		
+
 		result, err := repo.MGet(ctx, keys)
 		require.NoError(t, err)
 		assert.Equal(t, items, result)
@@ -1047,7 +1047,7 @@ func TestCacheRepositoryIntegration(t *testing.T) {
 			"user:1": true,
 		}
 		mockCacheService.On("Exists", mock.Anything, []string{"user:1"}).Return(singleKeyResult, nil).Once()
-		
+
 		exists, err := repo.Exists(ctx, "user:1")
 		require.NoError(t, err)
 		assert.True(t, exists)

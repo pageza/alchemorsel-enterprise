@@ -54,7 +54,7 @@ type subscription struct {
 // NewRedisMessageBus creates a new Redis-based message bus
 func NewRedisMessageBus(client RedisClientInterface, logger *zap.Logger) *RedisMessageBus {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	bus := &RedisMessageBus{
 		client:      client,
 		logger:      logger.Named("redis-message-bus"),
@@ -142,7 +142,7 @@ func (r *RedisMessageBus) Publish(ctx context.Context, topic string, message out
 	// Serialize message to JSON
 	data, err := json.Marshal(message)
 	if err != nil {
-		r.logger.Error("Failed to serialize message", 
+		r.logger.Error("Failed to serialize message",
 			zap.String("topic", topic),
 			zap.String("message_id", message.ID),
 			zap.Error(err))

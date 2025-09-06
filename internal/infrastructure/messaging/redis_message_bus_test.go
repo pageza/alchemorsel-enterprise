@@ -34,7 +34,7 @@ func NewMockRedisClient() *MockRedisClient {
 
 func (m *MockRedisClient) Publish(ctx context.Context, channel string, message interface{}) *redis.IntCmd {
 	args := m.Called(ctx, channel, message)
-	
+
 	// Simulate publishing by sending to subscribers
 	m.mu.RLock()
 	if ch, exists := m.pubsubChannels[channel]; exists {
@@ -46,7 +46,7 @@ func (m *MockRedisClient) Publish(ctx context.Context, channel string, message i
 		} else {
 			payload = fmt.Sprintf("%v", message)
 		}
-		
+
 		select {
 		case ch <- &redis.Message{
 			Channel: channel,
@@ -64,7 +64,7 @@ func (m *MockRedisClient) Publish(ctx context.Context, channel string, message i
 
 func (m *MockRedisClient) Subscribe(ctx context.Context, channels ...string) PubSubInterface {
 	args := m.Called(ctx, channels)
-	
+
 	if args.Get(0) == nil {
 		return nil
 	}
@@ -112,10 +112,10 @@ func (m *MockPubSub) Receive(ctx context.Context) (interface{}, error) {
 func (m *MockPubSub) Channel() <-chan *redis.Message {
 	// Return a combined channel that receives from all subscribed channels
 	combined := make(chan *redis.Message, 100)
-	
+
 	go func() {
 		defer close(combined)
-		
+
 		for {
 			select {
 			case <-m.ctx.Done():
@@ -125,7 +125,7 @@ func (m *MockPubSub) Channel() <-chan *redis.Message {
 					m.client.mu.RLock()
 					ch, exists := m.client.pubsubChannels[channel]
 					m.client.mu.RUnlock()
-					
+
 					if exists {
 						select {
 						case msg, ok := <-ch:
@@ -141,22 +141,22 @@ func (m *MockPubSub) Channel() <-chan *redis.Message {
 			}
 		}
 	}()
-	
+
 	return combined
 }
 
 func (m *MockPubSub) Close() error {
 	args := m.Called()
-	
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if m.closed {
 		return args.Error(0)
 	}
-	
+
 	m.closed = true
-	
+
 	// Close channels if client is set
 	if m.client != nil {
 		m.client.mu.Lock()
@@ -168,7 +168,7 @@ func (m *MockPubSub) Close() error {
 		}
 		m.client.mu.Unlock()
 	}
-	
+
 	return args.Error(0)
 }
 
@@ -190,7 +190,7 @@ func (m *MockPipeliner) Publish(ctx context.Context, channel string, message int
 		"channel": channel,
 		"message": message,
 	})
-	
+
 	cmd := redis.NewIntCmd(ctx, "publish", channel, message)
 	cmd.SetVal(1)
 	return cmd
@@ -198,12 +198,12 @@ func (m *MockPipeliner) Publish(ctx context.Context, channel string, message int
 
 func (m *MockPipeliner) Exec(ctx context.Context) ([]redis.Cmder, error) {
 	args := m.Called(ctx)
-	
+
 	// Return what was set up in the mock expectation
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	
+
 	// Return mock commands for each publish if successful
 	var commands []redis.Cmder
 	for range m.commands {
@@ -211,7 +211,7 @@ func (m *MockPipeliner) Exec(ctx context.Context) ([]redis.Cmder, error) {
 		cmd.SetVal(1)
 		commands = append(commands, cmd)
 	}
-	
+
 	return commands, args.Error(1)
 }
 
@@ -243,12 +243,12 @@ func TestNewRedisMessageBus(t *testing.T) {
 // TestRedisMessageBusPublish tests the Publish method
 func TestRedisMessageBusPublish(t *testing.T) {
 	tests := []struct {
-		name           string
-		topic          string
-		message        outbound.Message
-		setupMocks     func(*MockRedisClient)
-		expectedError  string
-		expectError    bool
+		name          string
+		topic         string
+		message       outbound.Message
+		setupMocks    func(*MockRedisClient)
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name:  "successful publish",
@@ -348,12 +348,12 @@ func TestRedisMessageBusPublish(t *testing.T) {
 // TestRedisMessageBusPublishBatch tests the PublishBatch method
 func TestRedisMessageBusPublishBatch(t *testing.T) {
 	tests := []struct {
-		name           string
-		topic          string
-		messages       []outbound.Message
-		setupMocks     func(*MockRedisClient)
-		expectedError  string
-		expectError    bool
+		name          string
+		topic         string
+		messages      []outbound.Message
+		setupMocks    func(*MockRedisClient)
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name:  "successful batch publish",
@@ -379,10 +379,10 @@ func TestRedisMessageBusPublishBatch(t *testing.T) {
 			expectError:   true,
 		},
 		{
-			name:       "empty messages",
-			topic:      "test.topic",
-			messages:   []outbound.Message{},
-			setupMocks: func(m *MockRedisClient) {},
+			name:        "empty messages",
+			topic:       "test.topic",
+			messages:    []outbound.Message{},
+			setupMocks:  func(m *MockRedisClient) {},
 			expectError: false,
 		},
 		{
@@ -426,12 +426,12 @@ func TestRedisMessageBusPublishBatch(t *testing.T) {
 // TestRedisMessageBusSubscribe tests the Subscribe method
 func TestRedisMessageBusSubscribe(t *testing.T) {
 	tests := []struct {
-		name           string
-		topic          string
-		handler        outbound.MessageHandler
-		setupMocks     func(*MockRedisClient)
-		expectedError  string
-		expectError    bool
+		name          string
+		topic         string
+		handler       outbound.MessageHandler
+		setupMocks    func(*MockRedisClient)
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name:  "successful subscribe",
@@ -512,11 +512,11 @@ func TestRedisMessageBusSubscribe(t *testing.T) {
 // TestRedisMessageBusUnsubscribe tests the Unsubscribe method
 func TestRedisMessageBusUnsubscribe(t *testing.T) {
 	tests := []struct {
-		name           string
-		topic          string
-		setupBus       func(*RedisMessageBus, *MockRedisClient)
-		expectedError  string
-		expectError    bool
+		name          string
+		topic         string
+		setupBus      func(*RedisMessageBus, *MockRedisClient)
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name:  "successful unsubscribe",
@@ -582,7 +582,7 @@ func TestRedisMessageBusClose(t *testing.T) {
 	pubsub1.On("Close").Return(nil).Once()
 	pubsub2 := &MockPubSub{}
 	pubsub2.On("Close").Return(nil).Once()
-	
+
 	bus.subscribers["topic1"] = []subscription{{
 		handler: func(ctx context.Context, message outbound.Message) error { return nil },
 		pubsub:  pubsub1,
@@ -620,7 +620,7 @@ func TestRedisMessageBusGetStats(t *testing.T) {
 
 	assert.Equal(t, 2, stats["total_topics"])
 	assert.Equal(t, 3, stats["total_subscriptions"])
-	
+
 	topicStats := stats["topic_stats"].(map[string]int)
 	assert.Equal(t, 2, topicStats["topic1"])
 	assert.Equal(t, 1, topicStats["topic2"])
@@ -629,10 +629,10 @@ func TestRedisMessageBusGetStats(t *testing.T) {
 // TestRedisMessageBusHealthCheck tests the HealthCheck method
 func TestRedisMessageBusHealthCheck(t *testing.T) {
 	tests := []struct {
-		name           string
-		setupMocks     func(*MockRedisClient)
-		expectedError  string
-		expectError    bool
+		name          string
+		setupMocks    func(*MockRedisClient)
+		expectedError string
+		expectError   bool
 	}{
 		{
 			name: "successful health check",
