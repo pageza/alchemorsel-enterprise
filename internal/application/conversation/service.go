@@ -113,7 +113,8 @@ type IntentClassifier struct {
 func NewIntentClassifier() *IntentClassifier {
 	return &IntentClassifier{
 		recipePatterns: []*regexp.Regexp{
-			regexp.MustCompile(`(?i)\b(create|make|generate|cook|recipe for|how to make)\b.*\b(recipe|dish|food)\b`),
+			regexp.MustCompile(`(?i)\bhow to make\b.*\b(cake|bread|pasta|pizza|soup|salad|chicken|beef|fish|sandwich|dessert|cookie)\b`), // Specific dish patterns
+			regexp.MustCompile(`(?i)\b(create|make|generate|cook|recipe for)\b.*\b(recipe|dish|food)\b`),
 			regexp.MustCompile(`(?i)\bi want to (make|cook|create|prepare)\b`),
 			regexp.MustCompile(`(?i)\brecipe (for|with|using)\b`),
 			regexp.MustCompile(`(?i)\b(show me|give me|suggest) (a|some)? ?recipe\b`),
@@ -134,6 +135,7 @@ func NewIntentClassifier() *IntentClassifier {
 		},
 		planningPatterns: []*regexp.Regexp{
 			regexp.MustCompile(`(?i)\bmeal plan(ning)?\b`),
+			regexp.MustCompile(`(?i)\bplan meals?\b`), // Handle "plan meal" or "plan meals"
 			regexp.MustCompile(`(?i)\bweek(ly)? menu\b`),
 			regexp.MustCompile(`(?i)\bwhat should i (cook|make) (today|tomorrow|this week)\b`),
 			regexp.MustCompile(`(?i)\bmeal prep\b`),
