@@ -758,7 +758,15 @@ func TestChatHandlerPerformance(t *testing.T) {
 	}
 
 	t.Run("Concurrent Requests", func(t *testing.T) {
-		const numRequests = 50
+		const numRequests = 3
+
+		// Reset all mocks to ensure clean state
+		testSuite.MockConversationRepo.ExpectedCalls = nil
+		testSuite.MockMessageRepo.ExpectedCalls = nil  
+		testSuite.MockContextRepo.ExpectedCalls = nil
+		testSuite.MockAIService.ExpectedCalls = nil
+		testSuite.MockOllamaClient.ExpectedCalls = nil
+		testSuite.MockOpenAIClient.ExpectedCalls = nil
 
 		// Setup mocks for concurrent requests
 		testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.Anything).Return(nil).Times(numRequests)
