@@ -85,7 +85,7 @@ func (suite *ChatHandlerTestSuite) TestHandleChatMessage() {
 
 				// Then add specific expectations for this test
 				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentRecipeCreation)
-				
+
 				// Override specific behaviors for this test
 				suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.Anything).Return(nil).Maybe()
 				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.Anything).Return(nil).Maybe()
@@ -769,7 +769,7 @@ func TestChatHandlerPerformance(t *testing.T) {
 			Return("Test response from AI", nil).Times(numRequests)
 		testSuite.MockOpenAIClient.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
 			Return("I'm your AI cooking assistant! How can I help you today?", nil).Maybe()
-		
+
 		testSuite.MockContextRepo.On("SetContext", mock.Anything, mock.Anything).Return(nil).Times(numRequests)
 
 		// Channel to collect results
