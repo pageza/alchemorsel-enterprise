@@ -801,11 +801,18 @@ func TestRedisMessageBusEdgeCases(t *testing.T) {
 
 		handler := func(ctx context.Context, message outbound.Message) error { return nil }
 
-		// Mock should not be called due to early cancellation
+		// Set up mock to expect the Subscribe call with cancelled context
+		pubsub := &MockPubSub{
+			channels: []string{"cancelled.topic"},
+			client:   mockClient,
+			ctx:      ctx,
+		}
+		pubsub.On("Receive", mock.Anything).Return(nil, context.Canceled).Once()
+		mockClient.On("Subscribe", mock.Anything, []string{"cancelled.topic"}).Return(pubsub).Once()
+
 		err := bus.Subscribe(ctx, "cancelled.topic", handler)
-		// The exact behavior depends on implementation - it might succeed or fail
-		// We're mainly testing that it doesn't panic
-		_ = err // Ignore error for this test
+		// Should fail due to cancelled context
+		assert.Error(t, err)
 
 		mockClient.AssertExpectations(t)
 	})
