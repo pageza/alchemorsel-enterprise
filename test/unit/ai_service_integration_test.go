@@ -99,7 +99,7 @@ func (suite *AIServiceIntegrationTestSuite) TestOllamaIntegration() {
 			// Reset mocks for clean state
 			suite.mockOllama.Mock = mock.Mock{}
 			suite.mockOpenAI.Mock = mock.Mock{}
-			
+
 			tc.setupMocks()
 
 			// Create test conversation
@@ -185,7 +185,7 @@ func (suite *AIServiceIntegrationTestSuite) TestOpenAIFallback() {
 			// Reset mocks for clean state
 			suite.mockOllama.Mock = mock.Mock{}
 			suite.mockOpenAI.Mock = mock.Mock{}
-			
+
 			tc.setupMocks()
 
 			// Create test conversation
@@ -234,7 +234,7 @@ func (suite *AIServiceIntegrationTestSuite) TestBothAIServicesDown() {
 			// Reset mocks to ensure clean state
 			suite.mockOllama.Mock = mock.Mock{}
 			suite.mockOpenAI.Mock = mock.Mock{}
-			
+
 			// Both services fail
 			suite.mockOllama.On("HealthCheck", mock.Anything).Return(assert.AnError)
 			suite.mockOpenAI.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
@@ -288,7 +288,7 @@ func (suite *AIServiceIntegrationTestSuite) TestConversationHistoryHandling() {
 		// Reset mocks for clean state
 		suite.mockOllama.Mock = mock.Mock{}
 		suite.mockOpenAI.Mock = mock.Mock{}
-		
+
 		// Setup Ollama to succeed
 		suite.mockOllama.On("HealthCheck", mock.Anything).Return(nil)
 		suite.mockOllama.On("GenerateChatCompletion", mock.Anything, mock.MatchedBy(func(messages []conversation.ChatMessage) bool {
@@ -378,7 +378,7 @@ func (suite *AIServiceIntegrationTestSuite) TestConversationHistoryHandling() {
 		// Reset mocks for clean state
 		suite.mockOllama.Mock = mock.Mock{}
 		suite.mockOpenAI.Mock = mock.Mock{}
-		
+
 		// Setup Ollama to succeed
 		suite.mockOllama.On("HealthCheck", mock.Anything).Return(nil)
 		suite.mockOllama.On("GenerateChatCompletion", mock.Anything, mock.MatchedBy(func(messages []conversation.ChatMessage) bool {
@@ -461,7 +461,7 @@ func (suite *AIServiceIntegrationTestSuite) TestSystemPromptGeneration() {
 			// Reset mocks for clean state
 			suite.mockOllama.Mock = mock.Mock{}
 			suite.mockOpenAI.Mock = mock.Mock{}
-			
+
 			suite.mockOllama.On("HealthCheck", mock.Anything).Return(nil)
 			suite.mockOllama.On("GenerateChatCompletion", mock.Anything, mock.MatchedBy(func(messages []conversation.ChatMessage) bool {
 				if len(messages) == 0 {
@@ -615,7 +615,7 @@ func (suite *AIServiceIntegrationTestSuite) TestAIServicePerformance() {
 		// Reset mocks for clean state
 		suite.mockOllama.Mock = mock.Mock{}
 		suite.mockOpenAI.Mock = mock.Mock{}
-		
+
 		suite.mockOllama.On("HealthCheck", mock.Anything).Return(nil)
 		suite.mockOllama.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
 			Return("Quick response", nil)
@@ -647,7 +647,7 @@ func (suite *AIServiceIntegrationTestSuite) TestAIServicePerformance() {
 		// Reset mocks for clean state
 		suite.mockOllama.Mock = mock.Mock{}
 		suite.mockOpenAI.Mock = mock.Mock{}
-		
+
 		const numRequests = 10
 
 		// Setup mocks for concurrent requests
@@ -727,7 +727,7 @@ func (suite *AIServiceIntegrationTestSuite) TestAIServiceErrorHandling() {
 			// Reset mocks for clean state
 			suite.mockOllama.Mock = mock.Mock{}
 			suite.mockOpenAI.Mock = mock.Mock{}
-			
+
 			scenario.setupMocks()
 
 			// Setup OpenAI fallback to also fail

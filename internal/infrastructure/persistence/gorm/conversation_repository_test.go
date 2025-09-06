@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
