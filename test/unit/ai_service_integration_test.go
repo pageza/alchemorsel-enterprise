@@ -806,10 +806,10 @@ func TestAIServiceWithDifferentModels(t *testing.T) {
 				// Infrastructure validation only - verify service integration works
 				require.NoError(t, err)
 				require.NotNil(t, response)
-				assert.NotEmpty(t, response.Content) // Response exists
+				assert.NotEmpty(t, response.Content)                     // Response exists
 				assert.Equal(t, "ollama", response.Metadata["provider"]) // Provider correctly identified
-				assert.NotNil(t, response.Metadata) // Metadata structure exists
-				assert.True(t, response.Confidence > 0) // Confidence assigned
+				assert.NotNil(t, response.Metadata)                      // Metadata structure exists
+				assert.True(t, response.Confidence > 0)                  // Confidence assigned
 
 				mockOllama.AssertExpectations(t)
 			})
