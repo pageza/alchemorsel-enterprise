@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/alchemorsel/v3/internal/application/conversation"
 	"github.com/stretchr/testify/mock"
@@ -93,9 +94,19 @@ func (m *MockConversationRepository) SetupStandardMockBehavior() {
 	m.On("CreateConversation", mock.Anything, mock.AnythingOfType("*conversation.Conversation")).
 		Return(nil).Maybe()
 
-	// GetConversation returns not found by default
+	// GetConversation returns a default test conversation by default
+	defaultConv := &conversation.Conversation{
+		ID:        "test-conversation-id",
+		UserID:    "550e8400-e29b-41d4-a716-446655440001", // Default test user
+		Title:     "Test Conversation",
+		Intent:    conversation.IntentGeneralQuestion,
+		Status:    conversation.StatusActive,
+		Metadata:  make(map[string]interface{}),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
 	m.On("GetConversation", mock.Anything, mock.AnythingOfType("string")).
-		Return((*conversation.Conversation)(nil), fmt.Errorf("conversation not found")).Maybe()
+		Return(defaultConv, nil).Maybe()
 
 	// GetUserConversations returns empty list by default
 	m.On("GetUserConversations", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("int"), mock.AnythingOfType("int")).

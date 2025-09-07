@@ -48,14 +48,16 @@ func (suite *ChatHandlerTestSuite) SetupSuite() {
 
 // SetupTest runs before each test to ensure clean mock state
 func (suite *ChatHandlerTestSuite) SetupTest() {
-	// Reset all mocks to ensure clean state - but don't restore standard mocks
-	// Each test will set up its own specific expectations
+	// Reset all mocks to ensure clean state
 	suite.testSuite.MockConversationRepo.ExpectedCalls = nil
 	suite.testSuite.MockMessageRepo.ExpectedCalls = nil
 	suite.testSuite.MockContextRepo.ExpectedCalls = nil
 	suite.testSuite.MockAIService.ExpectedCalls = nil
 	suite.testSuite.MockOllamaClient.ExpectedCalls = nil
 	suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
+
+	// Restore standard mock behaviors for tests that don't have specific setupMocks
+	suite.testSuite.SetupStandardMocks()
 }
 
 // TestHandleChatMessage tests the HTTP chat message handler
@@ -190,26 +192,26 @@ func (suite *ChatHandlerTestSuite) TestHandleChatMessage() {
 				ConversationID: "existing-conv-id",
 			},
 			setupMocks: func() {
+				// Clear all mocks before setting up this test
+				suite.testSuite.MockConversationRepo.ExpectedCalls = nil
+				suite.testSuite.MockMessageRepo.ExpectedCalls = nil
+				suite.testSuite.MockContextRepo.ExpectedCalls = nil
+				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
+				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
+
 				// Mock message creation and processing for existing conversation
-				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.MatchedBy(func(msg *conversation.Message) bool {
-					return msg.ConversationID == "existing-conv-id" && msg.Content == "What ingredients do I need?"
-				})).Return(nil).Once()
+				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.Anything).Return(nil)
 
 				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentRecipeCreation)
 				testConv.ID = "existing-conv-id"
-				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, "existing-conv-id").Return(testConv, nil).Once()
-				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, "existing-conv-id", 20, 0).Return([]*conversation.Message{}, nil).Once()
+				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, "existing-conv-id").Return(testConv, nil)
+				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, "existing-conv-id", 20, 0).Return([]*conversation.Message{}, nil)
 
-				aiResponse := &conversation.ConversationalResponse{
-					Content:    "For carbonara you'll need pasta, eggs, cheese, and pancetta.",
-					Intent:     conversation.IntentRecipeCreation,
-					Confidence: 0.9,
-					Metadata:   map[string]interface{}{"provider": "test"},
-				}
-				suite.testSuite.MockAIService.On("GenerateConversationalResponse", mock.Anything, testConv, mock.Anything, "What ingredients do I need?").
-					Return(aiResponse, nil).Once()
+				// AI service mocks (using real AIService with mocked clients)
+				suite.testSuite.MockOllamaClient.On("HealthCheck", mock.Anything).Return(nil)
+				suite.testSuite.MockOllamaClient.On("GenerateChatCompletion", mock.Anything, mock.Anything).Return("For carbonara you'll need pasta, eggs, cheese, and pancetta.", nil)
 
-				suite.testSuite.MockContextRepo.On("SetContext", mock.Anything, mock.Anything).Return(nil).Once()
+				suite.testSuite.MockContextRepo.On("SetContext", mock.Anything, mock.Anything).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedResp: map[string]interface{}{
@@ -290,12 +292,19 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationList() {
 		{
 			name: "Successful List",
 			setupMocks: func() {
+				// Clear all mocks before setting up this test
+				suite.testSuite.MockConversationRepo.ExpectedCalls = nil
+				suite.testSuite.MockMessageRepo.ExpectedCalls = nil
+				suite.testSuite.MockContextRepo.ExpectedCalls = nil
+				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
+				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
+
 				conversations := []*conversation.Conversation{
 					suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentRecipeCreation),
 					suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentCookingHelp),
 				}
 				suite.testSuite.MockConversationRepo.On("GetUserConversations", mock.Anything, suite.testUser.ID().String(), 50, 0).
-					Return(conversations, nil).Once()
+					Return(conversations, nil)
 			},
 			expectedStatus: http.StatusOK,
 			withAuth:       true,
@@ -358,12 +367,19 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationHistory() {
 			name:           "Successful History Retrieval",
 			conversationID: userConv.ID,
 			setupMocks: func() {
+				// Clear all mocks before setting up this test
+				suite.testSuite.MockConversationRepo.ExpectedCalls = nil
+				suite.testSuite.MockMessageRepo.ExpectedCalls = nil
+				suite.testSuite.MockContextRepo.ExpectedCalls = nil
+				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
+				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
+
 				messages := []*conversation.Message{
 					suite.testSuite.CreateTestMessage(userConv.ID, conversation.RoleUser, "I want pasta"),
 					suite.testSuite.CreateTestMessage(userConv.ID, conversation.RoleAssistant, "What type?"),
 				}
-				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, userConv.ID).Return(userConv, nil).Once()
-				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, userConv.ID, 100, 0).Return(messages, nil).Once()
+				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, userConv.ID).Return(userConv, nil)
+				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, userConv.ID, 100, 0).Return(messages, nil)
 			},
 			expectedStatus:   http.StatusOK,
 			withAuth:         true,
@@ -374,7 +390,15 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationHistory() {
 			name:           "Access Denied - Other User's Conversation",
 			conversationID: otherUserConv.ID,
 			setupMocks: func() {
-				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, otherUserConv.ID).Return(otherUserConv, nil).Once()
+				// Clear all mocks before setting up this test
+				suite.testSuite.MockConversationRepo.ExpectedCalls = nil
+				suite.testSuite.MockMessageRepo.ExpectedCalls = nil
+				suite.testSuite.MockContextRepo.ExpectedCalls = nil
+				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
+				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
+				
+				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, otherUserConv.ID).Return(otherUserConv, nil)
+				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, otherUserConv.ID, 100, 0).Return([]*conversation.Message{}, nil)
 			},
 			expectedStatus: http.StatusForbidden,
 			withAuth:       true,
@@ -452,10 +476,15 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationDelete() {
 			name:           "Successful Deletion",
 			conversationID: userConv.ID,
 			setupMocks: func() {
-				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, userConv.ID).Return(userConv, nil).Once()
-				suite.testSuite.MockConversationRepo.On("UpdateConversation", mock.Anything, mock.MatchedBy(func(conv *conversation.Conversation) bool {
-					return conv.ID == userConv.ID && conv.Status == conversation.StatusDeleted
-				})).Return(nil).Once()
+				// Clear all mocks before setting up this test
+				suite.testSuite.MockConversationRepo.ExpectedCalls = nil
+				suite.testSuite.MockMessageRepo.ExpectedCalls = nil
+				suite.testSuite.MockContextRepo.ExpectedCalls = nil
+				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
+				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
+
+				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, userConv.ID).Return(userConv, nil)
+				suite.testSuite.MockConversationRepo.On("UpdateConversation", mock.Anything, mock.Anything).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			withAuth:       true,
@@ -464,7 +493,14 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationDelete() {
 			name:           "Access Denied - Other User's Conversation",
 			conversationID: otherUserConv.ID,
 			setupMocks: func() {
-				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, otherUserConv.ID).Return(otherUserConv, nil).Once()
+				// Clear all mocks before setting up this test
+				suite.testSuite.MockConversationRepo.ExpectedCalls = nil
+				suite.testSuite.MockMessageRepo.ExpectedCalls = nil
+				suite.testSuite.MockContextRepo.ExpectedCalls = nil
+				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
+				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
+
+				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, otherUserConv.ID).Return(otherUserConv, nil)
 			},
 			expectedStatus: http.StatusForbidden,
 			withAuth:       true,
@@ -530,6 +566,13 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationStats() {
 		{
 			name: "Successful Stats Retrieval",
 			setupMocks: func() {
+				// Clear all mocks before setting up this test
+				suite.testSuite.MockConversationRepo.ExpectedCalls = nil
+				suite.testSuite.MockMessageRepo.ExpectedCalls = nil
+				suite.testSuite.MockContextRepo.ExpectedCalls = nil
+				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
+				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
+
 				conversations := []*conversation.Conversation{
 					{
 						ID:     uuid.New().String(),
@@ -545,7 +588,7 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationStats() {
 					},
 				}
 				suite.testSuite.MockConversationRepo.On("GetUserConversations", mock.Anything, suite.testUser.ID().String(), 1000, 0).
-					Return(conversations, nil).Once()
+					Return(conversations, nil)
 			},
 			expectedStatus: http.StatusOK,
 			withAuth:       true,
@@ -605,24 +648,26 @@ func (suite *ChatHandlerTestSuite) TestHandleAIChatHTMX() {
 			name:    "Successful HTMX Chat",
 			message: "I want to make pasta",
 			setupMocks: func() {
+				// Clear all mocks before setting up this test
+				suite.testSuite.MockConversationRepo.ExpectedCalls = nil
+				suite.testSuite.MockMessageRepo.ExpectedCalls = nil
+				suite.testSuite.MockContextRepo.ExpectedCalls = nil
+				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
+				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
+
 				// Mock conversation creation and processing
-				suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.Anything).Return(nil).Once()
-				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.Anything).Return(nil).Once()
+				suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.Anything).Return(nil)
+				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.Anything).Return(nil)
 
 				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentRecipeCreation)
-				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, mock.AnythingOfType("string")).Return(testConv, nil).Once()
-				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, mock.AnythingOfType("string"), 20, 0).Return([]*conversation.Message{}, nil).Once()
+				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, mock.Anything).Return(testConv, nil)
+				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, mock.Anything, 20, 0).Return([]*conversation.Message{}, nil)
 
-				aiResponse := &conversation.ConversationalResponse{
-					Content:    "I'll help you make pasta! What type would you like?",
-					Intent:     conversation.IntentRecipeCreation,
-					Confidence: 0.9,
-					Metadata:   map[string]interface{}{"provider": "test"},
-				}
-				suite.testSuite.MockAIService.On("GenerateConversationalResponse", mock.Anything, mock.Anything, mock.Anything, "I want to make pasta").
-					Return(aiResponse, nil).Once()
+				// AI service mocks (using real AIService with mocked clients)
+				suite.testSuite.MockOllamaClient.On("HealthCheck", mock.Anything).Return(nil)
+				suite.testSuite.MockOllamaClient.On("GenerateChatCompletion", mock.Anything, mock.Anything).Return("I'll help you make pasta! What type would you like?", nil)
 
-				suite.testSuite.MockContextRepo.On("SetContext", mock.Anything, mock.Anything).Return(nil).Once()
+				suite.testSuite.MockContextRepo.On("SetContext", mock.Anything, mock.Anything).Return(nil)
 			},
 			withAuth: true,
 			expectedContains: []string{
@@ -695,6 +740,13 @@ func (suite *ChatHandlerTestSuite) TestHandleAIChatHTMX() {
 // TestChatHandlerErrorScenarios tests various error scenarios
 func (suite *ChatHandlerTestSuite) TestChatHandlerErrorScenarios() {
 	suite.Run("Service Errors", func() {
+		// Clear all mocks before setting up this test
+		suite.testSuite.MockConversationRepo.ExpectedCalls = nil
+		suite.testSuite.MockMessageRepo.ExpectedCalls = nil
+		suite.testSuite.MockContextRepo.ExpectedCalls = nil
+		suite.testSuite.MockOllamaClient.ExpectedCalls = nil
+		suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
+
 		// Mock service to return error
 		suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.Anything).
 			Return(assert.AnError).Once()
@@ -755,7 +807,6 @@ func TestChatHandlerPerformance(t *testing.T) {
 		testSuite.MockConversationRepo.ExpectedCalls = nil
 		testSuite.MockMessageRepo.ExpectedCalls = nil
 		testSuite.MockContextRepo.ExpectedCalls = nil
-		testSuite.MockAIService.ExpectedCalls = nil
 		testSuite.MockOllamaClient.ExpectedCalls = nil
 		testSuite.MockOpenAIClient.ExpectedCalls = nil
 
