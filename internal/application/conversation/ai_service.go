@@ -196,6 +196,11 @@ GENERAL COOKING ASSISTANT MODE: You can help with any cooking-related questions,
 
 // generateWithOllama generates response using Ollama
 func (s *AIService) generateWithOllama(ctx context.Context, messages []ChatMessage, intent ConversationIntent) (*ConversationalResponse, error) {
+	// Check if Ollama client is nil
+	if s.ollamaClient == nil {
+		return nil, fmt.Errorf("ollama client is nil")
+	}
+	
 	// Check if Ollama is available
 	if err := s.ollamaClient.HealthCheck(ctx); err != nil {
 		return nil, fmt.Errorf("ollama not available: %w", err)
