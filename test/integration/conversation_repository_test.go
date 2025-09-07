@@ -55,6 +55,7 @@ func (suite *ConversationRepositoryTestSuite) TearDownSuite() {
 	suite.testDB.Cleanup()
 }
 
+
 // SetupTest cleans up data before each test and seeds required data
 func (suite *ConversationRepositoryTestSuite) SetupTest() {
 	suite.testDB.TruncateAllTables()

@@ -396,7 +396,9 @@ func setupBenchmarkCache(tb testing.TB) (*CacheService, func()) {
 	// Create Redis client
 	redisClient, err := NewRedisClient(redisConfig, logger)
 	if err != nil {
-		tb.Fatalf("Failed to create Redis client: %v", err)
+		// Skip test if Redis is not available instead of failing
+		tb.Skipf("Skipping test - Redis not available: %v", err)
+		return nil, nil
 	}
 
 	// Create cache service
