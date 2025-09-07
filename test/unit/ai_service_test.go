@@ -147,7 +147,7 @@ func (suite *AIServiceTestSuite) TestGenerateConversationalResponse() {
 			// Clear all mock expectations before setting up this test
 			suite.mockOllama.ExpectedCalls = nil
 			suite.mockOpenAI.ExpectedCalls = nil
-			
+
 			tc.setupMocks()
 
 			response, err := suite.aiService.GenerateConversationalResponse(suite.ctx, conv, messages, tc.userMessage)
@@ -261,7 +261,7 @@ func (suite *AIServiceTestSuite) TestSystemPromptGeneration() {
 			// Clear all mock expectations before setting up this test
 			suite.mockOllama.ExpectedCalls = nil
 			suite.mockOpenAI.ExpectedCalls = nil
-			
+
 			conv := &conversation.Conversation{
 				ID:     uuid.New().String(),
 				Intent: tc.intent,
@@ -276,7 +276,7 @@ func (suite *AIServiceTestSuite) TestSystemPromptGeneration() {
 				// Infrastructure checks only - verify basic structure and role
 				suite.NotEmpty(systemPrompt)
 				suite.Contains(systemPrompt, tc.basicRoleCheck) // Basic role check
-				suite.True(len(systemPrompt) > tc.minLength)   // Reasonable length
+				suite.True(len(systemPrompt) > tc.minLength)    // Reasonable length
 
 				return true
 			})).Return("AI response for "+string(tc.intent), nil).Once()
@@ -641,7 +641,7 @@ func (suite *AIServiceTestSuite) TestFallbackResponseGeneration() {
 			// Clear all mock expectations before setting up this test
 			suite.mockOllama.ExpectedCalls = nil
 			suite.mockOpenAI.ExpectedCalls = nil
-			
+
 			// Simulate both AI services failing
 			suite.mockOllama.On("HealthCheck", mock.Anything).Return(assert.AnError).Once()
 			suite.mockOpenAI.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
@@ -659,7 +659,7 @@ func (suite *AIServiceTestSuite) TestFallbackResponseGeneration() {
 			suite.Equal(tc.intent, response.Intent)
 			suite.Equal(0.5, response.Confidence) // Fallback has lower confidence
 			suite.Equal("fallback", response.Metadata["provider"])
-			
+
 			// Structure validation only - verify fallback response has content
 			suite.NotEmpty(response.Content)
 
@@ -681,7 +681,7 @@ func (suite *AIServiceTestSuite) TestErrorHandling() {
 		// Clear all mock expectations before setting up this test
 		suite.mockOllama.ExpectedCalls = nil
 		suite.mockOpenAI.ExpectedCalls = nil
-		
+
 		aiService := conversation.NewAIService(nil, suite.mockOpenAI)
 
 		suite.mockOpenAI.On("GenerateChatCompletion", mock.Anything, mock.AnythingOfType("[]conversation.ChatMessage")).
@@ -700,7 +700,7 @@ func (suite *AIServiceTestSuite) TestErrorHandling() {
 		// Clear all mock expectations before setting up this test
 		suite.mockOllama.ExpectedCalls = nil
 		suite.mockOpenAI.ExpectedCalls = nil
-		
+
 		aiService := conversation.NewAIService(suite.mockOllama, nil)
 
 		suite.mockOllama.On("HealthCheck", mock.Anything).Return(assert.AnError).Once()

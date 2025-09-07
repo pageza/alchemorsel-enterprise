@@ -200,7 +200,7 @@ func (s *AIService) generateWithOllama(ctx context.Context, messages []ChatMessa
 	if s.ollamaClient == nil {
 		return nil, fmt.Errorf("ollama client is nil")
 	}
-	
+
 	// Check if Ollama is available
 	if err := s.ollamaClient.HealthCheck(ctx); err != nil {
 		return nil, fmt.Errorf("ollama not available: %w", err)
