@@ -86,20 +86,20 @@ func (suite *ChatHandlerTestSuite) TestHandleChatMessage() {
 				suite.testSuite.MockContextRepo.ExpectedCalls = nil
 				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
 				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
-				
+
 				// Create a test conversation with a known ID
 				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentRecipeCreation)
-				
+
 				// Set up only what we need for this test flow
 				suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.Anything).Return(nil)
 				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.Anything).Return(nil)
 				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, mock.Anything).Return(testConv, nil)
 				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, mock.Anything, 20, 0).Return([]*conversation.Message{}, nil)
-				
+
 				// AI service mocks (since this test uses real AIService)
 				suite.testSuite.MockOllamaClient.On("HealthCheck", mock.Anything).Return(nil)
 				suite.testSuite.MockOllamaClient.On("GenerateChatCompletion", mock.Anything, mock.Anything).Return("Great! I'll help you make carbonara. What ingredients do you have?", nil)
-				
+
 				suite.testSuite.MockContextRepo.On("SetContext", mock.Anything, mock.Anything).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -121,20 +121,20 @@ func (suite *ChatHandlerTestSuite) TestHandleChatMessage() {
 				suite.testSuite.MockContextRepo.ExpectedCalls = nil
 				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
 				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
-				
+
 				// Create a test conversation
 				testConv := suite.testSuite.CreateTestConversation(suite.testUser.ID().String(), conversation.IntentCookingHelp)
-				
+
 				// Set up repository mocks
 				suite.testSuite.MockConversationRepo.On("CreateConversation", mock.Anything, mock.Anything).Return(nil)
 				suite.testSuite.MockMessageRepo.On("CreateMessage", mock.Anything, mock.Anything).Return(nil)
 				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, mock.Anything).Return(testConv, nil)
 				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, mock.Anything, 20, 0).Return([]*conversation.Message{}, nil)
-				
+
 				// AI service mocks (using real AIService with mocked clients)
 				suite.testSuite.MockOllamaClient.On("HealthCheck", mock.Anything).Return(nil)
 				suite.testSuite.MockOllamaClient.On("GenerateChatCompletion", mock.Anything, mock.Anything).Return("To cook rice properly, use a 1:2 ratio of rice to water...", nil)
-				
+
 				suite.testSuite.MockContextRepo.On("SetContext", mock.Anything, mock.Anything).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -396,7 +396,7 @@ func (suite *ChatHandlerTestSuite) TestHandleConversationHistory() {
 				suite.testSuite.MockContextRepo.ExpectedCalls = nil
 				suite.testSuite.MockOllamaClient.ExpectedCalls = nil
 				suite.testSuite.MockOpenAIClient.ExpectedCalls = nil
-				
+
 				suite.testSuite.MockConversationRepo.On("GetConversation", mock.Anything, otherUserConv.ID).Return(otherUserConv, nil)
 				suite.testSuite.MockMessageRepo.On("GetConversationMessages", mock.Anything, otherUserConv.ID, 100, 0).Return([]*conversation.Message{}, nil)
 			},
