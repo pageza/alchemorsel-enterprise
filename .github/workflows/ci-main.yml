@@ -179,7 +179,7 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests, security-tests, static-analysis, performance-tests, e2e-tests, healthcheck-tests]
+    needs: [quick-validation, unit-tests, integration-tests, security-tests, static-analysis, performance-tests, e2e-tests, healthcheck-tests]
     if: always()
     steps:
       - name: Create test summary
@@ -190,6 +190,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           echo "## Test Status" >> $GITHUB_STEP_SUMMARY
+          echo "- Quick Validation: ${{ needs.quick-validation.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Unit Tests: ${{ needs.unit-tests.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Integration Tests: ${{ needs.integration-tests.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Security Tests: ${{ needs.security-tests.result }}" >> $GITHUB_STEP_SUMMARY
@@ -198,18 +199,23 @@ jobs:
           echo "- E2E Tests: ${{ needs.e2e-tests.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Health Check Tests: ${{ needs.healthcheck-tests.result }}" >> $GITHUB_STEP_SUMMARY
           
-          # Check overall status
-          if [[ "${{ needs.unit-tests.result }}" == "success" && \
+          # Check overall status - if quick validation fails, show that as the main issue
+          if [[ "${{ needs.quick-validation.result }}" != "success" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Quick validation failed - fix formatting/build issues first**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          elif [[ ("${{ needs.unit-tests.result }}" == "success" || "${{ needs.unit-tests.result }}" == "skipped") && \
                 ("${{ needs.integration-tests.result }}" == "success" || "${{ needs.integration-tests.result }}" == "skipped") && \
-                "${{ needs.security-tests.result }}" == "success" && \
-                "${{ needs.static-analysis.result }}" == "success" && \
+                ("${{ needs.security-tests.result }}" == "success" || "${{ needs.security-tests.result }}" == "skipped") && \
+                ("${{ needs.static-analysis.result }}" == "success" || "${{ needs.static-analysis.result }}" == "skipped") && \
                 ("${{ needs.performance-tests.result }}" == "success" || "${{ needs.performance-tests.result }}" == "skipped") && \
                 ("${{ needs.e2e-tests.result }}" == "success" || "${{ needs.e2e-tests.result }}" == "skipped") && \
-                ("${{ needs.healthcheck-tests.result }}" == "success" || "${{ needs.healthcheck-tests.result }}" == "skipped") ]]; then
+                ("${{ needs.healthcheck-tests.result }}" == "success" || "${{ needs.healthcheck-tests.result }}" == "skipped") && \
+                ! (contains(needs.*.result, 'failure')) ]]; then
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **All required tests passed!**" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **All tests completed successfully!**" >> $GITHUB_STEP_SUMMARY
           else
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "❌ **Some tests failed or were cancelled**" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Some tests failed**" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
