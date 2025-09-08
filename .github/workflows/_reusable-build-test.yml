@@ -25,16 +25,17 @@ on:
     outputs:
       test_result:
         description: "Test execution result"
-        value: ${{ jobs.test.outputs.result }}
+        value: ${{ jobs.test-with-services.outputs.result || jobs.test-without-services.outputs.result }}
 
 env:
   GO_VERSION: ${{ inputs.go_version }}
 
 jobs:
-  test:
-    name: ${{ inputs.test_type }} Tests
+  test-with-services:
+    name: ${{ inputs.test_type }} Tests (with services)
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout_minutes }}
+    if: ${{ inputs.enable_services }}
     outputs:
       result: ${{ steps.test.outcome }}
     
@@ -52,8 +53,6 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-        # Only start if services are enabled
-        if: ${{ inputs.enable_services }}
       
       redis:
         image: redis:7-alpine
@@ -64,8 +63,6 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-        # Only start if services are enabled
-        if: ${{ inputs.enable_services }}
     
     steps:
     - name: Checkout code
@@ -81,7 +78,6 @@ jobs:
       run: go mod download
     
     - name: Wait for services
-      if: ${{ inputs.enable_services }}
       run: |
         # Wait for PostgreSQL
         until pg_isready -h localhost -p 5432 -U test_user; do
@@ -120,6 +116,68 @@ jobs:
       if: ${{ inputs.test_type == 'e2e' }}
       run: |
         go test -v -tags=e2e -run="TestE2E" ./test/e2e/...
+    
+    - name: Run security tests
+      id: test-security
+      if: ${{ inputs.test_type == 'security' }}
+      run: |
+        go test -v -tags=security ./test/security/...
+    
+    - name: Run performance tests
+      id: test-performance
+      if: ${{ inputs.test_type == 'performance' }}
+      run: |
+        go test -v -tags=performance -run="TestPerformance" ./test/performance/...
+        go test -bench=. -benchmem -count=3 -run=^$ ./pkg/healthcheck/ | tee benchmark-results.txt
+    
+    - name: Generate coverage report
+      if: ${{ hashFiles('coverage.out') != '' }}
+      run: |
+        go tool cover -func=coverage.out
+        go tool cover -html=coverage.out -o coverage.html
+    
+    - name: Upload coverage
+      if: ${{ hashFiles('coverage.out') != '' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.test_type }}-coverage
+        path: |
+          coverage.out
+          coverage.html
+    
+    - name: Upload benchmark results
+      if: ${{ inputs.test_type == 'performance' && hashFiles('benchmark-results.txt') != '' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results
+        path: benchmark-results.txt
+
+  test-without-services:
+    name: ${{ inputs.test_type }} Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout_minutes }}
+    if: ${{ !inputs.enable_services }}
+    outputs:
+      result: ${{ steps.test.outcome }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+    
+    - name: Download dependencies
+      run: go mod download
+    
+    - name: Run unit tests
+      id: test
+      if: ${{ inputs.test_type == 'unit' }}
+      run: |
+        go test -short -v -race -coverprofile=coverage.out ./test/unit/...
     
     - name: Run security tests
       id: test-security
