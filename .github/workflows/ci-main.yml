@@ -99,12 +99,12 @@ jobs:
       - name: Run staticcheck
         run: |
           go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck ./... || echo "Staticcheck found issues but continuing..."
+          staticcheck ./... || true
       
       - name: Run gosec security scanner
         run: |
           go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
-          gosec -no-fail -fmt sarif -out gosec-results.sarif ./... || echo "Gosec found issues but continuing..."
+          gosec -no-fail -fmt sarif -out gosec-results.sarif ./... || true
       
       - name: Upload gosec results
         uses: github/codeql-action/upload-sarif@v3
