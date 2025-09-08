@@ -1,6 +1,5 @@
 // Package integration provides integration tests using real database instances
 //go:build integration
-// +build integration
 
 package integration
 

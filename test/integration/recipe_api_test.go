@@ -1,6 +1,5 @@
 // Package integration provides API integration tests
 //go:build integration
-// +build integration
 
 package integration
 

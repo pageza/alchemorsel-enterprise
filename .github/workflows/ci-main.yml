@@ -1,0 +1,215 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop, "feature/*" ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  GO_VERSION: "1.23"
+
+jobs:
+  # Quick validation for immediate feedback
+  quick-validation:
+    name: Quick Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Download dependencies
+        run: go mod download
+      
+      - name: Run go vet
+        run: go vet ./...
+      
+      - name: Check formatting
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "Code is not formatted:"
+            gofmt -s -l .
+            exit 1
+          fi
+      
+      - name: Build check
+        run: go build -v ./...
+
+  # Unit tests - Fast feedback
+  unit-tests:
+    name: Unit Tests
+    needs: quick-validation
+    uses: ./.github/workflows/_reusable-build-test.yml
+    with:
+      test_type: "unit"
+      go_version: "1.23"
+      timeout_minutes: 10
+      enable_services: false
+
+  # Integration tests for PR and main branches
+  integration-tests:
+    name: Integration Tests  
+    needs: unit-tests
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/_reusable-build-test.yml
+    with:
+      test_type: "integration"
+      go_version: "1.23"
+      timeout_minutes: 20
+      enable_services: true
+
+  # Security tests for all branches
+  security-tests:
+    name: Security Tests
+    needs: quick-validation
+    uses: ./.github/workflows/_reusable-build-test.yml
+    with:
+      test_type: "security"
+      go_version: "1.23"
+      timeout_minutes: 10
+      enable_services: false
+
+  # Static analysis and linting
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: quick-validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Download dependencies
+        run: go mod download
+      
+      - name: Run staticcheck
+        uses: dominikh/staticcheck-action@v1.3.0
+        with:
+          version: "2023.1.6"
+          install-go: false
+          cache-key: ${{ env.GO_VERSION }}
+      
+      - name: Run gosec security scanner
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: '-no-fail -fmt sarif -out gosec-results.sarif ./...'
+      
+      - name: Upload gosec results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: gosec-results.sarif
+
+  # Performance tests for main/develop only
+  performance-tests:
+    name: Performance Tests
+    needs: unit-tests
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/_reusable-build-test.yml
+    with:
+      test_type: "performance"
+      go_version: "1.23"
+      timeout_minutes: 15
+      enable_services: false
+
+  # E2E tests for main branch only
+  e2e-tests:
+    name: E2E Tests
+    needs: [unit-tests, integration-tests]
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/_reusable-build-test.yml
+    with:
+      test_type: "e2e"
+      go_version: "1.23"
+      timeout_minutes: 30
+      enable_services: true
+
+  # Health check tests for specific paths
+  healthcheck-tests:
+    name: Health Check Tests
+    needs: quick-validation
+    if: contains(github.event.head_commit.modified, 'pkg/healthcheck/') || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Download dependencies
+        run: go mod download
+      
+      - name: Run health check tests
+        run: |
+          go test -short -v -race -coverprofile=healthcheck-coverage.out ./pkg/healthcheck/
+      
+      - name: Generate coverage report
+        run: |
+          go tool cover -func=healthcheck-coverage.out
+          go tool cover -html=healthcheck-coverage.out -o healthcheck-coverage.html
+      
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: healthcheck-coverage
+          path: |
+            healthcheck-coverage.out
+            healthcheck-coverage.html
+
+  # Test results summary
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, security-tests, static-analysis, performance-tests, e2e-tests, healthcheck-tests]
+    if: always()
+    steps:
+      - name: Create test summary
+        run: |
+          echo "# CI Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Date: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "## Test Status" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit Tests: ${{ needs.unit-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Integration Tests: ${{ needs.integration-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Security Tests: ${{ needs.security-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Static Analysis: ${{ needs.static-analysis.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance Tests: ${{ needs.performance-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- E2E Tests: ${{ needs.e2e-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Health Check Tests: ${{ needs.healthcheck-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          
+          # Check overall status
+          if [[ "${{ needs.unit-tests.result }}" == "success" && \
+                ("${{ needs.integration-tests.result }}" == "success" || "${{ needs.integration-tests.result }}" == "skipped") && \
+                "${{ needs.security-tests.result }}" == "success" && \
+                "${{ needs.static-analysis.result }}" == "success" && \
+                ("${{ needs.performance-tests.result }}" == "success" || "${{ needs.performance-tests.result }}" == "skipped") && \
+                ("${{ needs.e2e-tests.result }}" == "success" || "${{ needs.e2e-tests.result }}" == "skipped") && \
+                ("${{ needs.healthcheck-tests.result }}" == "success" || "${{ needs.healthcheck-tests.result }}" == "skipped") ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **All required tests passed!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Some tests failed or were cancelled**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

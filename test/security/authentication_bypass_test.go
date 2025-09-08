@@ -1,6 +1,5 @@
 // Package security provides tests to catch authentication bypass vulnerabilities
 //go:build security
-// +build security
 
 package security
 

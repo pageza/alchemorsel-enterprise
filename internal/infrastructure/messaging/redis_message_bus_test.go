@@ -741,6 +741,7 @@ func TestRedisMessageBusMessageFlow(t *testing.T) {
 func TestRedisMessageBusEdgeCases(t *testing.T) {
 	t.Run("large message payload", func(t *testing.T) {
 		bus, mockClient := setupMessageBus(t)
+		defer bus.Close() // Ensure cleanup
 
 		largePayload := make([]byte, 1024*1024) // 1MB payload
 		for i := range largePayload {
@@ -762,6 +763,7 @@ func TestRedisMessageBusEdgeCases(t *testing.T) {
 
 	t.Run("multiple subscriptions to same topic", func(t *testing.T) {
 		bus, mockClient := setupMessageBus(t)
+		defer bus.Close() // Ensure cleanup
 		ctx := context.Background()
 
 		handler1 := func(ctx context.Context, message outbound.Message) error { return nil }
@@ -775,6 +777,7 @@ func TestRedisMessageBusEdgeCases(t *testing.T) {
 				ctx:      ctx,
 			}
 			pubsub.On("Receive", mock.Anything).Return(&redis.Subscription{}, nil).Once()
+			pubsub.On("Close").Return(nil).Once()
 			mockClient.On("Subscribe", mock.Anything, []string{"multi.topic"}).Return(pubsub).Once()
 		}
 
@@ -795,6 +798,7 @@ func TestRedisMessageBusEdgeCases(t *testing.T) {
 
 	t.Run("context cancellation during subscribe", func(t *testing.T) {
 		bus, mockClient := setupMessageBus(t)
+		defer bus.Close() // Ensure cleanup
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately

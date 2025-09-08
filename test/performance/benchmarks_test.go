@@ -1,6 +1,5 @@
 // Package performance provides comprehensive performance testing and benchmarks
 //go:build performance
-// +build performance
 
 package performance
 

@@ -1,6 +1,5 @@
 // Package security provides comprehensive security testing
 //go:build security
-// +build security
 
 package security
 

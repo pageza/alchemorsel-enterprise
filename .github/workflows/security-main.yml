@@ -1,0 +1,254 @@
+name: Security Scanning
+
+on:
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'go.mod'
+      - 'go.sum'
+      - '**/*.go'
+      - 'deployments/**'
+      - '.github/workflows/security-main.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  GO_VERSION: "1.23"
+
+jobs:
+  # Dependency and code security scanning
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      # Dependency vulnerability scanning
+      - name: Run Nancy (Go dependency scanner)
+        run: |
+          go install github.com/sonatypecommunity/nancy@latest
+          go list -json -deps ./... | nancy sleuth
+
+      - name: Run OSV-Scanner
+        uses: google/osv-scanner-action@v1
+        with:
+          scan-args: |-
+            -r
+            --skip-git
+            .
+
+      # Static Application Security Testing (SAST)
+      - name: Run Gosec Security Scanner
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: '-fmt sarif -out gosec.sarif ./...'
+
+      - name: Upload Gosec results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: gosec.sarif
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+      # Secret scanning
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      # License compliance scanning
+      - name: Run go-licenses
+        run: |
+          go install github.com/google/go-licenses@latest
+          go-licenses check ./...
+          go-licenses report ./... > licenses-report.txt
+
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: licenses-report.txt
+
+      - name: Check for prohibited licenses
+        run: |
+          # Check for GPL, AGPL, and other copyleft licenses
+          if grep -i "GPL\|AGPL\|LGPL" licenses-report.txt; then
+            echo "WARNING: Copyleft licenses detected"
+            echo "Please review the following licenses:"
+            grep -i "GPL\|AGPL\|LGPL" licenses-report.txt
+            # Don't fail the build, just warn
+          fi
+
+  # Container security scanning (only for push events, not scheduled)
+  container-security:
+    name: Container Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name != 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t alchemorsel:security-scan -f deployments/docker/Dockerfile.production .
+
+      - name: Run Trivy container scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'alchemorsel:security-scan'
+          format: 'sarif'
+          output: 'trivy-container.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-container.sarif'
+
+      - name: Run Syft SBOM generation
+        uses: anchore/sbom-action@v0
+        with:
+          image: 'alchemorsel:security-scan'
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+  # Infrastructure security scanning
+  infrastructure-security:
+    name: Infrastructure Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Checkov for Terraform
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: deployments/terraform
+          framework: terraform
+          output_format: sarif
+          output_file_path: checkov-terraform.sarif
+        continue-on-error: true
+
+      - name: Upload Checkov Terraform results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('checkov-terraform.sarif') != ''
+        with:
+          sarif_file: checkov-terraform.sarif
+
+      - name: Run Checkov for Kubernetes
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: deployments/kubernetes
+          framework: kubernetes
+          output_format: sarif
+          output_file_path: checkov-k8s.sarif
+        continue-on-error: true
+
+      - name: Upload Checkov Kubernetes results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('checkov-k8s.sarif') != ''
+        with:
+          sarif_file: checkov-k8s.sarif
+
+      - name: Run kube-score for Kubernetes manifests
+        run: |
+          if [ -d "deployments/kubernetes" ] && [ "$(ls -A deployments/kubernetes/*.yaml 2>/dev/null)" ]; then
+            wget https://github.com/zegl/kube-score/releases/download/v1.16.1/kube-score_1.16.1_linux_amd64.tar.gz
+            tar -xzf kube-score_1.16.1_linux_amd64.tar.gz
+            ./kube-score score deployments/kubernetes/*.yaml > kube-score-results.txt || true
+            cat kube-score-results.txt
+          else
+            echo "No Kubernetes manifests found, skipping kube-score"
+          fi
+
+      - name: Upload kube-score results
+        uses: actions/upload-artifact@v4
+        if: hashFiles('kube-score-results.txt') != ''
+        with:
+          name: kube-score-results
+          path: kube-score-results.txt
+
+  # Security summary and notifications
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [security-scan, container-security, infrastructure-security]
+    if: always()
+    steps:
+      - name: Generate security summary
+        run: |
+          echo "# Security Scan Summary" > security-summary.md
+          echo "Date: $(date)" >> security-summary.md
+          echo "Commit: ${{ github.sha }}" >> security-summary.md
+          echo "" >> security-summary.md
+          
+          echo "## Scan Results" >> security-summary.md
+          echo "- Code Security: ${{ needs.security-scan.result }}" >> security-summary.md
+          echo "- Container Security: ${{ needs.container-security.result }}" >> security-summary.md
+          echo "- Infrastructure Security: ${{ needs.infrastructure-security.result }}" >> security-summary.md
+          
+          # Add to GitHub Step Summary
+          cat security-summary.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload security summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-summary
+          path: security-summary.md
+
+      - name: Check for failures
+        if: contains(needs.*.result, 'failure')
+        run: |
+          echo "❌ One or more security scans failed"
+          echo "Please review the security findings in the job logs and artifacts"
+          exit 1
+
+      - name: Success summary
+        if: "!contains(needs.*.result, 'failure')"
+        run: |
+          echo "✅ All security scans completed successfully"
+          echo "No critical security issues found"

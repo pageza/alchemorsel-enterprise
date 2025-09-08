@@ -4,13 +4,14 @@
 
 -- Insert demo chef user
 -- Password: ChefDemo2024! (bcrypt cost 12 for security)
-INSERT INTO users (id, email, full_name, password_hash, role, is_active, created_at, updated_at)
+INSERT INTO users (id, username, email, full_name, password_hash, role, is_active, created_at, updated_at)
 VALUES (
     gen_random_uuid(),
+    'demochef',
     'chef@alchemorsel.com',
     'Demo Chef',
     '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/lewgunSPb9a.zUB3u', -- bcrypt hash for 'ChefDemo2024!'
-    'chef',
+    'premium',
     true,
     NOW(),
     NOW()
@@ -18,9 +19,10 @@ VALUES (
 
 -- Insert demo regular user
 -- Password: UserDemo2024# (bcrypt cost 12 for security)  
-INSERT INTO users (id, email, full_name, password_hash, role, is_active, created_at, updated_at)
+INSERT INTO users (id, username, email, full_name, password_hash, role, is_active, created_at, updated_at)
 VALUES (
     gen_random_uuid(),
+    'demouser',
     'user@alchemorsel.com', 
     'Demo User',
     '$2a$12$8X9vX2Y3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0Q1R2S3T4U5V6', -- bcrypt hash for 'UserDemo2024#'
@@ -32,9 +34,10 @@ VALUES (
 
 -- Insert demo admin user for testing admin features
 -- Password: AdminDemo2024@ (bcrypt cost 12 for security)
-INSERT INTO users (id, email, full_name, password_hash, role, is_active, created_at, updated_at)
+INSERT INTO users (id, username, email, full_name, password_hash, role, is_active, created_at, updated_at)
 VALUES (
     gen_random_uuid(),
+    'demoadmin',
     'admin@alchemorsel.com',
     'Demo Admin',
     '$2a$12$9Y0wY3Z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0Q1R2S3T4U5V6W7', -- bcrypt hash for 'AdminDemo2024@'
@@ -54,8 +57,8 @@ SELECT
     'Classic Margherita Pizza',
     'A simple yet delicious pizza with fresh tomatoes, mozzarella, and basil. Perfect for beginners!',
     chef_user.id,
-    'Italian',
-    'Easy',
+    'italian',
+    'easy',
     20,
     15,
     4,
@@ -73,8 +76,8 @@ SELECT
     'Chocolate Chip Cookies',
     'Crispy on the outside, chewy on the inside. The perfect chocolate chip cookie recipe.',
     chef_user.id,
-    'American',
-    'Easy',
+    'american',
+    'easy',
     15,
     12,
     24,

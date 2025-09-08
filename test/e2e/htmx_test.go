@@ -1,6 +1,5 @@
 // Package e2e provides end-to-end testing for HTMX frontend interactions
 //go:build e2e
-// +build e2e
 
 package e2e
 

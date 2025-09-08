@@ -1,6 +1,5 @@
 // Package integration provides tests to catch UX design flaws
 //go:build integration
-// +build integration
 
 package integration
 

@@ -155,7 +155,9 @@ func SetupTestDatabaseWithConfig(t *testing.T, cfg DatabaseConfig) *TestDatabase
 func (td *TestDatabase) RunMigrations() error {
 	// Get migration path - try multiple possible paths
 	possiblePaths := []string{
+		"file:///workspace/alchemorsel-enterprise/internal/infrastructure/persistence/migrations/sql",
 		"file://" + filepath.Join("../../internal/infrastructure/persistence/migrations/sql"),
+		"file://" + filepath.Join("../../../internal/infrastructure/persistence/migrations/sql"),
 		"file://" + filepath.Join("internal/infrastructure/persistence/migrations/sql"),
 		"file://internal/infrastructure/persistence/migrations/sql",
 	}
@@ -163,6 +165,8 @@ func (td *TestDatabase) RunMigrations() error {
 	for _, migrationPath := range possiblePaths {
 		if err := td.RunMigrationsWithPath(migrationPath); err == nil {
 			return nil
+		} else {
+			td.t.Logf("Migration path %s failed: %v", migrationPath, err)
 		}
 	}
 
@@ -192,11 +196,11 @@ func (td *TestDatabase) RunMigrationsWithPath(migrationPath string) error {
 func (td *TestDatabase) SeedTestData() error {
 	// Insert test users - use ON CONFLICT DO NOTHING to handle duplicates gracefully
 	_, err := td.DB.Exec(`
-		INSERT INTO users (id, email, password_hash, username, created_at, updated_at)
+		INSERT INTO users (id, email, password_hash, username, role, is_active, created_at, updated_at)
 		VALUES 
-			('550e8400-e29b-41d4-a716-446655440001', 'test@example.com', '$2a$10$hash', 'testuser', NOW(), NOW()),
-			('550e8400-e29b-41d4-a716-446655440002', 'chef@example.com', '$2a$10$hash', 'chefuser', NOW(), NOW()),
-			('550e8400-e29b-41d4-a716-446655440003', 'admin@example.com', '$2a$10$hash', 'adminuser', NOW(), NOW())
+			('550e8400-e29b-41d4-a716-446655440001', 'test@example.com', '$2a$10$hash', 'testuser', 'user', true, NOW(), NOW()),
+			('550e8400-e29b-41d4-a716-446655440002', 'chef@example.com', '$2a$10$hash', 'chefuser', 'premium', true, NOW(), NOW()),
+			('550e8400-e29b-41d4-a716-446655440003', 'admin@example.com', '$2a$10$hash', 'adminuser', 'admin', true, NOW(), NOW())
 		ON CONFLICT (id) DO NOTHING
 	`)
 	if err != nil {
