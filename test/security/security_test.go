@@ -55,8 +55,8 @@ func (suite *SecurityTestSuite) SetupSuite() {
 			BCryptCost:        12, // Higher cost for security tests
 		},
 		RateLimit: config.RateLimitConfig{
-			RequestsPerMinute: 60, // Lower for security testing
-			BurstSize:         5,  // Lower burst
+			RequestsPerMin: 60, // Lower for security testing
+			BurstSize:      5,  // Lower burst
 		},
 	}
 
@@ -154,7 +154,7 @@ func (suite *SecurityTestSuite) rateLimitMiddleware() gin.HandlerFunc {
 		}
 
 		// Check rate limit
-		if len(requests[clientIP]) >= suite.config.RateLimit.RequestsPerMinute {
+		if len(requests[clientIP]) >= suite.config.RateLimit.RequestsPerMin {
 			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
 			c.Abort()
 			return
@@ -365,7 +365,6 @@ func (suite *SecurityTestSuite) isPasswordSecure(password string) bool {
 func (suite *SecurityTestSuite) createAuthenticatedRequest(method, url string, body interface{}, roles []string) *http.Request {
 	userID := uuid.New().String()
 	email := "test@example.com"
-	sessionID := uuid.New().String()
 
 	session, _ := suite.authService.CreateSession(userID, "192.168.1.1", "Test Browser")
 	accessToken, _ := suite.authService.GenerateAccessToken(
@@ -654,7 +653,6 @@ func (suite *SecurityTestSuite) TestCSRFProtection() {
 	suite.Run("StateChangingRequest_NoCSRFToken_ShouldFail", func() {
 		// Arrange
 		userID := uuid.New().String()
-		sessionID := uuid.New().String()
 
 		session, _ := suite.authService.CreateSession(userID, "192.168.1.1", "Test Browser")
 		accessToken, _ := suite.authService.GenerateAccessToken(
