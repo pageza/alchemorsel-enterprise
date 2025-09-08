@@ -61,7 +61,7 @@ jobs:
       # Static Application Security Testing (SAST)
       - name: Run Gosec Security Scanner
         run: |
-          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.20.0
           gosec -fmt sarif -out gosec.sarif ./...
 
       - name: Upload Gosec results
