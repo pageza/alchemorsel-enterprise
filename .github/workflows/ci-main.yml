@@ -104,9 +104,9 @@ jobs:
           cache-key: ${{ env.GO_VERSION }}
       
       - name: Run gosec security scanner
-        uses: securecodewarrior/github-action-gosec@master
-        with:
-          args: '-no-fail -fmt sarif -out gosec-results.sarif ./...'
+        run: |
+          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+          gosec -no-fail -fmt sarif -out gosec-results.sarif ./...
       
       - name: Upload gosec results
         uses: github/codeql-action/upload-sarif@v3
