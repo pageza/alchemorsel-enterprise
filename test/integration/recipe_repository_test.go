@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/alchemorsel/v3/internal/domain/recipe"
-	"github.com/alchemorsel/v3/internal/infrastructure/persistence/postgres"
+	"github.com/alchemorsel/v3/internal/infrastructure/persistence/gorm"
 	"github.com/alchemorsel/v3/test/testutils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +21,7 @@ import (
 type RecipeRepositoryIntegrationTestSuite struct {
 	suite.Suite
 	testDB        *testutils.TestDatabase
-	repository    *postgres.RecipeRepository
+	repository    *gorm.RecipeRepository
 	recipeFactory *testutils.RecipeFactory
 	dbHelper      *testutils.DatabaseHelper
 	assertions    *testutils.ComprehensiveAssertions
@@ -40,7 +40,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) SetupSuite() {
 	require.NoError(suite.T(), err, "Failed to run database migrations")
 
 	// Setup repository
-	suite.repository = postgres.NewRecipeRepository(suite.testDB.GormDB)
+	suite.repository = gorm.NewRecipeRepository(suite.testDB.GormDB).(*gorm.RecipeRepository)
 
 	// Setup test utilities
 	suite.recipeFactory = testutils.NewRecipeFactory(time.Now().UnixNano())
@@ -67,7 +67,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestSaveRecipe() {
 		require.NoError(suite.T(), err)
 
 		// Act
-		err = suite.repository.Save(suite.ctx, recipe)
+		err = suite.repository.Create(suite.ctx, recipe)
 
 		// Assert
 		require.NoError(suite.T(), err)
@@ -88,7 +88,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestSaveRecipe() {
 		require.NoError(suite.T(), err)
 
 		// Save recipe first time
-		err = suite.repository.Save(suite.ctx, recipe)
+		err = suite.repository.Create(suite.ctx, recipe)
 		require.NoError(suite.T(), err)
 
 		// Modify recipe
@@ -98,7 +98,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestSaveRecipe() {
 		require.NoError(suite.T(), err)
 
 		// Act - Save updated recipe
-		err = suite.repository.Save(suite.ctx, recipe)
+		err = suite.repository.Create(suite.ctx, recipe)
 
 		// Assert
 		require.NoError(suite.T(), err)
@@ -122,7 +122,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestSaveRecipe() {
 		require.NoError(suite.T(), err)
 
 		// Act
-		err = suite.repository.Save(suite.ctx, recipe)
+		err = suite.repository.Create(suite.ctx, recipe)
 
 		// Assert
 		require.NoError(suite.T(), err)
@@ -145,7 +145,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestSaveRecipe() {
 		suite.testDB.DB.Close()
 
 		// Act
-		err = suite.repository.Save(suite.ctx, recipe)
+		err = suite.repository.Create(suite.ctx, recipe)
 
 		// Assert
 		assert.Error(suite.T(), err, "Should return error when database is unavailable")
@@ -163,7 +163,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestFindRecipeByID() {
 		recipe, err := suite.recipeFactory.CreateValidRecipe()
 		require.NoError(suite.T(), err)
 
-		err = suite.repository.Save(suite.ctx, recipe)
+		err = suite.repository.Create(suite.ctx, recipe)
 		require.NoError(suite.T(), err)
 
 		// Act
@@ -196,7 +196,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestFindRecipeByID() {
 		recipe, err := suite.recipeFactory.CreateComplexRecipe()
 		require.NoError(suite.T(), err)
 
-		err = suite.repository.Save(suite.ctx, recipe)
+		err = suite.repository.Create(suite.ctx, recipe)
 		require.NoError(suite.T(), err)
 
 		// Act
@@ -223,9 +223,9 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestFindRecipesByAuthor() {
 		recipe2, _ := testutils.NewRecipeBuilder().WithAuthor(authorID).BuildValid()
 		recipe3, _ := testutils.NewRecipeBuilder().WithAuthor(uuid.New()).BuildValid() // Different author
 
-		suite.repository.Save(suite.ctx, recipe1)
-		suite.repository.Save(suite.ctx, recipe2)
-		suite.repository.Save(suite.ctx, recipe3)
+		suite.repository.Create(suite.ctx, recipe1)
+		suite.repository.Create(suite.ctx, recipe2)
+		suite.repository.Create(suite.ctx, recipe3)
 
 		// Act
 		recipes, err := suite.repository.FindByAuthorID(suite.ctx, authorID, 10, 0)
@@ -247,7 +247,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestFindRecipesByAuthor() {
 		// Create 5 recipes for the same author
 		for i := 0; i < 5; i++ {
 			recipe, _ := testutils.NewRecipeBuilder().WithAuthor(authorID).BuildValid()
-			suite.repository.Save(suite.ctx, recipe)
+			suite.repository.Create(suite.ctx, recipe)
 		}
 
 		// Act - Request only 3 recipes with offset 1
@@ -284,9 +284,9 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestFindPublishedRecipes() {
 		publishedRecipe2.Publish()
 		// Keep draftRecipe as draft
 
-		suite.repository.Save(suite.ctx, publishedRecipe1)
-		suite.repository.Save(suite.ctx, publishedRecipe2)
-		suite.repository.Save(suite.ctx, draftRecipe)
+		suite.repository.Create(suite.ctx, publishedRecipe1)
+		suite.repository.Create(suite.ctx, publishedRecipe2)
+		suite.repository.Create(suite.ctx, draftRecipe)
 
 		// Act
 		recipes, err := suite.repository.FindPublished(suite.ctx, 10, 0)
@@ -306,7 +306,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestFindPublishedRecipes() {
 		for i := 0; i < 5; i++ {
 			recipe, _ := suite.recipeFactory.CreateValidRecipe()
 			recipe.Publish()
-			suite.repository.Save(suite.ctx, recipe)
+			suite.repository.Create(suite.ctx, recipe)
 		}
 
 		// Act - Get second page with 2 recipes per page
@@ -332,9 +332,9 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestSearchRecipes() {
 			WithTitle("Caesar Salad").
 			BuildValid()
 
-		suite.repository.Save(suite.ctx, pastaRecipe)
-		suite.repository.Save(suite.ctx, pizzaRecipe)
-		suite.repository.Save(suite.ctx, saladRecipe)
+		suite.repository.Create(suite.ctx, pastaRecipe)
+		suite.repository.Create(suite.ctx, pizzaRecipe)
+		suite.repository.Create(suite.ctx, saladRecipe)
 
 		// Act
 		recipes, err := suite.repository.Search(suite.ctx, "pasta", nil, 10, 0)
@@ -356,8 +356,8 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestSearchRecipes() {
 			WithDifficulty(recipe.DifficultyEasy).
 			BuildValid()
 
-		suite.repository.Save(suite.ctx, italianRecipe)
-		suite.repository.Save(suite.ctx, mexicanRecipe)
+		suite.repository.Create(suite.ctx, italianRecipe)
+		suite.repository.Create(suite.ctx, mexicanRecipe)
 
 		// Act
 		filters := map[string]interface{}{
@@ -373,7 +373,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestSearchRecipes() {
 	suite.Run("SearchRecipes_NoMatches_ShouldReturnEmptySlice", func() {
 		// Arrange
 		recipe, _ := suite.recipeFactory.CreateValidRecipe()
-		suite.repository.Save(suite.ctx, recipe)
+		suite.repository.Create(suite.ctx, recipe)
 
 		// Act
 		recipes, err := suite.repository.Search(suite.ctx, "nonexistent", nil, 10, 0)
@@ -391,7 +391,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestDeleteRecipe() {
 		recipe, err := suite.recipeFactory.CreateValidRecipe()
 		require.NoError(suite.T(), err)
 
-		err = suite.repository.Save(suite.ctx, recipe)
+		err = suite.repository.Create(suite.ctx, recipe)
 		require.NoError(suite.T(), err)
 
 		// Verify recipe exists
@@ -423,7 +423,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestDeleteRecipe() {
 		recipe, err := suite.recipeFactory.CreateComplexRecipe()
 		require.NoError(suite.T(), err)
 
-		err = suite.repository.Save(suite.ctx, recipe)
+		err = suite.repository.Create(suite.ctx, recipe)
 		require.NoError(suite.T(), err)
 
 		// Verify related data exists
@@ -452,7 +452,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestRecipeRepositoryCount() {
 		// Add 3 new recipes
 		for i := 0; i < 3; i++ {
 			recipe, _ := suite.recipeFactory.CreateValidRecipe()
-			suite.repository.Save(suite.ctx, recipe)
+			suite.repository.Create(suite.ctx, recipe)
 		}
 
 		// Act
@@ -496,7 +496,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestConcurrentAccess() {
 					return
 				}
 
-				err = suite.repository.Save(suite.ctx, recipe)
+				err = suite.repository.Create(suite.ctx, recipe)
 				errors <- err
 			}(i)
 		}
@@ -526,7 +526,7 @@ func (suite *RecipeRepositoryIntegrationTestSuite) TestPerformance() {
 		const numRecipes = 1000
 		for i := 0; i < numRecipes; i++ {
 			recipe, _ := suite.recipeFactory.CreateValidRecipe()
-			suite.repository.Save(suite.ctx, recipe)
+			suite.repository.Create(suite.ctx, recipe)
 		}
 
 		// Act - Time a search operation
@@ -564,14 +564,14 @@ func BenchmarkRecipeRepositoryOperations(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			repository.Save(ctx, recipes[i])
+			repository.Create(ctx, recipes[i])
 		}
 	})
 
 	b.Run("FindByID", func(b *testing.B) {
 		// Setup test data
 		recipe, _ := factory.CreateValidRecipe()
-		repository.Save(ctx, recipe)
+		repository.Create(ctx, recipe)
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -583,7 +583,7 @@ func BenchmarkRecipeRepositoryOperations(b *testing.B) {
 		// Setup test data
 		for i := 0; i < 100; i++ {
 			recipe, _ := factory.CreateValidRecipe()
-			repository.Save(ctx, recipe)
+			repository.Create(ctx, recipe)
 		}
 
 		b.ResetTimer()

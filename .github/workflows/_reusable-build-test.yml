@@ -95,7 +95,7 @@ jobs:
       id: test
       if: ${{ inputs.test_type == 'unit' }}
       run: |
-        go test -short -v -race -coverprofile=coverage.out ./test/unit/...
+        go test -short -v -race -coverprofile=coverage.out ./internal/...
     
     - name: Run integration tests
       id: test-integration
@@ -177,7 +177,7 @@ jobs:
       id: test
       if: ${{ inputs.test_type == 'unit' }}
       run: |
-        go test -short -v -race -coverprofile=coverage.out ./test/unit/...
+        go test -short -v -race -coverprofile=coverage.out ./internal/...
     
     - name: Run security tests
       id: test-security

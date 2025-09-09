@@ -12,7 +12,7 @@ import (
 
 	"github.com/alchemorsel/v3/internal/domain/recipe"
 	"github.com/alchemorsel/v3/internal/infrastructure/config"
-	"github.com/alchemorsel/v3/internal/infrastructure/persistence/postgres"
+	"github.com/alchemorsel/v3/internal/infrastructure/persistence/gorm"
 	"github.com/alchemorsel/v3/internal/infrastructure/security"
 	"github.com/alchemorsel/v3/test/testutils"
 	"github.com/google/uuid"
@@ -101,9 +101,9 @@ func BenchmarkRecipeCreation(b *testing.B) {
 
 	b.Run("WithIngredients", func(b *testing.B) {
 		ingredients := []recipe.Ingredient{
-			{ID: uuid.New(), Name: "Ingredient 1", Quantity: 1.0, Unit: "cup"},
-			{ID: uuid.New(), Name: "Ingredient 2", Quantity: 2.0, Unit: "tbsp"},
-			{ID: uuid.New(), Name: "Ingredient 3", Quantity: 0.5, Unit: "lb"},
+			{ID: uuid.New(), Name: "Ingredient 1", Amount: 1.0, Unit: recipe.MeasurementUnitCup},
+			{ID: uuid.New(), Name: "Ingredient 2", Amount: 2.0, Unit: recipe.MeasurementUnitTablespoon},
+			{ID: uuid.New(), Name: "Ingredient 3", Amount: 0.5, Unit: recipe.MeasurementUnitPound},
 		}
 
 		b.ResetTimer()
@@ -156,7 +156,6 @@ func BenchmarkRecipeOperations(b *testing.B) {
 
 	b.Run("AddRating", func(b *testing.B) {
 		rating := recipe.Rating{
-			ID:     uuid.New(),
 			UserID: uuid.New(),
 			Value:  5,
 		}
@@ -194,7 +193,7 @@ func BenchmarkRecipeRepository(b *testing.B) {
 	err := testDB.RunMigrations()
 	require.NoError(b, err)
 
-	repository := postgres.NewRecipeRepository(testDB.GormDB)
+	repository := gorm.NewRecipeRepository(testDB.GormDB)
 	factory := testutils.NewRecipeFactory(time.Now().UnixNano())
 	ctx := context.Background()
 
@@ -207,7 +206,7 @@ func BenchmarkRecipeRepository(b *testing.B) {
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			err := repository.Save(ctx, recipes[i])
+			err := repository.Create(ctx, recipes[i])
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -219,7 +218,7 @@ func BenchmarkRecipeRepository(b *testing.B) {
 		recipes := make([]*recipe.Recipe, 1000)
 		for i := 0; i < 1000; i++ {
 			recipe, _ := factory.CreateValidRecipe()
-			repository.Save(ctx, recipe)
+			repository.Create(ctx, recipe)
 			recipes[i] = recipe
 		}
 
@@ -237,12 +236,13 @@ func BenchmarkRecipeRepository(b *testing.B) {
 		// Pre-populate database
 		for i := 0; i < 1000; i++ {
 			recipe, _ := factory.CreateValidRecipe()
-			repository.Save(ctx, recipe)
+			repository.Create(ctx, recipe)
 		}
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, err := repository.Search(ctx, "recipe", nil, 10, 0)
+			criteria := outbound.SearchCriteria{Query: "recipe"}
+			_, _, err := repository.Search(ctx, criteria)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -254,7 +254,7 @@ func BenchmarkRecipeRepository(b *testing.B) {
 		for i := 0; i < 1000; i++ {
 			recipe, _ := factory.CreateValidRecipe()
 			recipe.Publish()
-			repository.Save(ctx, recipe)
+			repository.Create(ctx, recipe)
 		}
 
 		b.ResetTimer()
@@ -514,7 +514,7 @@ func TestPerformanceRegression(t *testing.T) {
 		err := testDB.RunMigrations()
 		require.NoError(t, err)
 
-		repository := postgres.NewRecipeRepository(testDB.GormDB)
+		repository := gorm.NewRecipeRepository(testDB.GormDB)
 		factory := testutils.NewRecipeFactory(time.Now().UnixNano())
 		ctx := context.Background()
 
@@ -522,7 +522,7 @@ func TestPerformanceRegression(t *testing.T) {
 		recipe, _ := factory.CreateValidRecipe()
 
 		start := time.Now()
-		err = repository.Save(ctx, recipe)
+		err = repository.Create(ctx, recipe)
 		saveTime := time.Since(start)
 
 		require.NoError(t, err)

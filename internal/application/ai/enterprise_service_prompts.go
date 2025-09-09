@@ -137,6 +137,7 @@ func (s *EnterpriseAIService) buildDietaryAdaptationPrompt(rec *recipe.Recipe, d
 }
 
 // buildMealPlanPrompt creates a prompt for meal planning
+// TODO: Implement meal planning feature and remove unused warning
 func (s *EnterpriseAIService) buildMealPlanPrompt(days int, dietary []string, budget float64) string {
 	var prompt strings.Builder
 
@@ -533,7 +534,7 @@ func (s *EnterpriseAIService) applyConstraints(recipe *outbound.AIRecipeResponse
 	if constraints.Cuisine != "" {
 		found := false
 		for _, tag := range recipe.Tags {
-			if strings.ToLower(tag) == strings.ToLower(constraints.Cuisine) {
+			if strings.EqualFold(tag, constraints.Cuisine) {
 				found = true
 				break
 			}
@@ -578,7 +579,7 @@ func (s *EnterpriseAIService) adaptRecipeForDietary(recipe *outbound.AIRecipeRes
 		// Add dietary tag
 		found := false
 		for _, tag := range recipe.Tags {
-			if strings.ToLower(tag) == strings.ToLower(restriction) {
+			if strings.EqualFold(tag, restriction) {
 				found = true
 				break
 			}
@@ -674,7 +675,7 @@ func (s *EnterpriseAIService) validateDietaryCompliance(recipe *outbound.AIRecip
 	for _, restriction := range dietary {
 		found := false
 		for _, tag := range recipe.Tags {
-			if strings.ToLower(tag) == strings.ToLower(restriction) {
+			if strings.EqualFold(tag, restriction) {
 				found = true
 				break
 			}

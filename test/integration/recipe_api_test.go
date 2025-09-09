@@ -60,13 +60,13 @@ func (suite *RecipeAPITestSuite) SetupSuite() {
 			BCryptCost:        4,
 		},
 		Server: config.ServerConfig{
-			Port:            ":8080",
+			Port:            8080,
 			ReadTimeout:     30 * time.Second,
 			WriteTimeout:    30 * time.Second,
 			ShutdownTimeout: 10 * time.Second,
 		},
 		RateLimit: config.RateLimitConfig{
-			RequestsPerMinute: 100,
+			RequestsPerMin: 100,
 			BurstSize:         10,
 		},
 	}
@@ -108,10 +108,12 @@ func (suite *RecipeAPITestSuite) setupServer() {
 
 	// Add middleware
 	suite.server.Use(gin.Recovery())
-	suite.server.Use(middleware.CORS())
-	suite.server.Use(middleware.SecurityHeaders())
-	suite.server.Use(middleware.RateLimit(suite.config.RateLimit))
-	suite.server.Use(middleware.RequestLogger(zap.NewNop()))
+	// Use existing middleware instance methods
+	mw := middleware.New(suite.config, zap.NewNop())
+	suite.server.Use(mw.CORS())
+	suite.server.Use(mw.Security())
+	suite.server.Use(mw.RateLimit())
+	suite.server.Use(mw.Logger())
 
 	// Setup routes
 	api := suite.server.Group("/api/v1")

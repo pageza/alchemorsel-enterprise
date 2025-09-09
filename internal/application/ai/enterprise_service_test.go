@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/alchemorsel/v3/internal/ports/outbound"
+	sharedctx "github.com/alchemorsel/v3/internal/shared/context"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -134,7 +135,7 @@ func TestGenerateRecipe(t *testing.T) {
 	// Mock cache set for rate limiter
 	mockCache.On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(nil)
 
-	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
+	ctx := context.WithValue(context.Background(), sharedctx.UserIDKey, uuid.New())
 	constraints := outbound.AIConstraints{
 		MaxCalories: 800,
 		Dietary:     []string{"vegetarian"},
@@ -159,7 +160,7 @@ func TestGenerateIngredientSuggestions(t *testing.T) {
 	// Mock cache set for rate limiter
 	mockCache.On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(nil)
 
-	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
+	ctx := context.WithValue(context.Background(), sharedctx.UserIDKey, uuid.New())
 	partial := []string{"tomatoes", "basil"}
 
 	suggestions, err := service.GenerateIngredientSuggestions(ctx, partial, "italian", []string{"vegetarian"})
@@ -184,7 +185,7 @@ func TestAnalyzeNutritionalContent(t *testing.T) {
 	// Mock cache set for rate limiter
 	mockCache.On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(nil)
 
-	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
+	ctx := context.WithValue(context.Background(), sharedctx.UserIDKey, uuid.New())
 	ingredients := []string{"chicken breast", "broccoli", "rice"}
 
 	nutrition, err := service.AnalyzeNutritionalContent(ctx, ingredients, 2)
@@ -307,7 +308,7 @@ func TestTrackRequest(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	analytics := NewUsageAnalytics(mockCache, logger)
 
-	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
+	ctx := context.WithValue(context.Background(), sharedctx.UserIDKey, uuid.New())
 	analytics.TrackRequest(ctx, "recipe_generation", 2*time.Second, 1024)
 
 	metrics := analytics.GetRealTimeMetrics()
@@ -320,7 +321,7 @@ func TestTrackError(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	analytics := NewUsageAnalytics(mockCache, logger)
 
-	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
+	ctx := context.WithValue(context.Background(), sharedctx.UserIDKey, uuid.New())
 	analytics.TrackError(ctx, "recipe_generation", "test error")
 
 	metrics := analytics.GetRealTimeMetrics()
@@ -501,7 +502,7 @@ func TestFullWorkflow(t *testing.T) {
 	// Mock cache set for rate limiter
 	mockCache.On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(nil)
 
-	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
+	ctx := context.WithValue(context.Background(), sharedctx.UserIDKey, uuid.New())
 
 	// Generate a recipe
 	constraints := outbound.AIConstraints{
@@ -540,7 +541,7 @@ func BenchmarkGenerateRecipe(b *testing.B) {
 	mockCache.On("Get", mock.Anything, mock.AnythingOfType("string")).Return([]byte{}, assert.AnError)
 	mockCache.On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(nil)
 
-	ctx := context.WithValue(context.Background(), "user_id", uuid.New())
+	ctx := context.WithValue(context.Background(), sharedctx.UserIDKey, uuid.New())
 	constraints := outbound.AIConstraints{}
 
 	b.ResetTimer()

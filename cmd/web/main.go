@@ -235,6 +235,7 @@ func initializeWebHealthChecks(
 	)
 }
 
+// TODO: Implement graceful shutdown and remove unused warning
 func setupGracefulShutdown(log *zap.Logger) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
