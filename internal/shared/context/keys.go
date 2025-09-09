@@ -8,13 +8,13 @@ type ContextKey string
 const (
 	// UserIDKey is used to store user ID in context
 	UserIDKey ContextKey = "user_id"
-	
-	// RequestIDKey is used to store request ID in context  
+
+	// RequestIDKey is used to store request ID in context
 	RequestIDKey ContextKey = "request_id"
-	
+
 	// SessionIDKey is used to store session ID in context
 	SessionIDKey ContextKey = "session_id"
-	
+
 	// TenantIDKey is used to store tenant ID in context
 	TenantIDKey ContextKey = "tenant_id"
 )

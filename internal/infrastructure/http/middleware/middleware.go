@@ -437,4 +437,3 @@ func (m *Metrics) RecordRequest(method, path string, status int, duration time.D
 	m.requestDuration.WithLabelValues(method, path, statusStr).Observe(duration.Seconds())
 	m.requestCount.WithLabelValues(method, path, statusStr).Inc()
 }
-

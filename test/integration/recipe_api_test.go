@@ -67,7 +67,7 @@ func (suite *RecipeAPITestSuite) SetupSuite() {
 		},
 		RateLimit: config.RateLimitConfig{
 			RequestsPerMin: 100,
-			BurstSize:         10,
+			BurstSize:      10,
 		},
 	}
 
